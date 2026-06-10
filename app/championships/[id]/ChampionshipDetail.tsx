@@ -1661,12 +1661,21 @@ export function ChampionshipDetail({
   const [isDeleting, startDeleteTransition] = useTransition()
   const [isKnockoutPending, startKnockoutTransition] = useTransition()
   const [isRegenerating, startRegenTransition] = useTransition()
+  const [mobileTab, setMobileTab] = useState<'schedule' | 'standings'>('schedule')
+  const [isMobile, setIsMobile] = useState(false)
 
   const playerMap = new Map(players.map((p) => [p.id, p.displayName]))
   const avatarMap = new Map(players.map((p) => [p.id, p.avatarUrl]))
   const playerIds = players.map((p) => p.id)
   const isGroupKnockout = championship.format === 'group_knockout'
   const isGroupPlayoff = championship.format === 'group_playoff'
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // Realtime subscription
   useEffect(() => {
@@ -1887,7 +1896,7 @@ export function ChampionshipDetail({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: 20,
               marginBottom: 32,
             }}
@@ -2111,17 +2120,30 @@ export function ChampionshipDetail({
           onDelete={() => setShowDeleteConfirm(true)}
         />
 
+        {isMobile && (
+          <div style={{ display: 'flex', borderBottom: '1px solid #1a2840', background: '#050911', position: 'sticky', top: 0, zIndex: 10 }}>
+            {(['schedule', 'standings'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setMobileTab(tab)}
+                style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? '#60a5fa' : '#64748b', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #3b82f6' : '2px solid transparent', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        )}
         <div
           style={{
             padding: '20px',
-            display: 'grid',
+            display: isMobile ? 'block' : 'grid',
             gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 320px)',
             gap: 20,
             alignItems: 'start',
           }}
         >
           {/* Left: schedule + playoffs */}
-          <div>
+          <div style={{ display: isMobile && mobileTab !== 'schedule' ? 'none' : undefined }}>
             {knockoutError && (
               <div style={{ marginBottom: 16, padding: '10px 16px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, color: '#f87171', fontSize: 13, border: '1px solid rgba(239,68,68,0.3)' }}>
                 {knockoutError}
@@ -2229,7 +2251,7 @@ export function ChampionshipDetail({
           </div>
 
           {/* Right: standings (sticky) */}
-          <div style={{ position: 'sticky', top: 20 }}>
+          <div style={{ position: isMobile ? undefined : 'sticky', top: 20, display: isMobile && mobileTab !== 'standings' ? 'none' : undefined }}>
             <SectionLabel>Standings</SectionLabel>
             <StandingsTable
               playerIds={playerIds}
@@ -2306,17 +2328,30 @@ export function ChampionshipDetail({
         onDelete={() => setShowDeleteConfirm(true)}
       />
 
+      {isMobile && (
+        <div style={{ display: 'flex', borderBottom: '1px solid #1a2840', background: '#050911', position: 'sticky', top: 0, zIndex: 10 }}>
+          {(['schedule', 'standings'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setMobileTab(tab)}
+              style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? '#60a5fa' : '#64748b', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #3b82f6' : '2px solid transparent', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      )}
       <div
         style={{
           padding: '20px',
-          display: 'grid',
+          display: isMobile ? 'block' : 'grid',
           gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 320px)',
           gap: 20,
           alignItems: 'start',
         }}
       >
         {/* Schedule */}
-        <div>
+        <div style={{ display: isMobile && mobileTab !== 'schedule' ? 'none' : undefined }}>
           <SectionLabel>Schedule</SectionLabel>
 
           {regenError && (
@@ -2411,7 +2446,7 @@ export function ChampionshipDetail({
         </div>
 
         {/* Standings */}
-        <div style={{ position: 'sticky', top: 20 }}>
+        <div style={{ position: isMobile ? undefined : 'sticky', top: 20, display: isMobile && mobileTab !== 'standings' ? 'none' : undefined }}>
           <SectionLabel>Standings</SectionLabel>
           <StandingsTable
             playerIds={playerIds}
