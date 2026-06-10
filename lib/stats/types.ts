@@ -83,6 +83,20 @@ export type ChampionshipResult = {
   goalsAgainst: number
 }
 
+// Winner of the last completed championship (for home page champion banner)
+export type CurrentChampion = {
+  playerId: string
+  playerName: string
+  avatarUrl: string | null
+  championshipId: string
+  championshipName: string
+  points: number
+  wins: number
+  draws: number
+  losses: number
+  goalDiff: number
+}
+
 // Current leader of a championship (for the leaderboard Championships tab)
 export type ChampionshipLeader = {
   championshipId: string

@@ -6,9 +6,11 @@ import {
   getPlayerForm,
   getPlayerChampionshipPlacements,
   getChampionshipLeaders,
+  getLastChampionshipWinner,
 } from '@/lib/stats/queries'
 import { HomeLoggedIn } from './HomeLoggedIn'
 import type { GlobalStats } from './HomeLoggedIn'
+import type { CurrentChampion } from '@/lib/stats/types'
 import { HomeLoggedOut } from './HomeLoggedOut'
 
 export default async function HomePage() {
@@ -52,13 +54,14 @@ export default async function HomePage() {
   }
 
   // ── Logged-in dashboard ────────────────────────────────────────────────────
-  const [myStats, leaderboard, recentForm, champPlacements, champLeaders, pRes, rRes, pendingRes] =
+  const [myStats, leaderboard, recentForm, champPlacements, champLeaders, currentChampion, pRes, rRes, pendingRes] =
     await Promise.all([
       getPlayerStats(session.sub),
       getLeaderboard(),
       getPlayerForm(session.sub, 8),
       getPlayerChampionshipPlacements(session.sub),
       getChampionshipLeaders(),
+      getLastChampionshipWinner(),
       supabase.from('users').select('id, name, avatar_url').eq('is_active', true).neq('id', session.sub).order('name'),
       supabase
         .from('rivalries')
@@ -127,6 +130,7 @@ export default async function HomePage() {
       recentForm={recentForm}
       champPlacements={champPlacements}
       champLeaders={champLeaders}
+      currentChampion={currentChampion}
       rivalries={rivalries}
       players={players}
       pendingMatchCount={pendingRes.data?.length ?? 0}

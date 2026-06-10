@@ -4,6 +4,7 @@ import { calculateStandings } from '@/lib/championships/standings'
 import type {
   ChampionshipLeader,
   ChampionshipResult,
+  CurrentChampion,
   FormEntry,
   FormResult,
   H2HRecord,
@@ -452,5 +453,112 @@ export const getPlayerChampionshipPlacements = unstable_cache(
       .sort((a, b) => Number(b.isActive) - Number(a.isActive))
   },
   ['player-championship-placements'],
+  { tags: [STATS_CACHE_TAG], revalidate: 60 }
+)
+
+// ─── Winner of the most recent completed championship ─────────────────────────
+
+export const getLastChampionshipWinner = unstable_cache(
+  async (): Promise<CurrentChampion | null> => {
+    const supabase = createServiceClient()
+
+    const { data: champ } = await supabase
+      .from('championships')
+      .select('id, name')
+      .eq('is_active', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!champ) return null
+
+    const champId = champ.id
+
+    const [matchesRes, playersRes] = await Promise.all([
+      supabase
+        .from('championship_matches')
+        .select('id, home_player_id, away_player_id, home_score, away_score, round')
+        .eq('championship_id', champId)
+        .in('status', ['confirmed', 'final']),
+      supabase
+        .from('championship_players')
+        .select('player_id')
+        .eq('championship_id', champId),
+    ])
+
+    const matches = matchesRes.data ?? []
+    const playerIds = (playersRes.data ?? []).map((p: { player_id: string }) => p.player_id)
+
+    if (playerIds.length === 0 || matches.length === 0) return null
+
+    // Knockout/playoff formats: winner comes from the final match
+    const finalPenaltyMatch = matches.find((m) => m.round === 'final_penalty')
+    const finalMatch = matches.find((m) => m.round === 'final')
+
+    let winnerId: string | null = null
+
+    if (finalPenaltyMatch && finalPenaltyMatch.home_score !== null && finalPenaltyMatch.away_score !== null) {
+      winnerId = finalPenaltyMatch.home_score > finalPenaltyMatch.away_score
+        ? finalPenaltyMatch.home_player_id
+        : finalPenaltyMatch.away_player_id
+    } else if (finalMatch && finalMatch.home_score !== null && finalMatch.away_score !== null) {
+      if (finalMatch.home_score !== finalMatch.away_score) {
+        winnerId = finalMatch.home_score > finalMatch.away_score
+          ? finalMatch.home_player_id
+          : finalMatch.away_player_id
+      }
+    }
+
+    // Round-robin format: winner is rank 1 in standings
+    if (!winnerId) {
+      const rows = matches.map((m) => ({
+        id: m.id,
+        homePlayerId: m.home_player_id,
+        awayPlayerId: m.away_player_id,
+        homeScore: m.home_score,
+        awayScore: m.away_score,
+      }))
+      const standings = calculateStandings(rows, playerIds)
+      if (standings.length > 0) winnerId = standings[0].playerId
+    }
+
+    if (!winnerId) return null
+
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('name, avatar_url')
+      .eq('id', winnerId)
+      .maybeSingle()
+
+    if (!userRow) return null
+
+    // Group-stage stats only (exclude knockout rounds)
+    const groupRows = matches
+      .filter((m) => !['semi', 'final', 'penalty', 'final_penalty'].includes(m.round ?? ''))
+      .map((m) => ({
+        id: m.id,
+        homePlayerId: m.home_player_id,
+        awayPlayerId: m.away_player_id,
+        homeScore: m.home_score,
+        awayScore: m.away_score,
+      }))
+
+    const standings = calculateStandings(groupRows, playerIds)
+    const winnerRow = standings.find((r) => r.playerId === winnerId)
+
+    return {
+      playerId: winnerId,
+      playerName: userRow.name,
+      avatarUrl: (userRow.avatar_url as string | null) ?? null,
+      championshipId: champId,
+      championshipName: champ.name,
+      points: winnerRow?.points ?? 0,
+      wins: winnerRow?.wins ?? 0,
+      draws: winnerRow?.draws ?? 0,
+      losses: winnerRow?.losses ?? 0,
+      goalDiff: winnerRow?.goalDiff ?? 0,
+    }
+  },
+  ['last-championship-winner'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
 )

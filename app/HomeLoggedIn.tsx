@@ -7,7 +7,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import supabase from '@/lib/supabase/client'
 import { CreateMatchModal } from '@/app/matches/CreateMatchModal'
 import type { ActivePlayer } from '@/app/matches/CreateMatchModal'
-import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader } from '@/lib/stats/types'
+import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader, CurrentChampion } from '@/lib/stats/types'
 import { logoutAction } from '@/lib/auth/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ type Props = {
   recentForm: FormEntry[]
   champPlacements: ChampionshipResult[]
   champLeaders: ChampionshipLeader[]
+  currentChampion: CurrentChampion | null
   rivalries: RivalryItem[]
   players: ActivePlayer[]
   pendingMatchCount: number
@@ -79,7 +80,7 @@ function computeStreak(form: FormEntry[]): { type: 'W' | 'L' | 'D' | null; count
 
 function getTier(rank: number, total: number) {
   if (rank <= 0 || total <= 0) return null
-  if (rank === 1) return { label: 'Champion', color: GOLD, icon: '👑' }
+  if (rank === 1) return { label: 'P4P #1', color: GOLD, icon: '👑' }
   if (rank === 2) return { label: 'Runner-up', color: '#94a3b8', icon: '🥈' }
   if (rank === 3) return { label: '3rd Place', color: '#cd7c3a', icon: '🥉' }
   if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { label: 'Elite', color: '#60a5fa', icon: '⚡' }
@@ -90,7 +91,7 @@ function getTier(rank: number, total: number) {
 
 export function HomeLoggedIn({
   userId, isAdmin, myName, myAvatarUrl, myStats, rank, totalPlayers,
-  recentForm, champPlacements, champLeaders, rivalries, players,
+  recentForm, champPlacements, champLeaders, currentChampion, rivalries, players,
   pendingMatchCount, globalStats,
 }: Props) {
   const router   = useRouter()
@@ -487,6 +488,54 @@ export function HomeLoggedIn({
             </Link>
           ))}
         </div>
+
+        {/* ── Current Champion ──────────────────────────────────── */}
+        {currentChampion && (
+          <Section title="Current Champion" icon="🏆">
+            <Link href={`/championships/${currentChampion.championshipId}`} style={{ textDecoration: 'none' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.13), rgba(251,191,36,0.06))',
+                border: '1px solid rgba(245,158,11,0.35)',
+                borderRadius: 14,
+                padding: '16px',
+                boxShadow: '0 4px 24px rgba(245,158,11,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+              }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <PlayerAvatar name={currentChampion.playerName} avatarUrl={currentChampion.avatarUrl} size={52} />
+                  <div style={{
+                    position: 'absolute', top: -6, right: -6,
+                    width: 22, height: 22,
+                    background: GOLD,
+                    borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12,
+                    boxShadow: '0 0 10px rgba(245,158,11,0.7)',
+                  }}>🏆</div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: GOLD, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
+                    {currentChampion.championshipName}
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {currentChampion.playerName}
+                  </div>
+                  <div style={{ fontSize: 12, color: TEXT2, marginTop: 3 }}>
+                    {currentChampion.wins}W {currentChampion.draws}D {currentChampion.losses}L
+                    {' · '}
+                    {currentChampion.goalDiff >= 0 ? '+' : ''}{currentChampion.goalDiff} GD
+                  </div>
+                </div>
+                <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                  <div style={{ fontSize: 9, color: GOLD, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Pts</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: GOLD, lineHeight: 1 }}>{currentChampion.points}</div>
+                </div>
+              </div>
+            </Link>
+          </Section>
+        )}
 
         {/* ── Recent form ───────────────────────────────────────── */}
         {recentForm.length > 0 && (
