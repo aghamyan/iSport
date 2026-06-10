@@ -1,17 +1,20 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useRef, useState, useTransition } from 'react'
+import { useRef, useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import type { FormEntry, ChampionshipResult } from '@/lib/stats/types'
 import { H2HSection } from './H2HSection'
 import { logoutAction } from '@/lib/auth/actions'
 import { uploadAvatarAction } from '@/lib/auth/avatarAction'
+import { uploadIntroVideoAction, removeIntroVideoAction } from '@/lib/auth/introVideoAction'
+import { BottomNav } from '@/app/components/BottomNav'
 
 type PlayerData = {
   id: string
   name: string
   avatarUrl: string | null
+  introVideoUrl: string | null
   isActive: boolean
   wins: number
   losses: number
@@ -51,6 +54,7 @@ type Props = {
   championshipPlacements: ChampionshipResult[]
   isOwnProfile: boolean
   isAdmin: boolean
+  viewerId: string
 }
 
 const BADGE_ICONS: Record<string, string> = {
@@ -59,6 +63,341 @@ const BADGE_ICONS: Record<string, string> = {
   milestone:   '⭐',
 }
 
+// ── CSS keyframes injected once ──────────────────────────────
+function IntroStyles() {
+  return (
+    <style>{`
+      @keyframes intro-sparkle {
+        0%, 100% { opacity: 0.12; transform: scale(0.6); }
+        50%       { opacity: 1;    transform: scale(1.4); }
+      }
+      @keyframes intro-avatar-in {
+        0%   { transform: scale(0.25); opacity: 0; filter: blur(14px); }
+        65%  { transform: scale(1.08); opacity: 1; filter: blur(0); }
+        100% { transform: scale(1);    opacity: 1; }
+      }
+      @keyframes intro-ring-pulse {
+        0%, 100% {
+          box-shadow:
+            0 0 0 4px rgba(251,191,36,0.45),
+            0 0 35px 8px rgba(251,191,36,0.2),
+            0 0 70px 20px rgba(139,92,246,0.1);
+        }
+        50% {
+          box-shadow:
+            0 0 0 10px rgba(251,191,36,0.12),
+            0 0 55px 18px rgba(251,191,36,0.32),
+            0 0 100px 30px rgba(139,92,246,0.18);
+        }
+      }
+      @keyframes intro-name-in {
+        0%   { opacity: 0; transform: translateY(26px); letter-spacing: 0.28em; }
+        100% { opacity: 1; transform: translateY(0);    letter-spacing: 0.06em; }
+      }
+      @keyframes intro-line-expand {
+        from { transform: scaleX(0); opacity: 0; }
+        to   { transform: scaleX(1); opacity: 1; }
+      }
+      @keyframes intro-subtitle-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 0.45; transform: translateY(0); }
+      }
+      @keyframes intro-letterbox-top {
+        from { transform: translateY(-100%); }
+        to   { transform: translateY(0); }
+      }
+      @keyframes intro-letterbox-bottom {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+      }
+      @keyframes intro-video-name {
+        0%   { opacity: 0; transform: translateY(10px) scale(1.05); }
+        100% { opacity: 1; transform: translateY(0)    scale(1); }
+      }
+    `}</style>
+  )
+}
+
+// Deterministic sparkle positions — spread at the edges, away from the center
+const SPARKLES = [
+  { top:  '7%', left: '11%', delay: '0.0s', dur: '2.2s', size: 5 },
+  { top: '13%', left: '83%', delay: '0.4s', dur: '1.9s', size: 3 },
+  { top: '23%', left:  '4%', delay: '0.7s', dur: '2.4s', size: 4 },
+  { top: '19%', left: '92%', delay: '0.2s', dur: '2.0s', size: 5 },
+  { top: '42%', left:  '2%', delay: '1.0s', dur: '2.1s', size: 3 },
+  { top: '40%', left: '95%', delay: '0.6s', dur: '1.8s', size: 4 },
+  { top: '63%', left:  '7%', delay: '0.3s', dur: '2.3s', size: 5 },
+  { top: '67%', left: '90%', delay: '0.9s', dur: '2.0s', size: 3 },
+  { top: '78%', left: '20%', delay: '0.1s', dur: '2.2s', size: 4 },
+  { top: '81%', left: '74%', delay: '0.5s', dur: '1.9s', size: 5 },
+  { top: '88%', left: '46%', delay: '1.2s', dur: '2.1s', size: 3 },
+  { top:  '6%', left: '49%', delay: '0.8s', dur: '2.3s', size: 4 },
+]
+
+// ── Avatar-based magical intro (no video) ───────────────────
+function AvatarIntroOverlay({
+  avatarUrl,
+  playerName,
+  onDismiss,
+}: {
+  avatarUrl: string | null
+  playerName: string
+  onDismiss: () => void
+}) {
+  const [opacity, setOpacity] = useState(1)
+
+  useEffect(() => {
+    const t = setTimeout(() => setOpacity(0), 3700)
+    return () => clearTimeout(t)
+  }, [])
+
+  function dismiss() { setOpacity(0) }
+
+  function handleTransitionEnd(e: React.TransitionEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget && opacity === 0) onDismiss()
+  }
+
+  const initials = playerName
+    .split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+
+  return (
+    <div
+      onTransitionEnd={handleTransitionEnd}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background:
+          'radial-gradient(ellipse at 50% 36%, #1e0a4a 0%, #07000e 55%, #000 100%)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        opacity, transition: 'opacity 0.65s ease',
+      }}
+    >
+      {/* Sparkle particles */}
+      {SPARKLES.map((s, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute', top: s.top, left: s.left,
+            width: s.size, height: s.size, borderRadius: '50%',
+            background: '#fff',
+            boxShadow: `0 0 ${s.size * 2}px ${s.size}px rgba(251,191,36,0.75)`,
+            animation: `intro-sparkle ${s.dur} ${s.delay} ease-in-out infinite`,
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
+
+      {/* Soft purple glow behind avatar */}
+      <div
+        style={{
+          position: 'absolute',
+          width: 300, height: 300, borderRadius: '50%',
+          background:
+            'radial-gradient(circle, rgba(139,92,246,0.18) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Avatar */}
+      <div style={{
+        animation: 'intro-avatar-in 0.9s 0.05s both cubic-bezier(0.34,1.45,0.64,1)',
+        position: 'relative', zIndex: 1,
+      }}>
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={playerName}
+            style={{
+              width: 134, height: 134, borderRadius: '50%',
+              objectFit: 'cover', display: 'block',
+              border: '3px solid rgba(251,191,36,0.9)',
+              animation: 'intro-ring-pulse 2.3s 0.95s ease-in-out infinite',
+            }}
+          />
+        ) : (
+          <div style={{
+            width: 134, height: 134, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 46, fontWeight: 800, color: '#fff',
+            border: '3px solid rgba(251,191,36,0.9)',
+            animation: 'intro-ring-pulse 2.3s 0.95s ease-in-out infinite',
+          }}>
+            {initials}
+          </div>
+        )}
+      </div>
+
+      {/* Name + flanking lines */}
+      <div style={{
+        marginTop: 30, textAlign: 'center', zIndex: 1,
+        animation: 'intro-name-in 0.75s 0.65s both ease-out',
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          justifyContent: 'center', gap: 14,
+        }}>
+          <div style={{
+            height: 1, width: 46,
+            background: 'linear-gradient(to right, transparent, rgba(251,191,36,0.85))',
+            animation: 'intro-line-expand 0.55s 1.1s both',
+            transformOrigin: 'right center',
+          }} />
+          <h1 style={{
+            margin: 0, fontSize: 28, fontWeight: 900,
+            color: '#fff', letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            textShadow:
+              '0 0 40px rgba(251,191,36,0.6), 0 0 12px rgba(251,191,36,0.3), 0 2px 28px rgba(0,0,0,0.9)',
+          }}>
+            {playerName}
+          </h1>
+          <div style={{
+            height: 1, width: 46,
+            background: 'linear-gradient(to left, transparent, rgba(251,191,36,0.85))',
+            animation: 'intro-line-expand 0.55s 1.1s both',
+            transformOrigin: 'left center',
+          }} />
+        </div>
+        <p style={{
+          margin: '10px 0 0', fontSize: 10, fontWeight: 700,
+          color: '#fff', letterSpacing: '0.24em', textTransform: 'uppercase',
+          animation: 'intro-subtitle-in 0.5s 1.35s both',
+        }}>
+          Player Profile
+        </p>
+      </div>
+
+      {/* Skip */}
+      <button
+        onClick={dismiss}
+        style={{
+          position: 'absolute', top: 20, right: 20,
+          background: 'rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: 20, color: 'rgba(255,255,255,0.8)',
+          fontSize: 12, fontWeight: 600,
+          padding: '6px 16px', cursor: 'pointer', letterSpacing: '0.04em',
+        }}
+      >
+        Skip →
+      </button>
+    </div>
+  )
+}
+
+// ── Cinematic video intro ────────────────────────────────────
+function VideoIntroOverlay({
+  videoUrl,
+  playerName,
+  onDismiss,
+}: {
+  videoUrl: string
+  playerName: string
+  onDismiss: () => void
+}) {
+  const [opacity, setOpacity] = useState(1)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      videoRef.current?.play().catch(() => {})
+    }, 100)
+    return () => clearTimeout(t)
+  }, [])
+
+  function dismiss() { setOpacity(0) }
+
+  function handleTransitionEnd(e: React.TransitionEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget && opacity === 0) onDismiss()
+  }
+
+  return (
+    <div
+      onTransitionEnd={handleTransitionEnd}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999, background: '#000',
+        opacity, transition: 'opacity 0.6s ease',
+      }}
+    >
+      {/* Video fills screen */}
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        muted
+        playsInline
+        onEnded={dismiss}
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%', objectFit: 'contain',
+        }}
+      />
+
+      {/* Bottom vignette gradient */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        height: '32%',
+        background:
+          'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.55) 50%, transparent 100%)',
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+
+      {/* Top cinematic letterbox bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 58,
+        background: '#000', zIndex: 2,
+        animation: 'intro-letterbox-top 0.38s cubic-bezier(0.4,0,0.2,1) both',
+      }} />
+
+      {/* Bottom letterbox nameplate */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 74,
+        background: '#000', zIndex: 2,
+        animation: 'intro-letterbox-bottom 0.38s cubic-bezier(0.4,0,0.2,1) both',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+      }}>
+        {/* Left accent line */}
+        <div style={{
+          flex: '0 0 48px', height: 1,
+          background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.38))',
+        }} />
+        <h2 style={{
+          margin: 0, fontSize: 18, fontWeight: 900, color: '#fff',
+          letterSpacing: '0.22em', textTransform: 'uppercase',
+          textShadow: '0 0 22px rgba(255,255,255,0.28)',
+          animation: 'intro-video-name 0.52s 0.4s both ease-out',
+          whiteSpace: 'nowrap',
+        }}>
+          {playerName}
+        </h2>
+        {/* Right accent line */}
+        <div style={{
+          flex: '0 0 48px', height: 1,
+          background: 'linear-gradient(to left, transparent, rgba(255,255,255,0.38))',
+        }} />
+      </div>
+
+      {/* Skip sits inside the top bar */}
+      <button
+        onClick={dismiss}
+        style={{
+          position: 'absolute', top: 15, right: 20, zIndex: 10,
+          background: 'rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: 20, color: 'rgba(255,255,255,0.8)',
+          fontSize: 12, fontWeight: 600,
+          padding: '5px 14px', cursor: 'pointer', letterSpacing: '0.04em',
+        }}
+      >
+        Skip →
+      </button>
+    </div>
+  )
+}
+
+// ── Avatar helper ────────────────────────────────────────────
 function Avatar({
   url, name, size = 56, editable = false, onEditClick,
 }: {
@@ -102,13 +441,13 @@ function Avatar({
       title="Change avatar"
     >
       {base}
-      <div style={{
-        position: 'absolute', inset: 0, borderRadius: '50%',
-        background: 'rgba(0,0,0,0.45)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: 0,
-        transition: 'opacity 0.15s',
-      }}
+      <div
+        style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: 0, transition: 'opacity 0.15s',
+        }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1' }}
         onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0' }}
       >
@@ -139,17 +478,13 @@ function RankBadge({ rank, total }: { rank: number; total: number }) {
   const color = rank === 1 ? '#d97706' : rank === 2 ? '#6b7280' : rank === 3 ? '#b45309' : '#374151'
   const bg    = rank === 1 ? '#fef3c7' : rank === 2 ? '#f3f4f6' : rank === 3 ? '#fff7ed' : '#f9fafb'
   return (
-    <span
-      style={{
-        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-        background: bg, color,
-      }}
-    >
+    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: bg, color }}>
       #{rank} / {total}
     </span>
   )
 }
 
+// ── Main component ────────────────────────────────────────────
 export function PlayerProfile({
   player,
   badges,
@@ -158,426 +493,488 @@ export function PlayerProfile({
   championshipPlacements,
   isOwnProfile,
   isAdmin,
+  viewerId,
 }: Props) {
-  const [avatarUrl, setAvatarUrl] = useState(player.avatarUrl)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [avatarUrl, setAvatarUrl]           = useState(player.avatarUrl)
+  const [introVideoUrl, setIntroVideoUrl]   = useState(player.introVideoUrl)
+  const [showIntro, setShowIntro]           = useState(true)
+
+  const [uploadError, setUploadError]       = useState<string | null>(null)
+  const [videoError, setVideoError]         = useState<string | null>(null)
+
+  const [isPending, startTransition]        = useTransition()
+  const [isVideoPending, startVideoTrans]   = useTransition()
+
+  const fileInputRef  = useRef<HTMLInputElement>(null)
+  const videoInputRef = useRef<HTMLInputElement>(null)
 
   const winRate = player.matchesPlayed > 0
     ? Math.round((player.wins / player.matchesPlayed) * 100)
     : 0
   const wonRivalries    = rivalries.filter((r) => r.winnerId === player.id)
   const activeRivalries = rivalries.filter((r) => r.status === 'active')
-
-  const h2hOpponents = rivalries.map((r) => ({ id: r.opponentId, name: r.opponentName }))
+  const h2hOpponents    = rivalries.map((r) => ({ id: r.opponentId, name: r.opponentName }))
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 3 * 1024 * 1024) {
-      setUploadError('Image must be under 3 MB')
-      return
-    }
+    if (file.size > 3 * 1024 * 1024) { setUploadError('Image must be under 3 MB'); return }
     setUploadError(null)
     const fd = new FormData()
     fd.append('avatar', file)
     fd.append('targetUserId', player.id)
     startTransition(async () => {
       const result = await uploadAvatarAction(fd)
-      if (result.error) {
-        setUploadError(result.error)
-      } else if (result.url) {
-        setAvatarUrl(result.url)
-      }
+      if (result.error) setUploadError(result.error)
+      else if (result.url) setAvatarUrl(result.url)
     })
     e.target.value = ''
   }
 
+  function handleVideoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 50 * 1024 * 1024) { setVideoError('Video must be under 50 MB'); return }
+    if (!['video/mp4', 'video/webm'].includes(file.type)) {
+      setVideoError('Only MP4 and WebM are supported (.mov not supported)')
+      return
+    }
+    setVideoError(null)
+    const fd = new FormData()
+    fd.append('introVideo', file)
+    fd.append('targetUserId', player.id)
+    startVideoTrans(async () => {
+      const result = await uploadIntroVideoAction(fd)
+      if (result.error) setVideoError(result.error)
+      else if (result.url) setIntroVideoUrl(result.url)
+    })
+    e.target.value = ''
+  }
+
+  function handleRemoveVideo() {
+    setVideoError(null)
+    startVideoTrans(async () => {
+      const result = await removeIntroVideoAction(player.id)
+      if (result.error) setVideoError(result.error)
+      else setIntroVideoUrl(null)
+    })
+  }
+
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 16px', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Breadcrumb + sign-out row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, color: '#9ca3af' }}>
-          <Link href="/leaderboard" style={{ color: '#6b7280', textDecoration: 'none' }}>Leaderboard</Link>
-          {' / '}
-          {player.name}
-        </div>
-        {isOwnProfile && (
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              style={{
-                fontSize: 12, color: '#6b7280', background: 'none',
-                border: '1px solid #e5e7eb', borderRadius: 6,
-                padding: '4px 12px', cursor: 'pointer',
-              }}
-            >
-              Sign out
-            </button>
-          </form>
-        )}
-      </div>
+    <>
+      <IntroStyles />
 
-      {/* ── Profile header ── */}
-      <div
-        style={{
-          border: '1px solid #e5e7eb', borderRadius: 14,
-          padding: '24px 28px', background: '#fff',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          marginBottom: 20,
-        }}
-      >
-        {/* Hidden file input — only rendered for admins */}
-        {isAdmin && (
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
-        )}
-
-        {uploadError && (
-          <div style={{
-            marginBottom: 12, padding: '8px 12px',
-            background: '#fef2f2', border: '1px solid #fecaca',
-            borderRadius: 8, fontSize: 12, color: '#dc2626',
-          }}>
-            {uploadError}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
-          <div style={{ position: 'relative' }}>
-            <Avatar
-              url={avatarUrl}
-              name={player.name}
-              size={64}
-              editable={isAdmin}
-              onEditClick={() => fileInputRef.current?.click()}
+      {/* ── Intro overlay — always shows; type depends on whether video exists ── */}
+      {showIntro && (
+        introVideoUrl
+          ? <VideoIntroOverlay
+              videoUrl={introVideoUrl}
+              playerName={player.name}
+              onDismiss={() => setShowIntro(false)}
             />
-            {isPending && (
-              <div style={{
-                position: 'absolute', inset: 0, borderRadius: '50%',
-                background: 'rgba(255,255,255,0.7)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 14,
-              }}>
-                ⏳
-              </div>
-            )}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>
-                {player.name}
-              </h1>
-              {isOwnProfile && (
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', borderRadius: 8, padding: '2px 8px' }}>
-                  you
-                </span>
-              )}
-              {!player.isActive && (
-                <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', background: '#f9fafb', borderRadius: 8, padding: '2px 8px' }}>
-                  inactive
-                </span>
-              )}
-            </div>
-            {badges.length > 0 && (
-              <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-                {badges.map((b) => (
-                  <span key={b.id} title={b.name} style={{ fontSize: 20 }}>
-                    {BADGE_ICONS[b.badgeType] ?? '🎖️'}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+          : <AvatarIntroOverlay
+              avatarUrl={avatarUrl}
+              playerName={player.name}
+              onDismiss={() => setShowIntro(false)}
+            />
+      )}
 
-        {/* Stats grid */}
-        <div
-          style={{
-            display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 10, marginBottom: 12,
-          }}
-        >
-          {[
-            { label: 'Matches', value: player.matchesPlayed },
-            { label: 'Wins',    value: player.wins,    color: '#16a34a' },
-            { label: 'Draws',   value: player.draws,   color: '#6b7280' },
-            { label: 'Losses',  value: player.losses,  color: '#dc2626' },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              style={{
-                background: '#f9fafb', borderRadius: 10, padding: '12px 0',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontSize: 22, fontWeight: 800, color: color ?? '#111827' }}>{value}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {label}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12, color: '#6b7280' }}>
-          <span>GF: <strong style={{ color: '#111827' }}>{player.goalsFor}</strong></span>
-          <span>GA: <strong style={{ color: '#111827' }}>{player.goalsAgainst}</strong></span>
-          <span>
-            GD:{' '}
-            <strong style={{ color: player.goalDiff > 0 ? '#16a34a' : player.goalDiff < 0 ? '#dc2626' : '#6b7280' }}>
-              {player.goalDiff > 0 ? `+${player.goalDiff}` : player.goalDiff}
-            </strong>
-          </span>
-          <span>Win rate: <strong style={{ color: '#111827' }}>{winRate}%</strong></span>
-        </div>
-      </div>
-
-      {/* ── Recent matches ── */}
-      {recentMatches.length > 0 && (
-        <section style={{ marginBottom: 20 }}>
-          <SectionHeader>Recent Matches</SectionHeader>
-          {/* Form strip */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-            {recentMatches.map((m) => (
-              <FormPip key={m.matchId} result={m.result} />
-            ))}
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 16px', fontFamily: 'system-ui, sans-serif' }}>
+        {/* Breadcrumb + sign-out row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ fontSize: 12, color: '#9ca3af' }}>
+            <Link href="/leaderboard" style={{ color: '#6b7280', textDecoration: 'none' }}>Leaderboard</Link>
+            {' / '}
+            {player.name}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {recentMatches.map((m) => (
-              <div
-                key={m.matchId}
+          {isOwnProfile && (
+            <form action={logoutAction}>
+              <button
+                type="submit"
                 style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 14px', borderRadius: 10,
-                  border: `1px solid ${m.result === 'W' ? '#dcfce7' : m.result === 'L' ? '#fee2e2' : '#f3f4f6'}`,
-                  background: m.result === 'W' ? '#f0fdf4' : m.result === 'L' ? '#fef2f2' : '#fafafa',
-                  gap: 10,
+                  fontSize: 12, color: '#6b7280', background: 'none',
+                  border: '1px solid #e5e7eb', borderRadius: 6,
+                  padding: '4px 12px', cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FormPip result={m.result} />
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
-                      vs{' '}
-                      <Link href={`/players/${m.opponentId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>
-                        {m.opponentName}
-                      </Link>
-                    </div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
-                      {m.matchType === 'championship' ? 'Championship' : 'Friendly'} ·{' '}
-                      {new Date(m.playedAt).toLocaleDateString()}
-                    </div>
-                  </div>
+                Sign out
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* ── Profile header ── */}
+        <div
+          style={{
+            border: '1px solid #e5e7eb', borderRadius: 14,
+            padding: '24px 28px', background: '#fff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            marginBottom: 20,
+          }}
+        >
+          {isAdmin && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/mp4,video/webm"
+                style={{ display: 'none' }}
+                onChange={handleVideoFileChange}
+              />
+            </>
+          )}
+
+          {uploadError && (
+            <div style={{
+              marginBottom: 12, padding: '8px 12px',
+              background: '#fef2f2', border: '1px solid #fecaca',
+              borderRadius: 8, fontSize: 12, color: '#dc2626',
+            }}>
+              {uploadError}
+            </div>
+          )}
+          {videoError && (
+            <div style={{
+              marginBottom: 12, padding: '8px 12px',
+              background: '#fef2f2', border: '1px solid #fecaca',
+              borderRadius: 8, fontSize: 12, color: '#dc2626',
+            }}>
+              {videoError}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
+            <div style={{ position: 'relative' }}>
+              <Avatar
+                url={avatarUrl}
+                name={player.name}
+                size={64}
+                editable={isAdmin}
+                onEditClick={() => fileInputRef.current?.click()}
+              />
+              {isPending && (
+                <div style={{
+                  position: 'absolute', inset: 0, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.7)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 14,
+                }}>
+                  ⏳
                 </div>
-                <div style={{ fontWeight: 800, fontSize: 18, color: '#111827', flexShrink: 0 }}>
-                  {m.goalsFor} – {m.goalsAgainst}
+              )}
+            </div>
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>
+                  {player.name}
+                </h1>
+                {isOwnProfile && (
+                  <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', borderRadius: 8, padding: '2px 8px' }}>
+                    you
+                  </span>
+                )}
+                {!player.isActive && (
+                  <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', background: '#f9fafb', borderRadius: 8, padding: '2px 8px' }}>
+                    inactive
+                  </span>
+                )}
+              </div>
+
+              {badges.length > 0 && (
+                <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+                  {badges.map((b) => (
+                    <span key={b.id} title={b.name} style={{ fontSize: 20 }}>
+                      {BADGE_ICONS[b.badgeType] ?? '🎖️'}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Admin: intro video controls */}
+              {isAdmin && (
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={isVideoPending}
+                    style={{
+                      fontSize: 11, fontWeight: 600,
+                      padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                      border: '1px solid #d1d5db',
+                      background: introVideoUrl ? '#f0fdf4' : '#f9fafb',
+                      color: introVideoUrl ? '#15803d' : '#374151',
+                      display: 'flex', alignItems: 'center', gap: 4,
+                      opacity: isVideoPending ? 0.6 : 1,
+                    }}
+                  >
+                    🎬 {isVideoPending ? 'Uploading…' : introVideoUrl ? 'Change intro video' : 'Upload intro video'}
+                  </button>
+                  {introVideoUrl && !isVideoPending && (
+                    <button
+                      onClick={handleRemoveVideo}
+                      style={{
+                        fontSize: 11, fontWeight: 600,
+                        padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                        border: '1px solid #fecaca',
+                        background: '#fef2f2', color: '#dc2626',
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
+                  {introVideoUrl && (
+                    <button
+                      onClick={() => setShowIntro(true)}
+                      style={{
+                        fontSize: 11, fontWeight: 600,
+                        padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                        border: '1px solid #dbeafe',
+                        background: '#eff6ff', color: '#2563eb',
+                      }}
+                    >
+                      Preview
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Stats grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+            {[
+              { label: 'Matches', value: player.matchesPlayed },
+              { label: 'Wins',    value: player.wins,    color: '#16a34a' },
+              { label: 'Draws',   value: player.draws,   color: '#6b7280' },
+              { label: 'Losses',  value: player.losses,  color: '#dc2626' },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: color ?? '#111827' }}>{value}</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {label}
                 </div>
               </div>
             ))}
           </div>
-        </section>
-      )}
 
-      {/* ── Head-to-head (expandable per opponent) ── */}
-      {h2hOpponents.length > 0 && (
-        <section style={{ marginBottom: 20 }}>
-          <SectionHeader>Head-to-Head</SectionHeader>
-          <H2HSection playerId={player.id} opponents={h2hOpponents} />
-        </section>
-      )}
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12, color: '#6b7280' }}>
+            <span>GF: <strong style={{ color: '#111827' }}>{player.goalsFor}</strong></span>
+            <span>GA: <strong style={{ color: '#111827' }}>{player.goalsAgainst}</strong></span>
+            <span>
+              GD:{' '}
+              <strong style={{ color: player.goalDiff > 0 ? '#16a34a' : player.goalDiff < 0 ? '#dc2626' : '#6b7280' }}>
+                {player.goalDiff > 0 ? `+${player.goalDiff}` : player.goalDiff}
+              </strong>
+            </span>
+            <span>Win rate: <strong style={{ color: '#111827' }}>{winRate}%</strong></span>
+          </div>
+        </div>
 
-      {/* ── Championship placements ── */}
-      {championshipPlacements.length > 0 && (
-        <section style={{ marginBottom: 20 }}>
-          <SectionHeader>Championships</SectionHeader>
-          <div
-            style={{
-              border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden',
-              background: '#fff',
-            }}
-          >
-            <div
-              style={{
+        {/* ── Recent matches ── */}
+        {recentMatches.length > 0 && (
+          <section style={{ marginBottom: 20 }}>
+            <SectionHeader>Recent Matches</SectionHeader>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
+              {recentMatches.map((m) => <FormPip key={m.matchId} result={m.result} />)}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {recentMatches.map((m) => (
+                <div
+                  key={m.matchId}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', borderRadius: 10,
+                    border: `1px solid ${m.result === 'W' ? '#dcfce7' : m.result === 'L' ? '#fee2e2' : '#f3f4f6'}`,
+                    background: m.result === 'W' ? '#f0fdf4' : m.result === 'L' ? '#fef2f2' : '#fafafa',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <FormPip result={m.result} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
+                        vs{' '}
+                        <Link href={`/players/${m.opponentId}`} style={{ color: '#2563eb', textDecoration: 'none' }}>
+                          {m.opponentName}
+                        </Link>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
+                        {m.matchType === 'championship' ? 'Championship' : 'Friendly'} ·{' '}
+                        {new Date(m.playedAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 18, color: '#111827', flexShrink: 0 }}>
+                    {m.goalsFor} – {m.goalsAgainst}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Head-to-head ── */}
+        {h2hOpponents.length > 0 && (
+          <section style={{ marginBottom: 20 }}>
+            <SectionHeader>Head-to-Head</SectionHeader>
+            <H2HSection playerId={player.id} opponents={h2hOpponents} />
+          </section>
+        )}
+
+        {/* ── Championship placements ── */}
+        {championshipPlacements.length > 0 && (
+          <section style={{ marginBottom: 20 }}>
+            <SectionHeader>Championships</SectionHeader>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', background: '#fff' }}>
+              <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 60px 60px 60px 60px 60px 60px',
-                padding: '8px 14px',
-                background: '#f9fafb',
+                padding: '8px 14px', background: '#f9fafb',
                 borderBottom: '1px solid #e5e7eb',
                 fontSize: 10, fontWeight: 700, color: '#9ca3af',
                 textTransform: 'uppercase', letterSpacing: '0.06em', gap: 4,
-              }}
-            >
-              <span>Championship</span>
-              <span style={{ textAlign: 'center' }}>Rank</span>
-              <span style={{ textAlign: 'center' }}>Pts</span>
-              <span style={{ textAlign: 'center' }}>W</span>
-              <span style={{ textAlign: 'center' }}>D</span>
-              <span style={{ textAlign: 'center' }}>L</span>
-              <span style={{ textAlign: 'center' }}>GD</span>
-            </div>
-            {championshipPlacements.map((cp, i) => (
-              <div
-                key={cp.championshipId}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 60px 60px 60px 60px 60px 60px',
-                  padding: '10px 14px',
-                  borderBottom: i < championshipPlacements.length - 1 ? '1px solid #f3f4f6' : 'none',
-                  background: cp.rank === 1 ? '#fffbeb' : '#fff',
-                  fontSize: 13, gap: 4, alignItems: 'center',
-                }}
-              >
-                <div>
-                  <Link
-                    href={`/championships/${cp.championshipId}`}
-                    style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600, fontSize: 13 }}
-                  >
-                    {cp.championshipName}
-                  </Link>
-                  {cp.isActive && (
-                    <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '1px 5px', borderRadius: 8, textTransform: 'uppercase' }}>
-                      active
-                    </span>
-                  )}
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <RankBadge rank={cp.rank} total={cp.totalPlayers} />
-                </div>
-                <div style={{ textAlign: 'center', fontWeight: 700, color: cp.rank === 1 ? '#d97706' : '#111827' }}>
-                  {cp.points}
-                </div>
-                <div style={{ textAlign: 'center', color: '#374151' }}>{cp.wins}</div>
-                <div style={{ textAlign: 'center', color: '#374151' }}>{cp.draws}</div>
-                <div style={{ textAlign: 'center', color: '#374151' }}>{cp.losses}</div>
+              }}>
+                <span>Championship</span>
+                <span style={{ textAlign: 'center' }}>Rank</span>
+                <span style={{ textAlign: 'center' }}>Pts</span>
+                <span style={{ textAlign: 'center' }}>W</span>
+                <span style={{ textAlign: 'center' }}>D</span>
+                <span style={{ textAlign: 'center' }}>L</span>
+                <span style={{ textAlign: 'center' }}>GD</span>
+              </div>
+              {championshipPlacements.map((cp, i) => (
                 <div
+                  key={cp.championshipId}
                   style={{
-                    textAlign: 'center', fontWeight: 600,
-                    color: cp.goalDiff > 0 ? '#16a34a' : cp.goalDiff < 0 ? '#dc2626' : '#6b7280',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 60px 60px 60px 60px 60px 60px',
+                    padding: '10px 14px',
+                    borderBottom: i < championshipPlacements.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    background: cp.rank === 1 ? '#fffbeb' : '#fff',
+                    fontSize: 13, gap: 4, alignItems: 'center',
                   }}
                 >
-                  {cp.goalDiff > 0 ? `+${cp.goalDiff}` : cp.goalDiff}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── Badges ── */}
-      {badges.length > 0 && (
-        <section style={{ marginBottom: 20 }}>
-          <SectionHeader>
-            Badges ({wonRivalries.length} rivalry win{wonRivalries.length !== 1 ? 's' : ''})
-          </SectionHeader>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            {badges.map((b) => (
-              <div
-                key={b.id}
-                style={{
-                  border: '1px solid #fbbf24', borderRadius: 10,
-                  padding: '10px 16px', background: '#fffbeb',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                }}
-              >
-                <span style={{ fontSize: 24 }}>{BADGE_ICONS[b.badgeType] ?? '🎖️'}</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>{b.name}</div>
-                  {b.description && (
-                    <div style={{ fontSize: 11, color: '#b45309', marginTop: 1 }}>{b.description}</div>
-                  )}
-                  <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>
-                    Earned {new Date(b.earnedAt).toLocaleDateString()}
-                    {b.sourceRivalryId && (
-                      <>
-                        {' · '}
-                        <Link href={`/rivalries/${b.sourceRivalryId}`} style={{ color: '#d97706' }}>
-                          View rivalry →
-                        </Link>
-                      </>
+                  <div>
+                    <Link href={`/championships/${cp.championshipId}`} style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
+                      {cp.championshipName}
+                    </Link>
+                    {cp.isActive && (
+                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '1px 5px', borderRadius: 8, textTransform: 'uppercase' }}>
+                        active
+                      </span>
                     )}
                   </div>
+                  <div style={{ textAlign: 'center' }}><RankBadge rank={cp.rank} total={cp.totalPlayers} /></div>
+                  <div style={{ textAlign: 'center', fontWeight: 700, color: cp.rank === 1 ? '#d97706' : '#111827' }}>{cp.points}</div>
+                  <div style={{ textAlign: 'center', color: '#374151' }}>{cp.wins}</div>
+                  <div style={{ textAlign: 'center', color: '#374151' }}>{cp.draws}</div>
+                  <div style={{ textAlign: 'center', color: '#374151' }}>{cp.losses}</div>
+                  <div style={{ textAlign: 'center', fontWeight: 600, color: cp.goalDiff > 0 ? '#16a34a' : cp.goalDiff < 0 ? '#dc2626' : '#6b7280' }}>
+                    {cp.goalDiff > 0 ? `+${cp.goalDiff}` : cp.goalDiff}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </section>
+        )}
 
-      {/* ── Rivalries ── */}
-      {rivalries.length > 0 && (
-        <section>
-          <SectionHeader>
-            Rivalries ({wonRivalries.length} won · {activeRivalries.length} active)
-          </SectionHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {rivalries.map((r) => {
-              const iWon   = r.winnerId === player.id
-              const theyWon = r.winnerId !== null && r.winnerId !== player.id
-              return (
-                <Link key={r.id} href={`/rivalries/${r.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div
-                    style={{
+        {/* ── Badges ── */}
+        {badges.length > 0 && (
+          <section style={{ marginBottom: 20 }}>
+            <SectionHeader>
+              Badges ({wonRivalries.length} rivalry win{wonRivalries.length !== 1 ? 's' : ''})
+            </SectionHeader>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {badges.map((b) => (
+                <div key={b.id} style={{ border: '1px solid #fbbf24', borderRadius: 10, padding: '10px 16px', background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 24 }}>{BADGE_ICONS[b.badgeType] ?? '🎖️'}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>{b.name}</div>
+                    {b.description && (
+                      <div style={{ fontSize: 11, color: '#b45309', marginTop: 1 }}>{b.description}</div>
+                    )}
+                    <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>
+                      Earned {new Date(b.earnedAt).toLocaleDateString()}
+                      {b.sourceRivalryId && (
+                        <> · <Link href={`/rivalries/${b.sourceRivalryId}`} style={{ color: '#d97706' }}>View rivalry →</Link></>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Rivalries ── */}
+        {rivalries.length > 0 && (
+          <section>
+            <SectionHeader>
+              Rivalries ({wonRivalries.length} won · {activeRivalries.length} active)
+            </SectionHeader>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {rivalries.map((r) => {
+                const iWon    = r.winnerId === player.id
+                const theyWon = r.winnerId !== null && r.winnerId !== player.id
+                return (
+                  <Link key={r.id} href={`/rivalries/${r.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{
                       border: `1px solid ${iWon ? '#fbbf24' : '#e5e7eb'}`,
                       borderRadius: 10, padding: '12px 16px',
                       background: iWon ? '#fffbeb' : '#fff',
-                      display: 'flex', alignItems: 'center',
-                      justifyContent: 'space-between', gap: 12,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {iWon && <span style={{ fontSize: 16 }}>🏆</span>}
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
-                          vs {r.opponentName}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                          First to {r.bestOf} wins
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {iWon && <span style={{ fontSize: 16 }}>🏆</span>}
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>vs {r.opponentName}</div>
+                          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>First to {r.bestOf} wins</div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: iWon ? '#d97706' : '#111827' }}>
-                        {r.myWins} – {r.theirWins}
-                      </div>
-                      <span
-                        style={{
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: iWon ? '#d97706' : '#111827' }}>
+                          {r.myWins} – {r.theirWins}
+                        </div>
+                        <span style={{
                           fontSize: 10, fontWeight: 700, padding: '2px 8px',
                           borderRadius: 12, textTransform: 'uppercase',
                           background: r.status === 'active' ? '#dcfce7' : iWon ? '#fef3c7' : '#f3f4f6',
                           color: r.status === 'active' ? '#16a34a' : iWon ? '#92400e' : theyWon ? '#6b7280' : '#6b7280',
-                        }}
-                      >
-                        {r.status === 'active' ? 'Active' : iWon ? 'Won' : 'Lost'}
-                      </span>
+                        }}>
+                          {r.status === 'active' ? 'Active' : iWon ? 'Won' : 'Lost'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </section>
-      )}
+                  </Link>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
-      {rivalries.length === 0 && badges.length === 0 && recentMatches.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 14 }}>
-          No match history yet.
-        </div>
-      )}
-    </div>
+        {rivalries.length === 0 && badges.length === 0 && recentMatches.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 14 }}>
+            No match history yet.
+          </div>
+        )}
+
+        <BottomNav userId={viewerId} />
+      </div>
+    </>
   )
 }
 
 function SectionHeader({ children }: { children: ReactNode }) {
   return (
     <h2 style={{
-      margin: '0 0 10px',
-      fontSize: 13, fontWeight: 700, color: '#6b7280',
+      margin: '0 0 10px', fontSize: 13, fontWeight: 700, color: '#6b7280',
       textTransform: 'uppercase', letterSpacing: '0.06em',
     }}>
       {children}

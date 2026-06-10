@@ -3,7 +3,8 @@
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import supabase from '@/lib/supabase/client'
-import { deleteRivalryAction } from '../actions'
+import { BottomNav } from '@/app/components/BottomNav'
+import { deleteRivalryAction, setRivalryScoreAction } from '../actions'
 import { RecordMatchModal } from '../RecordMatchModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -17,6 +18,7 @@ export type Rivalry = {
   player2Name: string
   player1Wins: number
   player2Wins: number
+  draws: number
   winnerId: string | null
   status: 'active' | 'completed'
   createdAt: string
@@ -40,23 +42,6 @@ type Props = {
   badgeEarnedAt: string | null
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function ProgressBar({ wins, bestOf, color }: { wins: number; bestOf: number; color: string }) {
-  const pct = Math.min((wins / bestOf) * 100, 100)
-  return (
-    <div style={{ flex: 1, height: 8, background: '#f3f4f6', borderRadius: 4, overflow: 'hidden' }}>
-      <div
-        style={{
-          height: '100%', width: `${pct}%`,
-          background: color, borderRadius: 4,
-          transition: 'width 0.4s ease',
-        }}
-      />
-    </div>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId, isAdmin, badgeEarnedAt }: Props) {
@@ -67,8 +52,15 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isDeleting, startDeleteTransition] = useTransition()
 
+  const [showEditScore, setShowEditScore] = useState(false)
+  const [editP1Wins, setEditP1Wins] = useState(rivalry.player1Wins)
+  const [editP2Wins, setEditP2Wins] = useState(rivalry.player2Wins)
+  const [editDraws, setEditDraws] = useState(rivalry.draws)
+  const [editScoreError, setEditScoreError] = useState<string | null>(null)
+  const [isSavingScore, startSaveScoreTransition] = useTransition()
+
   const isParticipant = rivalry.player1Id === currentUserId || rivalry.player2Id === currentUserId
-  const canRecord = rivalry.status === 'active' && (isParticipant || isAdmin)
+  const canRecord = isParticipant || isAdmin
 
   // Realtime: update rivalry scores live
   useEffect(() => {
@@ -83,6 +75,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
             ...prev,
             player1Wins: r.player1_wins as number,
             player2Wins: r.player2_wins as number,
+            draws:       r.draws as number,
             winnerId:    r.winner_id as string | null,
             status:      r.status as 'active' | 'completed',
             completedAt: r.completed_at as string | null,
@@ -106,7 +99,8 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
 
   const p1 = rivalry.player1Name
   const p2 = rivalry.player2Name
-  const totalMatches = matches.length
+  const recordedMatches = matches.length
+  const totalMatches = rivalry.player1Wins + rivalry.player2Wins + rivalry.draws
   const winnerName = rivalry.winnerId === rivalry.player1Id ? p1
     : rivalry.winnerId === rivalry.player2Id ? p2 : null
 
@@ -201,39 +195,23 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
           </div>
         </div>
 
-        {/* Progress bars */}
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', width: 90, textAlign: 'right', flexShrink: 0 }}>
-              {rivalry.player1Wins}/{rivalry.bestOf}
-            </span>
-            <ProgressBar wins={rivalry.player1Wins} bestOf={rivalry.bestOf} color="#2563eb" />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', width: 90, textAlign: 'right', flexShrink: 0 }}>
-              {rivalry.player2Wins}/{rivalry.bestOf}
-            </span>
-            <ProgressBar wins={rivalry.player2Wins} bestOf={rivalry.bestOf} color="#7c3aed" />
-          </div>
-        </div>
-
         <div
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             fontSize: 12, color: '#9ca3af',
           }}
         >
-          <span>First to {rivalry.bestOf} wins · {totalMatches} match{totalMatches !== 1 ? 'es' : ''} played</span>
-          <span
-            style={{
-              padding: '2px 9px', borderRadius: 20, fontWeight: 700, fontSize: 11,
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-              background: rivalry.status === 'active' ? '#dcfce7' : '#f3f4f6',
-              color: rivalry.status === 'active' ? '#16a34a' : '#6b7280',
-            }}
-          >
-            {rivalry.status === 'active' ? 'Active' : 'Completed'}
+          <span>
+            Score to win: {rivalry.bestOf} · {totalMatches} day{totalMatches !== 1 ? 's' : ''} played
+            {recordedMatches < totalMatches && (
+              <span style={{ color: '#9ca3af' }}> ({recordedMatches} recorded)</span>
+            )}
           </span>
+          {rivalry.draws > 0 && (
+            <span style={{ fontSize: 12, color: '#9ca3af' }}>
+              {rivalry.draws} draw{rivalry.draws !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 
@@ -252,6 +230,24 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
               }}
             >
               + Record Match
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setEditP1Wins(rivalry.player1Wins)
+                setEditP2Wins(rivalry.player2Wins)
+                setEditDraws(rivalry.draws)
+                setEditScoreError(null)
+                setShowEditScore(true)
+              }}
+              style={{
+                padding: '7px 14px', border: '1px solid #d1d5db',
+                borderRadius: 7, background: '#fff', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: '#374151',
+              }}
+            >
+              Edit Score
             </button>
           )}
           {isAdmin && (
@@ -361,6 +357,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
           rivalryId={rivalry.id}
           player1Name={p1}
           player2Name={p2}
+          targetScore={rivalry.bestOf}
           onClose={() => setShowRecord(false)}
           onSuccess={(matchId, p1Score, p2Score) => {
             setShowRecord(false)
@@ -377,6 +374,130 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
             ])
           }}
         />
+      )}
+
+      {/* Edit Score modal (admin only) */}
+      {showEditScore && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowEditScore(false)}
+        >
+          <div
+            style={{
+              background: '#fff', borderRadius: 12, padding: 28,
+              width: 340, maxWidth: '95vw',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            }}
+          >
+            <h2 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#111827' }}>
+              Edit Score
+            </h2>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>
+              Set the current series score directly.
+            </p>
+
+            {/* Score inputs */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
+              {/* Player 1 */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+                  {p1}
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  value={editP1Wins}
+                  onChange={(e) => setEditP1Wins(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: 68, padding: '10px 6px', borderRadius: 8,
+                    border: '2px solid #2563eb', fontSize: 22, fontWeight: 800,
+                    color: '#111827', textAlign: 'center', outline: 'none',
+                  }}
+                />
+              </div>
+
+              <span style={{ color: '#9ca3af', fontSize: 20, fontWeight: 700, marginTop: 20 }}>–</span>
+
+              {/* Draws */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+                  Draws
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  value={editDraws}
+                  onChange={(e) => setEditDraws(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: 58, padding: '10px 6px', borderRadius: 8,
+                    border: '1px solid #d1d5db', fontSize: 18, fontWeight: 700,
+                    color: '#6b7280', textAlign: 'center', outline: 'none',
+                  }}
+                />
+              </div>
+
+              <span style={{ color: '#9ca3af', fontSize: 20, fontWeight: 700, marginTop: 20 }}>–</span>
+
+              {/* Player 2 */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+                  {p2}
+                </div>
+                <input
+                  type="number"
+                  min={0}
+                  value={editP2Wins}
+                  onChange={(e) => setEditP2Wins(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: 68, padding: '10px 6px', borderRadius: 8,
+                    border: '2px solid #7c3aed', fontSize: 22, fontWeight: 800,
+                    color: '#111827', textAlign: 'center', outline: 'none',
+                  }}
+                />
+              </div>
+            </div>
+
+            {editScoreError && (
+              <p style={{ color: '#dc2626', fontSize: 13, margin: '0 0 12px' }}>{editScoreError}</p>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setShowEditScore(false)}
+                disabled={isSavingScore}
+                style={{ padding: '8px 18px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 14 }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={isSavingScore}
+                onClick={() => {
+                  setEditScoreError(null)
+                  startSaveScoreTransition(async () => {
+                    try {
+                      await setRivalryScoreAction(rivalry.id, editP1Wins, editP2Wins, editDraws)
+                      setShowEditScore(false)
+                    } catch (e) {
+                      setEditScoreError(e instanceof Error ? e.message : 'Failed to save.')
+                    }
+                  })
+                }}
+                style={{
+                  padding: '8px 20px',
+                  background: isSavingScore ? '#93c5fd' : '#2563eb',
+                  color: '#fff', border: 'none', borderRadius: 7,
+                  cursor: isSavingScore ? 'not-allowed' : 'pointer',
+                  fontWeight: 600, fontSize: 14,
+                }}
+              >
+                {isSavingScore ? 'Saving…' : 'Save Score'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete confirm */}
@@ -430,6 +551,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
           </div>
         </div>
       )}
+      <BottomNav userId={currentUserId} />
     </div>
   )
 }

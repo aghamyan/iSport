@@ -12,8 +12,7 @@ export default async function ChampionshipsPage() {
   const [champsResult, playersResult] = await Promise.all([
     supabase
       .from('championships')
-      .select('id, name, number_of_cycles, is_active, created_at')
-      .order('created_at', { ascending: false }),
+      .select('id, name, number_of_cycles, is_active, created_at, played_at'),
     supabase
       .from('users')
       .select('id, name')
@@ -35,14 +34,21 @@ export default async function ChampionshipsPage() {
     countMap[row.championship_id] = (countMap[row.championship_id] ?? 0) + 1
   }
 
-  const championships = (champsResult.data ?? []).map((c) => ({
-    id: c.id,
-    name: c.name,
-    numberOfCycles: c.number_of_cycles,
-    isActive: c.is_active,
-    createdAt: c.created_at,
-    playerCount: countMap[c.id] ?? 0,
-  }))
+  const championships = (champsResult.data ?? [])
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      numberOfCycles: c.number_of_cycles,
+      isActive: c.is_active,
+      createdAt: c.created_at,
+      playedAt: (c.played_at as string | null) ?? null,
+      playerCount: countMap[c.id] ?? 0,
+    }))
+    .sort((a, b) => {
+      const aDate = new Date(a.playedAt ?? a.createdAt).getTime()
+      const bDate = new Date(b.playedAt ?? b.createdAt).getTime()
+      return bDate - aDate
+    })
 
   const players = (playersResult.data ?? []).map((p) => ({
     id: p.id,
@@ -54,6 +60,7 @@ export default async function ChampionshipsPage() {
       championships={championships}
       players={players}
       isAdmin={session.isAdmin}
+      userId={session.sub}
     />
   )
 }

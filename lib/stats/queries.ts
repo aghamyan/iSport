@@ -8,6 +8,7 @@ import type {
   FormEntry,
   FormResult,
   H2HRecord,
+  LastChampionshipPodiumEntry,
   NamedPlayerStats,
   PlayerStatsRow,
   RivalryWinner,
@@ -456,21 +457,103 @@ export const getPlayerChampionshipPlacements = unstable_cache(
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
 )
 
+// ─── Top-3 finishers of the most recent completed championship (podium) ───────
+
+export const getLastChampionshipPodium = unstable_cache(
+  async (): Promise<LastChampionshipPodiumEntry[]> => {
+    const supabase = createServiceClient()
+
+    const { data: allCompleted } = await supabase
+      .from('championships')
+      .select('id, name, played_at, created_at')
+      .eq('is_active', false)
+
+    if (!allCompleted?.length) return []
+
+    const sorted = [...allCompleted].sort((a, b) => {
+      const aDate = new Date((a.played_at as string | null) ?? a.created_at).getTime()
+      const bDate = new Date((b.played_at as string | null) ?? b.created_at).getTime()
+      return bDate - aDate
+    })
+    const champ = sorted[0]
+
+    const [matchesRes, playersRes] = await Promise.all([
+      supabase
+        .from('championship_matches')
+        .select('id, home_player_id, away_player_id, home_score, away_score')
+        .eq('championship_id', champ.id)
+        .in('status', ['confirmed', 'final']),
+      supabase
+        .from('championship_players')
+        .select('player_id')
+        .eq('championship_id', champ.id),
+    ])
+
+    const playerIds = (playersRes.data ?? []).map((p: { player_id: string }) => p.player_id)
+    const matchRows = (matchesRes.data ?? []).map((m) => ({
+      id: m.id,
+      homePlayerId: m.home_player_id,
+      awayPlayerId: m.away_player_id,
+      homeScore: m.home_score,
+      awayScore: m.away_score,
+    }))
+
+    if (!playerIds.length || !matchRows.length) return []
+
+    const standings = calculateStandings(matchRows, playerIds)
+    const top3 = standings.slice(0, 3)
+    if (!top3.length) return []
+
+    const top3Ids = top3.map((s) => s.playerId)
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, name, avatar_url')
+      .in('id', top3Ids)
+
+    const userMap = new Map((users ?? []).map((u) => [u.id, u]))
+
+    return top3.map((s, i) => {
+      const u = userMap.get(s.playerId)
+      return {
+        rank:             i + 1,
+        playerId:         s.playerId,
+        playerName:       u?.name ?? 'Unknown',
+        avatarUrl:        (u?.avatar_url as string | null) ?? null,
+        points:           s.points,
+        wins:             s.wins,
+        draws:            s.draws,
+        losses:           s.losses,
+        goalDiff:         s.goalDiff,
+        played:           s.played,
+        championshipId:   champ.id,
+        championshipName: champ.name,
+      } satisfies LastChampionshipPodiumEntry
+    })
+  },
+  ['last-championship-podium'],
+  { tags: [STATS_CACHE_TAG], revalidate: 60 }
+)
+
 // ─── Winner of the most recent completed championship ─────────────────────────
 
 export const getLastChampionshipWinner = unstable_cache(
   async (): Promise<CurrentChampion | null> => {
     const supabase = createServiceClient()
 
-    const { data: champ } = await supabase
+    const { data: allCompleted } = await supabase
       .from('championships')
-      .select('id, name')
+      .select('id, name, played_at, created_at')
       .eq('is_active', false)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
 
-    if (!champ) return null
+    if (!allCompleted?.length) return null
+
+    // Sort by effective date: played_at when set, otherwise created_at
+    const sorted = [...allCompleted].sort((a, b) => {
+      const aDate = new Date((a.played_at as string | null) ?? a.created_at).getTime()
+      const bDate = new Date((b.played_at as string | null) ?? b.created_at).getTime()
+      return bDate - aDate
+    })
+    const champ = sorted[0]
 
     const champId = champ.id
 
@@ -560,5 +643,85 @@ export const getLastChampionshipWinner = unstable_cache(
     }
   },
   ['last-championship-winner'],
+  { tags: [STATS_CACHE_TAG], revalidate: 60 }
+)
+
+// ─── Championship-only aggregate stats per player (for P4P ranking) ───────────
+//
+// Sums wins/losses/draws/goals across all championships per player.
+// Friendly match results deliberately excluded so P4P reflects only
+// competitive performance.
+
+type CsRow = {
+  player_id: string
+  played: number
+  wins: number
+  draws: number
+  losses: number
+  goals_for: number
+  goals_against: number
+  goal_diff: number
+}
+
+export const getChampionshipOnlyStats = unstable_cache(
+  async (): Promise<NamedPlayerStats[]> => {
+    const supabase = createServiceClient()
+
+    const { data, error } = await supabase
+      .from('championship_standings')
+      .select('player_id, played, wins, draws, losses, goals_for, goals_against, goal_diff')
+
+    if (error || !data || data.length === 0) return []
+
+    const agg = new Map<string, {
+      wins: number; losses: number; draws: number; matchesPlayed: number
+      goalsFor: number; goalsAgainst: number; goalDiff: number
+    }>()
+
+    for (const row of data as CsRow[]) {
+      const prev = agg.get(row.player_id) ?? {
+        wins: 0, losses: 0, draws: 0, matchesPlayed: 0,
+        goalsFor: 0, goalsAgainst: 0, goalDiff: 0,
+      }
+      agg.set(row.player_id, {
+        wins:          prev.wins          + row.wins,
+        losses:        prev.losses        + row.losses,
+        draws:         prev.draws         + row.draws,
+        matchesPlayed: prev.matchesPlayed + row.played,
+        goalsFor:      prev.goalsFor      + row.goals_for,
+        goalsAgainst:  prev.goalsAgainst  + row.goals_against,
+        goalDiff:      prev.goalDiff      + row.goal_diff,
+      })
+    }
+
+    const playerIds = [...agg.keys()]
+    if (!playerIds.length) return []
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, name, avatar_url')
+      .in('id', playerIds)
+    const userMap = new Map((users ?? []).map((u) => [u.id, u]))
+
+    return playerIds.map((pid) => {
+      const s = agg.get(pid)!
+      const u = userMap.get(pid)
+      return {
+        id:            pid,
+        name:          u?.name       ?? 'Unknown',
+        avatarUrl:     (u?.avatar_url as string | null) ?? null,
+        wins:          s.wins,
+        losses:        s.losses,
+        draws:         s.draws,
+        matchesPlayed: s.matchesPlayed,
+        goalsFor:      s.goalsFor,
+        goalsAgainst:  s.goalsAgainst,
+        goalDiff:      s.goalDiff,
+        winRate:       s.matchesPlayed > 0 ? s.wins / s.matchesPlayed : 0,
+        updatedAt:     new Date().toISOString(),
+      }
+    })
+  },
+  ['champ-only-stats'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
 )

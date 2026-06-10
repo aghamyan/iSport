@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { CreateChampionshipModal, type PlayerOption } from './CreateChampionshipModal'
+import { BottomNav } from '@/app/components/BottomNav'
 
 const BG    = '#050911'
 const CARD  = '#0c1422'
@@ -39,6 +40,7 @@ type ChampionshipItem = {
   numberOfCycles: number
   isActive: boolean
   createdAt: string
+  playedAt: string | null
   playerCount: number
 }
 
@@ -46,9 +48,10 @@ type Props = {
   championships: ChampionshipItem[]
   players: PlayerOption[]
   isAdmin: boolean
+  userId: string
 }
 
-export function ChampionshipsListClient({ championships, players, isAdmin }: Props) {
+export function ChampionshipsListClient({ championships, players, isAdmin, userId }: Props) {
   const [showCreate, setShowCreate] = useState(false)
   const activeCount = championships.filter((c) => c.isActive).length
 
@@ -252,7 +255,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin }: Pro
                           cycle{c.numberOfCycles !== 1 ? 's' : ''}
                         </span>
                         <span>
-                          {new Date(c.createdAt).toLocaleDateString('en-GB', {
+                          {new Date(c.playedAt ?? c.createdAt).toLocaleDateString('en-GB', {
                             day: 'numeric', month: 'short', year: 'numeric',
                           })}
                         </span>
@@ -283,6 +286,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin }: Pro
       {showCreate && (
         <CreateChampionshipModal players={players} onClose={() => setShowCreate(false)} />
       )}
+      <BottomNav userId={userId} />
     </div>
   )
 }

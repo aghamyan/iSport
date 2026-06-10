@@ -19,7 +19,7 @@ export default async function RivalryPage({
     supabase
       .from('rivalries')
       .select(
-        'id, best_of, player1_id, player2_id, player1_wins, player2_wins, winner_id, status, created_at, completed_at'
+        'id, best_of, player1_id, player2_id, player1_wins, player2_wins, draws, winner_id, status, created_at, completed_at'
       )
       .eq('id', id)
       .single(),
@@ -82,6 +82,7 @@ export default async function RivalryPage({
         player2Name: userMap[r.player2_id] ?? 'Unknown',
         player1Wins: r.player1_wins,
         player2Wins: r.player2_wins,
+        draws:       (r as unknown as { draws: number }).draws ?? 0,
         winnerId:    r.winner_id as string | null,
         status:      r.status as 'active' | 'completed',
         createdAt:   r.created_at,

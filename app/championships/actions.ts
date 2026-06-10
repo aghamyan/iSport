@@ -705,6 +705,27 @@ export async function getMatchOddsAction(
   return calculateOdds(homeStats, awayStats, { homeForm, awayForm, h2h, matchType: 'championship' })
 }
 
+export async function updateChampionshipDateAction(
+  championshipId: string,
+  playedAt: string | null
+): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('championships')
+    .update({ played_at: playedAt })
+    .eq('id', championshipId)
+
+  if (error) throw new Error(error.message)
+  await logAdminAction('update_championship_date', 'championship', championshipId)
+  revalidateTag(STATS_CACHE_TAG, 'max')
+  revalidatePath(`/championships/${championshipId}`)
+  revalidatePath('/championships')
+  revalidatePath('/')
+}
+
 export async function deleteChampionshipAction(championshipId: string): Promise<void> {
   const session = await getSession()
   requireAdmin(session)

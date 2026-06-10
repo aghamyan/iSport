@@ -2,8 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { updateMatchAction } from './actions'
-import { useEditTimer } from './useEditTimer'
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type MatchSnapshot = {
@@ -38,13 +36,7 @@ export function EditMatchModal({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const { timeLeft, isExpired } = useEditTimer(match.editDeadline)
-
-  // Admins bypass the window client-side too; the DB trigger is the hard gate.
-  const isLocked = isExpired && !isAdmin
-
   function handleSave() {
-    if (isLocked) return
     setError(null)
 
     const h = homeScore !== '' ? parseFloat(homeScore) : undefined
@@ -122,35 +114,6 @@ export function EditMatchModal({
           </button>
         </div>
 
-        {/* Edit window banner */}
-        {match.editDeadline && (
-          <div
-            style={{
-              padding: '8px 12px',
-              borderRadius: 7,
-              marginBottom: 20,
-              background: isExpired ? '#fee2e2' : '#fef9c3',
-              color: isExpired ? '#dc2626' : '#854d0e',
-              fontSize: 13,
-              fontWeight: 500,
-            }}
-          >
-            {isExpired ? (
-              isAdmin ? (
-                <>
-                  ⚠️ Edit window expired — you are editing as <strong>admin</strong>.
-                </>
-              ) : (
-                '🔒 Edit window has expired. Only admins can make changes.'
-              )
-            ) : (
-              <>
-                ⏱ Edit window closes in: <strong>{timeLeft}</strong>
-              </>
-            )}
-          </div>
-        )}
-
         {/* Score inputs */}
         <div
           style={{
@@ -178,17 +141,17 @@ export function EditMatchModal({
               max={99}
               value={homeScore}
               onChange={(e) => setHomeScore(e.target.value)}
-              disabled={isLocked}
+              disabled={false}
               style={{
                 width: 72,
                 textAlign: 'center',
                 padding: '8px',
-                border: `1px solid ${isLocked ? '#e5e7eb' : '#d1d5db'}`,
+                border: '1px solid #d1d5db',
                 borderRadius: 8,
                 fontSize: 24,
                 fontWeight: 800,
-                color: isLocked ? '#9ca3af' : '#111827',
-                background: isLocked ? '#f9fafb' : '#fff',
+                color: '#111827',
+                background: '#fff',
               }}
             />
           </div>
@@ -213,17 +176,17 @@ export function EditMatchModal({
               max={99}
               value={awayScore}
               onChange={(e) => setAwayScore(e.target.value)}
-              disabled={isLocked}
+              disabled={false}
               style={{
                 width: 72,
                 textAlign: 'center',
                 padding: '8px',
-                border: `1px solid ${isLocked ? '#e5e7eb' : '#d1d5db'}`,
+                border: '1px solid #d1d5db',
                 borderRadius: 8,
                 fontSize: 24,
                 fontWeight: 800,
-                color: isLocked ? '#9ca3af' : '#111827',
-                background: isLocked ? '#f9fafb' : '#fff',
+                color: '#111827',
+                background: '#fff',
               }}
             />
           </div>
@@ -234,18 +197,18 @@ export function EditMatchModal({
           placeholder="Notes (optional)"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          disabled={isLocked}
+          disabled={false}
           rows={3}
           style={{
             width: '100%',
             padding: '8px 10px',
-            border: `1px solid ${isLocked ? '#e5e7eb' : '#d1d5db'}`,
+            border: '1px solid #d1d5db',
             borderRadius: 7,
             fontSize: 13,
             resize: 'vertical',
             boxSizing: 'border-box',
-            background: isLocked ? '#f9fafb' : '#fff',
-            color: isLocked ? '#9ca3af' : '#111827',
+            background: '#fff',
+            color: '#111827',
             fontFamily: 'inherit',
           }}
         />
@@ -278,14 +241,14 @@ export function EditMatchModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={isPending || isLocked}
+            disabled={isPending}
             style={{
               padding: '8px 18px',
-              background: isPending || isLocked ? '#93c5fd' : '#2563eb',
+              background: isPending ? '#93c5fd' : '#2563eb',
               color: '#fff',
               border: 'none',
               borderRadius: 7,
-              cursor: isPending || isLocked ? 'not-allowed' : 'pointer',
+              cursor: isPending ? 'not-allowed' : 'pointer',
               fontWeight: 600,
               fontSize: 14,
               minWidth: 110,

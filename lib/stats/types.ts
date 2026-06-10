@@ -97,6 +97,22 @@ export type CurrentChampion = {
   goalDiff: number
 }
 
+// Top-3 finishers of the most recent completed championship (for leaderboard podium)
+export type LastChampionshipPodiumEntry = {
+  rank: number
+  playerId: string
+  playerName: string
+  avatarUrl: string | null
+  points: number
+  wins: number
+  draws: number
+  losses: number
+  goalDiff: number
+  played: number
+  championshipId: string
+  championshipName: string
+}
+
 // Current leader of a championship (for the leaderboard Championships tab)
 export type ChampionshipLeader = {
   championshipId: string

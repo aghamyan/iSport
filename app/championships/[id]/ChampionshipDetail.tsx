@@ -27,10 +27,11 @@ import {
   generateFinalPenaltyDeciderAction,
   getMatchOddsAction,
   regenerateMatchesAction,
+  updateChampionshipDateAction,
 } from '../actions'
 import { ScoreModal } from '../ScoreModal'
 import { AddMatchModal } from '../AddMatchModal'
-import { useEditTimer } from '../../matches/useEditTimer'
+import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ export type Championship = {
   isActive: boolean
   createdBy: string
   format: 'round_robin' | 'group_knockout' | 'group_playoff'
+  playedAt: string | null
+  createdAt: string
 }
 
 export type ChampionshipPlayer = {
@@ -321,10 +324,6 @@ function MatchCard({
   const [oddsLoading, setOddsLoading] = useState(false)
   const [oddsError, setOddsError] = useState<string | null>(null)
 
-  const { timeLeft, isExpired } = useEditTimer(
-    match.status === 'confirmed' ? match.editDeadline : null
-  )
-
   const homeName = playerMap.get(match.homePlayerId) ?? '?'
   const awayName = playerMap.get(match.awayPlayerId) ?? '?'
   const homeAvatar = avatarMap.get(match.homePlayerId)
@@ -334,7 +333,7 @@ function MatchCard({
     match.homePlayerId === currentUserId || match.awayPlayerId === currentUserId
   const canRecord = match.status === 'pending' && (isParticipant || isAdmin)
   const canEdit =
-    match.status === 'confirmed' && (isParticipant || isAdmin) && (!isExpired || isAdmin)
+    match.status === 'confirmed' && (isParticipant || isAdmin)
   const hasScore = match.homeScore !== null && match.awayScore !== null
 
   const homeWon = hasScore && match.homeScore! > match.awayScore!
@@ -494,21 +493,6 @@ function MatchCard({
 
           {/* Actions */}
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-            {match.status === 'confirmed' && !isExpired && (
-              <span
-                style={{
-                  fontSize: 10,
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  background: 'rgba(245,158,11,0.12)',
-                  color: '#fbbf24',
-                  border: '1px solid rgba(245,158,11,0.3)',
-                  fontWeight: 600,
-                }}
-              >
-                {timeLeft}
-              </span>
-            )}
             {canRecord && (
               <button
                 onClick={() => setShowScore(true)}
@@ -628,117 +612,128 @@ function StandingsTable({
     playerIds
   )
 
+  const STANDING_COLS = '20px 1fr 26px 26px 26px 26px 26px 26px 30px 38px'
+
   return (
-    <div
-      style={{
-        border: '1px solid #1a2840',
-        borderRadius: 10,
-        overflow: 'hidden',
-        background: '#0c1422',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-      }}
-    >
-      {/* Header */}
+    <div style={{ overflowX: 'auto' }}>
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: '20px 1fr 28px 28px 28px 34px 40px',
-          padding: '8px 12px',
-          background: '#0a1220',
-          borderBottom: '1px solid #1a2840',
-          fontSize: 10,
-          fontWeight: 700,
-          color: '#64748b',
-          textTransform: 'uppercase',
-          letterSpacing: '0.07em',
-          gap: 4,
-          alignItems: 'center',
+          border: '1px solid #1a2840',
+          borderRadius: 10,
+          overflow: 'hidden',
+          background: '#0c1422',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          minWidth: 400,
         }}
       >
-        <span>#</span>
-        <span>Player</span>
-        <span style={{ textAlign: 'center' }}>W</span>
-        <span style={{ textAlign: 'center' }}>D</span>
-        <span style={{ textAlign: 'center' }}>L</span>
-        <span style={{ textAlign: 'center' }}>GD</span>
-        <span style={{ textAlign: 'center' }}>Pts</span>
-      </div>
+        {/* Header */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: STANDING_COLS,
+            padding: '8px 12px',
+            background: '#0a1220',
+            borderBottom: '1px solid #1a2840',
+            fontSize: 10,
+            fontWeight: 700,
+            color: '#64748b',
+            textTransform: 'uppercase',
+            letterSpacing: '0.07em',
+            gap: 4,
+            alignItems: 'center',
+          }}
+        >
+          <span>#</span>
+          <span>Player</span>
+          <span style={{ textAlign: 'center' }}>MP</span>
+          <span style={{ textAlign: 'center' }}>W</span>
+          <span style={{ textAlign: 'center' }}>D</span>
+          <span style={{ textAlign: 'center' }}>L</span>
+          <span style={{ textAlign: 'center', color: '#f59e0b' }}>GF</span>
+          <span style={{ textAlign: 'center', color: '#ef4444' }}>GA</span>
+          <span style={{ textAlign: 'center' }}>GD</span>
+          <span style={{ textAlign: 'center' }}>Pts</span>
+        </div>
 
-      {standings.map((row, idx) => {
-        const name = playerMap.get(row.playerId) ?? '?'
-        const avatar = avatarMap.get(row.playerId)
-        const advances = highlightTop !== undefined && idx < highlightTop
-        const isFirst = idx === 0 && !advances
+        {standings.map((row, idx) => {
+          const name = playerMap.get(row.playerId) ?? '?'
+          const avatar = avatarMap.get(row.playerId)
+          const advances = highlightTop !== undefined && idx < highlightTop
+          const isFirst = idx === 0 && !advances
 
-        return (
-          <div
-            key={row.playerId}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '20px 1fr 28px 28px 28px 34px 40px',
-              padding: '8px 12px',
-              borderBottom: idx < standings.length - 1 ? '1px solid #111e30' : 'none',
-              borderLeft: advances
-                ? '3px solid #22c55e'
-                : isFirst
-                ? '3px solid #f59e0b'
-                : '3px solid transparent',
-              background: advances ? 'rgba(34,197,94,0.06)' : isFirst ? 'rgba(245,158,11,0.07)' : '#0c1422',
-              fontSize: 13,
-              gap: 4,
-              alignItems: 'center',
-            }}
-          >
-            <span
+          return (
+            <div
+              key={row.playerId}
               style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: advances ? '#22c55e' : isFirst ? '#f59e0b' : '#94a3b8',
+                display: 'grid',
+                gridTemplateColumns: STANDING_COLS,
+                padding: '8px 12px',
+                borderBottom: idx < standings.length - 1 ? '1px solid #111e30' : 'none',
+                borderLeft: advances
+                  ? '3px solid #22c55e'
+                  : isFirst
+                  ? '3px solid #f59e0b'
+                  : '3px solid transparent',
+                background: advances ? 'rgba(34,197,94,0.06)' : isFirst ? 'rgba(245,158,11,0.07)' : '#0c1422',
+                fontSize: 13,
+                gap: 4,
+                alignItems: 'center',
               }}
             >
-              {idx + 1}
-            </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-              <Avatar url={avatar} name={name} size={22} rank={idx + 1} />
               <span
                 style={{
-                  fontWeight: advances || isFirst ? 700 : 500,
-                  color: '#e2e8f0',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: advances ? '#22c55e' : isFirst ? '#f59e0b' : '#94a3b8',
+                }}
+              >
+                {idx + 1}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                <Avatar url={avatar} name={name} size={22} rank={idx + 1} />
+                <span
+                  style={{
+                    fontWeight: advances || isFirst ? 700 : 500,
+                    color: '#e2e8f0',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontSize: 12,
+                  }}
+                >
+                  {name}
+                </span>
+              </div>
+              <span style={{ textAlign: 'center', color: '#64748b', fontSize: 12 }}>{row.played}</span>
+              <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.wins}</span>
+              <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.draws}</span>
+              <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.losses}</span>
+              <span style={{ textAlign: 'center', color: '#f59e0b', fontWeight: 600, fontSize: 12 }}>{row.goalsFor}</span>
+              <span style={{ textAlign: 'center', color: '#ef444488', fontSize: 12 }}>{row.goalsAgainst}</span>
+              <span
+                style={{
+                  textAlign: 'center',
+                  color: row.goalDiff > 0 ? '#22c55e' : row.goalDiff < 0 ? '#ef4444' : '#94a3b8',
+                  fontWeight: 700,
                   fontSize: 12,
                 }}
               >
-                {name}
+                {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
+              </span>
+              <span
+                style={{
+                  textAlign: 'center',
+                  fontWeight: 800,
+                  color: advances ? '#22c55e' : isFirst ? '#f59e0b' : '#f8fafc',
+                  fontSize: 14,
+                }}
+              >
+                {row.points}
               </span>
             </div>
-            <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.wins}</span>
-            <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.draws}</span>
-            <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.losses}</span>
-            <span
-              style={{
-                textAlign: 'center',
-                color: row.goalDiff > 0 ? '#22c55e' : row.goalDiff < 0 ? '#ef4444' : '#94a3b8',
-                fontWeight: 700,
-                fontSize: 12,
-              }}
-            >
-              {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
-            </span>
-            <span
-              style={{
-                textAlign: 'center',
-                fontWeight: 800,
-                color: advances ? '#22c55e' : isFirst ? '#f59e0b' : '#f8fafc',
-                fontSize: 14,
-              }}
-            >
-              {row.points}
-            </span>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -1663,6 +1658,10 @@ export function ChampionshipDetail({
   const [isRegenerating, startRegenTransition] = useTransition()
   const [mobileTab, setMobileTab] = useState<'schedule' | 'standings'>('schedule')
   const [isMobile, setIsMobile] = useState(false)
+  const effectiveDate = championship.playedAt ?? championship.createdAt
+  const [dateValue, setDateValue] = useState(effectiveDate.split('T')[0])
+  const [isSavingDate, startDateTransition] = useTransition()
+  const [dateError, setDateError] = useState<string | null>(null)
 
   const playerMap = new Map(players.map((p) => [p.id, p.displayName]))
   const avatarMap = new Map(players.map((p) => [p.id, p.avatarUrl]))
@@ -1808,6 +1807,17 @@ export function ChampionshipDetail({
     })
   }
 
+  function handleSaveDate(newDate: string | null) {
+    setDateError(null)
+    startDateTransition(async () => {
+      try {
+        await updateChampionshipDateAction(championship.id, newDate)
+      } catch (e) {
+        setDateError(e instanceof Error ? e.message : 'Failed to update date.')
+      }
+    })
+  }
+
   // ── Group knockout view ──
 
   if (isGroupKnockout) {
@@ -1862,6 +1872,11 @@ export function ChampionshipDetail({
           isAdmin={isAdmin}
           onAddMatch={() => setShowAddMatch(true)}
           onDelete={() => setShowDeleteConfirm(true)}
+          dateValue={dateValue}
+          onDateChange={setDateValue}
+          onSaveDate={handleSaveDate}
+          isSavingDate={isSavingDate}
+          dateError={dateError}
         />
 
         <div style={{ padding: '20px 20px 0' }}>
@@ -2078,6 +2093,7 @@ export function ChampionshipDetail({
             onClose={() => setShowDeleteConfirm(false)}
           />
         )}
+        <BottomNav userId={currentUserId} />
       </div>
     )
   }
@@ -2118,6 +2134,11 @@ export function ChampionshipDetail({
           isAdmin={isAdmin}
           onAddMatch={() => setShowAddMatch(true)}
           onDelete={() => setShowDeleteConfirm(true)}
+          dateValue={dateValue}
+          onDateChange={setDateValue}
+          onSaveDate={handleSaveDate}
+          isSavingDate={isSavingDate}
+          dateError={dateError}
         />
 
         {isMobile && (
@@ -2282,6 +2303,7 @@ export function ChampionshipDetail({
             onClose={() => setShowDeleteConfirm(false)}
           />
         )}
+        <BottomNav userId={currentUserId} />
       </div>
     )
   }
@@ -2326,6 +2348,11 @@ export function ChampionshipDetail({
         isAdmin={isAdmin}
         onAddMatch={() => setShowAddMatch(true)}
         onDelete={() => setShowDeleteConfirm(true)}
+        dateValue={dateValue}
+        onDateChange={setDateValue}
+        onSaveDate={handleSaveDate}
+        isSavingDate={isSavingDate}
+        dateError={dateError}
       />
 
       {isMobile && (
@@ -2511,6 +2538,7 @@ export function ChampionshipDetail({
           onClose={() => setShowDeleteConfirm(false)}
         />
       )}
+      <BottomNav userId={currentUserId} />
     </div>
   )
 }
@@ -2526,6 +2554,11 @@ function PageHeader({
   isAdmin,
   onAddMatch,
   onDelete,
+  dateValue,
+  onDateChange,
+  onSaveDate,
+  isSavingDate,
+  dateError,
 }: {
   name: string
   badge: string
@@ -2535,7 +2568,30 @@ function PageHeader({
   isAdmin: boolean
   onAddMatch: () => void
   onDelete: () => void
+  dateValue: string
+  onDateChange: (v: string) => void
+  onSaveDate: (v: string | null) => void
+  isSavingDate: boolean
+  dateError: string | null
 }) {
+  const [editingDate, setEditingDate] = useState(false)
+  const [localDate, setLocalDate] = useState(dateValue)
+
+  function handleSave() {
+    onDateChange(localDate)
+    onSaveDate(localDate || null)
+    setEditingDate(false)
+  }
+
+  function handleCancel() {
+    setLocalDate(dateValue)
+    setEditingDate(false)
+  }
+
+  const displayDate = new Date(dateValue + 'T12:00:00').toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  })
+
   return (
     <div
       style={{
@@ -2567,7 +2623,7 @@ function PageHeader({
           gap: 16,
         }}
       >
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <h1
             style={{
               margin: '0 0 8px',
@@ -2613,6 +2669,83 @@ function PageHeader({
               </span>
             )}
             <span style={{ fontSize: 12, color: '#94a3b8' }}>{meta}</span>
+          </div>
+
+          {/* Date row */}
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {editingDate ? (
+              <>
+                <input
+                  type="date"
+                  value={localDate}
+                  onChange={(e) => setLocalDate(e.target.value)}
+                  style={{
+                    padding: '4px 8px',
+                    background: '#0f1a2e',
+                    border: '1px solid #2563eb',
+                    borderRadius: 6,
+                    color: '#e2e8f0',
+                    fontSize: 12,
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={handleSave}
+                  disabled={isSavingDate}
+                  style={{
+                    padding: '4px 10px',
+                    background: '#2563eb',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: isSavingDate ? 'wait' : 'pointer',
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {isSavingDate ? '…' : 'Save'}
+                </button>
+                <button
+                  onClick={handleCancel}
+                  style={{
+                    padding: '4px 10px',
+                    background: 'transparent',
+                    color: '#94a3b8',
+                    border: '1px solid #1a2840',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  Cancel
+                </button>
+                {dateError && (
+                  <span style={{ fontSize: 11, color: '#f87171' }}>{dateError}</span>
+                )}
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: 12, color: '#64748b' }}>{displayDate}</span>
+                {isAdmin && (
+                  <button
+                    onClick={() => setEditingDate(true)}
+                    style={{
+                      padding: '2px 8px',
+                      background: 'rgba(255,255,255,0.05)',
+                      color: '#64748b',
+                      border: '1px solid #1a2840',
+                      borderRadius: 5,
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Edit date
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 

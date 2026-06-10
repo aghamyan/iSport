@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { CreateRivalryModal, type PlayerOption } from './CreateRivalryModal'
+import { BottomNav } from '@/app/components/BottomNav'
 
 type RivalryItem = {
   id: string
@@ -13,6 +14,7 @@ type RivalryItem = {
   player2Name: string
   player1Wins: number
   player2Wins: number
+  draws: number
   winnerId: string | null
   winnerName: string | null
   status: 'active' | 'completed'
@@ -96,7 +98,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map((r) => {
             const isMine = myRivalryIds.has(r.id)
-            const totalMatches = r.player1Wins + r.player2Wins
+            const totalMatches = r.player1Wins + r.player2Wins + r.draws
             return (
               <Link key={r.id} href={`/rivalries/${r.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div
@@ -160,16 +162,15 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                       fontSize: 12, color: '#6b7280',
                     }}
                   >
-                    <span>First to {r.bestOf} wins · {totalMatches} match{totalMatches !== 1 ? 'es' : ''} played</span>
+                    <span>Score to win: {r.bestOf} · {totalMatches} day{totalMatches !== 1 ? 's' : ''} played</span>
                     <span
                       style={{
                         padding: '2px 9px', borderRadius: 20, fontWeight: 700, fontSize: 11,
                         textTransform: 'uppercase', letterSpacing: '0.05em',
-                        background: r.status === 'active' ? '#dcfce7' : '#f3f4f6',
-                        color: r.status === 'active' ? '#16a34a' : '#6b7280',
+                        background: '#dcfce7', color: '#16a34a',
                       }}
                     >
-                      {r.status === 'active' ? 'Active' : `Won by ${r.winnerName}`}
+                      Active
                     </span>
                   </div>
                 </div>
@@ -182,6 +183,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
       {showCreate && (
         <CreateRivalryModal players={players} onClose={() => setShowCreate(false)} />
       )}
+      <BottomNav userId={currentUserId} />
     </div>
   )
 }

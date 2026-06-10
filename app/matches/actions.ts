@@ -116,6 +116,85 @@ export async function getPreMatchOddsAction(
   return calculateOdds(homeStats, awayStats, { homeForm, awayForm, h2h, matchType })
 }
 
+// ─── Rich preview data for the record-match modal ─────────────────────────────
+
+export type MatchPreviewData = {
+  odds: OddsResult
+  h2h: { homeWins: number; awayWins: number; draws: number; total: number } | null
+  homeForm: ('W' | 'L' | 'D')[]
+  awayForm: ('W' | 'L' | 'D')[]
+  homeWinRate: number
+  awayWinRate: number
+  homeGoalsPerGame: number
+  awayGoalsPerGame: number
+  homeMatchesPlayed: number
+  awayMatchesPlayed: number
+}
+
+export async function getMatchPreviewDataAction(
+  homeId: string,
+  awayId: string,
+): Promise<MatchPreviewData | null> {
+  if (!homeId || !awayId || homeId === awayId) return null
+
+  const supabase = createServiceClient()
+
+  const [statsResult, homeFormResult, awayFormResult, h2hResult] = await Promise.all([
+    supabase
+      .from('players')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .in('id', [homeId, awayId]),
+    supabase.rpc('get_player_form', { p_player_id: homeId, p_limit: 5 }),
+    supabase.rpc('get_player_form', { p_player_id: awayId, p_limit: 5 }),
+    supabase.rpc('get_h2h_stats',   { p_player1_id: homeId, p_player2_id: awayId }),
+  ])
+
+  if (statsResult.error || !statsResult.data) return null
+
+  const statsMap: Record<string, RawPlayer> = {}
+  for (const p of statsResult.data as RawPlayer[]) statsMap[p.id] = p
+
+  const homeRaw   = statsMap[homeId]
+  const awayRaw   = statsMap[awayId]
+  const homeStats = homeRaw ? toStats(homeRaw) : defaultStats
+  const awayStats = awayRaw ? toStats(awayRaw) : defaultStats
+  const homeForm  = toOddsForm(homeFormResult.data as FormRpcRow[] | null)
+  const awayForm  = toOddsForm(awayFormResult.data as FormRpcRow[] | null)
+  const h2hRaw    = h2hResult.data as H2HRpcRow[] | null
+  const h2hInput  = toH2HInput(h2hRaw, true)
+  const odds      = calculateOdds(homeStats, awayStats, { homeForm, awayForm, h2h: h2hInput, matchType: 'friendly' })
+
+  let h2h: MatchPreviewData['h2h'] = null
+  if (h2hRaw && h2hRaw.length > 0) {
+    const row   = h2hRaw[0]
+    const total = Number(row.total_matches)
+    if (total > 0) {
+      h2h = {
+        homeWins: Number(row.player1_wins),
+        awayWins: Number(row.player2_wins),
+        draws:    Number(row.draws),
+        total,
+      }
+    }
+  }
+
+  const hMp = homeRaw?.matches_played ?? 0
+  const aMp = awayRaw?.matches_played ?? 0
+
+  return {
+    odds,
+    h2h,
+    homeForm:          homeForm.map((f) => f.result),
+    awayForm:          awayForm.map((f) => f.result),
+    homeWinRate:       hMp > 0 ? Math.round((homeStats.wins / hMp) * 100) : 0,
+    awayWinRate:       aMp > 0 ? Math.round((awayStats.wins / aMp) * 100) : 0,
+    homeGoalsPerGame:  hMp > 0 ? Math.round(((homeStats.goalsFor ?? 0) / hMp) * 10) / 10 : 0,
+    awayGoalsPerGame:  aMp > 0 ? Math.round(((awayStats.goalsFor ?? 0) / aMp) * 10) / 10 : 0,
+    homeMatchesPlayed: hMp,
+    awayMatchesPlayed: aMp,
+  }
+}
+
 // ─── Batch-create friendly matches ────────────────────────────────────────────
 
 /**
@@ -217,24 +296,27 @@ export async function createMatchesBatchAction(
       home_handicap:        o.homeHandicap,
       away_handicap:        o.awayHandicap,
       home_stats_snapshot:  {
-        stats:       homeStats,
-        form:        homeForm,
-        factors:     o.homeFactors,
-        impliedProb: o.homeWinPct,
-        overround:   o.overround,
+        stats:         homeStats,
+        form:          homeForm,
+        factors:       o.homeFactors,
+        impliedProb:   o.homeWinPct,
+        overround:     o.overround,
+        expectedGoals: o.expectedHomeGoals,
       },
       away_stats_snapshot: {
-        stats:       awayStats,
-        form:        awayForm,
-        factors:     o.awayFactors,
-        impliedProb: o.awayWinPct,
-        overround:   o.overround,
+        stats:         awayStats,
+        form:          awayForm,
+        factors:       o.awayFactors,
+        impliedProb:   o.awayWinPct,
+        overround:     o.overround,
+        expectedGoals: o.expectedAwayGoals,
       },
     }
   })
 
   if (oddsRows.length > 0) {
-    const { error: oddsErr } = await supabase.from('match_odds').insert(oddsRows)
+    const serviceClient = createServiceClient()
+    const { error: oddsErr } = await serviceClient.from('match_odds').insert(oddsRows)
     if (oddsErr) throw new Error(oddsErr.message)
   }
 
@@ -268,12 +350,13 @@ export async function confirmMatchAction(
       away_score:   awayScore,
     })
     .eq('id', matchId)
-    .eq('away_player_id', session.sub)
+    .or(`home_player_id.eq.${session.sub},away_player_id.eq.${session.sub}`)
     .eq('status', 'pending')
 
   if (error) throw new Error(error.message)
   revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/matches')
+  revalidatePath('/')
 }
 
 // ─── Edit a confirmed match ────────────────────────────────────────────────────
@@ -303,8 +386,42 @@ export async function updateMatchAction(
     .from('friendly_matches')
     .update(payload)
     .eq('id', matchId)
+    .or(`home_player_id.eq.${session.sub},away_player_id.eq.${session.sub}`)
 
   if (error) throw new Error(error.message)
   revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/matches')
+  revalidatePath('/')
+}
+
+// ─── Delete a pending match ────────────────────────────────────────────────────
+
+export async function deleteMatchAction(matchId: string): Promise<void> {
+  const session = await getSession()
+  if (!session) throw new Error('Not authenticated')
+
+  // Use service client because RLS currently only allows admin deletes.
+  // We enforce ownership + status manually before deleting.
+  const supabase = createServiceClient()
+
+  const { data: match, error: fetchErr } = await supabase
+    .from('friendly_matches')
+    .select('id, home_player_id, away_player_id, status')
+    .eq('id', matchId)
+    .single()
+
+  if (fetchErr || !match) throw new Error('Match not found')
+  if (match.status !== 'pending') throw new Error('Only pending matches can be deleted')
+  if (match.home_player_id !== session.sub && match.away_player_id !== session.sub) {
+    throw new Error('Not authorised')
+  }
+
+  const { error } = await supabase
+    .from('friendly_matches')
+    .delete()
+    .eq('id', matchId)
+
+  if (error) throw new Error(error.message)
+  revalidatePath('/matches')
+  revalidatePath('/')
 }

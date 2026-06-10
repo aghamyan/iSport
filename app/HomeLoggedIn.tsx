@@ -1,14 +1,17 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useTransition } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { Trophy, Crown, Medal, Flame, Zap, TrendingUp, Swords, Target, BarChart3 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import supabase from '@/lib/supabase/client'
 import { CreateMatchModal } from '@/app/matches/CreateMatchModal'
 import type { ActivePlayer } from '@/app/matches/CreateMatchModal'
 import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader, CurrentChampion } from '@/lib/stats/types'
+import { BottomNav } from '@/app/components/BottomNav'
 import { logoutAction } from '@/lib/auth/actions'
+import { confirmMatchAction, deleteMatchAction } from '@/app/matches/actions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +36,24 @@ export type GlobalStats = {
   topScorerAvatarUrl: string | null
 }
 
+export type HomeMatchItem = {
+  id: string
+  homePlayerId: string
+  homePlayerName: string
+  homePlayerAvatarUrl: string | null
+  awayPlayerId: string
+  awayPlayerName: string
+  awayPlayerAvatarUrl: string | null
+  homeWinOdds: number
+  drawOdds: number
+  awayWinOdds: number
+  homeHandicap: number
+  homeWinPct: number
+  drawPct: number
+  awayWinPct: number
+  ouLine: string | null
+}
+
 type Props = {
   userId: string
   isAdmin: boolean
@@ -40,6 +61,7 @@ type Props = {
   myAvatarUrl: string | null
   myStats: PlayerStatsRow | null
   rank: number
+  p4pRank: number
   totalPlayers: number
   recentForm: FormEntry[]
   champPlacements: ChampionshipResult[]
@@ -47,7 +69,7 @@ type Props = {
   currentChampion: CurrentChampion | null
   rivalries: RivalryItem[]
   players: ActivePlayer[]
-  pendingMatchCount: number
+  pendingMatches: HomeMatchItem[]
   globalStats: GlobalStats
 }
 
@@ -78,24 +100,23 @@ function computeStreak(form: FormEntry[]): { type: 'W' | 'L' | 'D' | null; count
   return { type: latest, count }
 }
 
-function getTier(rank: number, total: number) {
+function getTier(rank: number, total: number): { label: string; color: string; icon: ReactNode } | null {
   if (rank <= 0 || total <= 0) return null
-  if (rank === 1) return { label: 'P4P #1', color: GOLD, icon: '👑' }
-  if (rank === 2) return { label: 'Runner-up', color: '#94a3b8', icon: '🥈' }
-  if (rank === 3) return { label: '3rd Place', color: '#cd7c3a', icon: '🥉' }
-  if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { label: 'Elite', color: '#60a5fa', icon: '⚡' }
-  return { label: 'Contender', color: MUTED, icon: '🎯' }
+  if (rank === 1) return { label: 'P4P #1', color: GOLD, icon: <Crown size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank === 2) return { label: 'Runner-up', color: '#94a3b8', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank === 3) return { label: '3rd Place', color: '#cd7c3a', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { label: 'Elite', color: '#60a5fa', icon: <Zap size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  return { label: 'Contender', color: MUTED, icon: <Target size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
 }
 
 // ─── Root component ───────────────────────────────────────────────────────────
 
 export function HomeLoggedIn({
-  userId, isAdmin, myName, myAvatarUrl, myStats, rank, totalPlayers,
+  userId, isAdmin, myName, myAvatarUrl, myStats, rank, p4pRank, totalPlayers,
   recentForm, champPlacements, champLeaders, currentChampion, rivalries, players,
-  pendingMatchCount, globalStats,
+  pendingMatches, globalStats,
 }: Props) {
-  const router   = useRouter()
-  const pathname = usePathname()
+  const router = useRouter()
   const [showAddMatch,    setShowAddMatch]    = useState(false)
   const [toast,           setToast]           = useState<string | null>(null)
   const [showAdminPrompt, setShowAdminPrompt] = useState(false)
@@ -114,7 +135,7 @@ export function HomeLoggedIn({
 
   const streak   = computeStreak(recentForm)
   const hotStreak = streak.type === 'W' && streak.count >= 3
-  const tier     = getTier(rank, totalPlayers)
+  const tier     = getTier(p4pRank, totalPlayers)
 
   // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -140,9 +161,9 @@ export function HomeLoggedIn({
         filter: `away_player_id=eq.${userId}`,
       }, (payload) => {
         router.refresh()
-        if (payload.eventType === 'INSERT') notify('New match challenge!')
         const n = payload.new as Record<string, unknown>
-        if (payload.eventType === 'UPDATE' && n.status === 'confirmed') notify('Match confirmed!')
+        if (payload.eventType === 'INSERT') notify('New match recorded!')
+        if (payload.eventType === 'UPDATE' && n.status === 'confirmed') notify('Score confirmed!')
       })
       .subscribe()
 
@@ -276,7 +297,7 @@ export function HomeLoggedIn({
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
             <div style={{
               borderRadius: '50%',
-              animation: rank === 1 ? 'ring-gold 2.8s ease-in-out infinite' : 'ring-blue 2.8s ease-in-out infinite',
+              animation: p4pRank === 1 ? 'ring-gold 2.8s ease-in-out infinite' : 'ring-blue 2.8s ease-in-out infinite',
               flexShrink: 0,
             }}>
               <PlayerAvatar name={myName} avatarUrl={myAvatarUrl} size={62} />
@@ -299,9 +320,9 @@ export function HomeLoggedIn({
                     {tier.icon} {tier.label}
                   </span>
                 )}
-                {rank > 0 && (
+                {p4pRank > 0 && (
                   <span style={{ fontSize: 11, color: TEXT2, fontWeight: 600 }}>
-                    #{rank} of {totalPlayers}
+                    #{p4pRank} of {totalPlayers}
                   </span>
                 )}
                 {hotStreak && (
@@ -312,7 +333,7 @@ export function HomeLoggedIn({
                     display: 'inline-flex', alignItems: 'center', gap: 3,
                     animation: 'fire-bounce 1.6s ease infinite',
                   }}>
-                    🔥 {streak.count} in a row
+                    <Flame size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {streak.count} in a row
                   </span>
                 )}
                 {!hotStreak && streak.type === 'W' && streak.count >= 2 && (
@@ -400,7 +421,7 @@ export function HomeLoggedIn({
             borderRadius: 12, padding: '11px 16px', marginBottom: 20,
             display: 'flex', alignItems: 'center', gap: 10,
           }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>⚡</span>
+            <Zap size={15} style={{ color: '#60a5fa', flexShrink: 0 }} />
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 12, color: TEXT2, flexWrap: 'wrap', flex: 1 }}>
               <span>
                 <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalMatches}</strong> matches
@@ -422,7 +443,7 @@ export function HomeLoggedIn({
                           style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                         />
                       )
-                      : <span>⚽</span>
+                      : <Trophy size={16} style={{ color: GOLD }} />
                     }
                     <strong style={{ color: GOLD, fontWeight: 700 }}>{globalStats.topScorerName}</strong>
                     <span style={{ color: MUTED }}>top scorer ({globalStats.topScorerGoals}g)</span>
@@ -433,22 +454,12 @@ export function HomeLoggedIn({
           </div>
         )}
 
-        {/* ── Pending match banner ─────────────────────────────── */}
-        {pendingMatchCount > 0 && (
-          <Link href="/leaderboard" style={{ textDecoration: 'none', display: 'block', marginBottom: 16 }}>
-            <div style={{
-              background: 'linear-gradient(135deg,rgba(245,158,11,0.12),rgba(234,88,12,0.08))',
-              border: `1px solid rgba(245,158,11,0.35)`,
-              borderRadius: 12, padding: '12px 16px',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 20 }}>⏳</span>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>
-                {pendingMatchCount} match{pendingMatchCount > 1 ? 'es' : ''} awaiting your confirmation
-              </span>
-              <span style={{ fontSize: 13, color: MUTED }}>→</span>
-            </div>
-          </Link>
+        {/* ── Pending matches — set score ───────────────────────── */}
+        {pendingMatches.length > 0 && (
+          <HomeMatchesList
+            matches={pendingMatches}
+            userId={userId}
+          />
         )}
 
         {/* ── Add match CTA ─────────────────────────────────────── */}
@@ -471,16 +482,16 @@ export function HomeLoggedIn({
         {/* ── Quick nav ─────────────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 30 }}>
           {([
-            { label: 'Leaderboard',   href: '/leaderboard',   icon: '📊' },
-            { label: 'Championships', href: '/championships', icon: '🏆' },
-            { label: 'Rivalries',     href: '/rivalries',     icon: '⚔️' },
-          ] as const).map((item) => (
+            { label: 'Leaderboard',   href: '/leaderboard',   icon: <BarChart3 size={22} style={{ color: ACCENT }} /> },
+            { label: 'Championships', href: '/championships', icon: <Trophy    size={22} style={{ color: GOLD  }} /> },
+            { label: 'Rivalries',     href: '/rivalries',     icon: <Swords   size={22} style={{ color: '#a78bfa' }} /> },
+          ] as { label: string; href: string; icon: ReactNode }[]).map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: CARD, border: `1px solid ${BORDER}`,
                 borderRadius: 12, padding: '14px 8px', textAlign: 'center',
               }}>
-                <div style={{ fontSize: 22, marginBottom: 5 }}>{item.icon}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 5, height: 26 }}>{item.icon}</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: TEXT2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {item.label}
                 </div>
@@ -491,7 +502,7 @@ export function HomeLoggedIn({
 
         {/* ── Current Champion ──────────────────────────────────── */}
         {currentChampion && (
-          <Section title="Current Champion" icon="🏆">
+          <Section title="Current Champion" icon={<Trophy size={13} style={{ color: GOLD }} />}>
             <Link href={`/championships/${currentChampion.championshipId}`} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: 'linear-gradient(135deg, rgba(245,158,11,0.13), rgba(251,191,36,0.06))',
@@ -513,7 +524,7 @@ export function HomeLoggedIn({
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 12,
                     boxShadow: '0 0 10px rgba(245,158,11,0.7)',
-                  }}>🏆</div>
+                  }}><Trophy size={12} style={{ color: '#fff' }} /></div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: GOLD, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
@@ -539,7 +550,7 @@ export function HomeLoggedIn({
 
         {/* ── Recent form ───────────────────────────────────────── */}
         {recentForm.length > 0 && (
-          <Section title="Recent Form" icon="📈">
+          <Section title="Recent Form" icon={<TrendingUp size={13} style={{ color: '#22c55e' }} />}>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
               {recentForm.slice(0, 7).map((entry) => (
                 <ResultPill key={entry.matchId} entry={entry} />
@@ -552,7 +563,7 @@ export function HomeLoggedIn({
         {activeChamps.length > 0 && (
           <Section
             title="My Championships"
-            icon="🏆"
+            icon={<Trophy size={13} style={{ color: GOLD }} />}
             action={<Link href="/championships" style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>View all →</Link>}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -572,7 +583,7 @@ export function HomeLoggedIn({
         {activeRivalries.length > 0 && (
           <Section
             title="My Rivalries"
-            icon="⚔️"
+            icon={<Swords size={13} style={{ color: '#a78bfa' }} />}
             action={<Link href="/rivalries" style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>View all →</Link>}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -607,7 +618,7 @@ export function HomeLoggedIn({
                       fontSize: c.rank <= 3 ? 16 : 12, fontWeight: 900,
                       color: c.rank === 1 ? GOLD : c.rank === 2 ? '#94a3b8' : c.rank === 3 ? '#cd7c3a' : MUTED,
                     }}>
-                      {c.rank === 1 ? '🏆' : c.rank === 2 ? '🥈' : c.rank === 3 ? '🥉' : `#${c.rank}`}
+                      {c.rank === 1 ? <Trophy size={16} /> : c.rank === 2 ? <Medal size={15} /> : c.rank === 3 ? <Medal size={14} /> : `#${c.rank}`}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -637,7 +648,7 @@ export function HomeLoggedIn({
             borderRadius: 16, padding: '40px 24px', textAlign: 'center',
             marginTop: 8,
           }}>
-            <div style={{ fontSize: 52, marginBottom: 14 }}>⚽</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><Trophy size={52} style={{ color: ACCENT, opacity: 0.6 }} /></div>
             <div style={{ fontSize: 18, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Ready to compete?</div>
             <div style={{ fontSize: 14, color: TEXT2, marginBottom: 24, lineHeight: 1.6 }}>
               Record your first match and start climbing<br />the leaderboard
@@ -659,47 +670,14 @@ export function HomeLoggedIn({
       </div>
 
       {/* ── Bottom nav ────────────────────────────────────────────── */}
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: 'rgba(12,20,34,0.96)', backdropFilter: 'blur(16px)',
-        borderTop: `1px solid ${BORDER}`,
-        display: 'flex', zIndex: 50,
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}>
-        {([
-          { label: 'Home',    href: '/',                  icon: '🏠' },
-          { label: 'Stats',   href: '/leaderboard',       icon: '📊' },
-          { label: 'Champs',  href: '/championships',     icon: '🏆' },
-          { label: 'Rivals',  href: '/rivalries',         icon: '⚔️' },
-          { label: 'Profile', href: `/players/${userId}`, icon: '👤' },
-        ] as const).map((item) => {
-          const isActive = item.href === '/'
-            ? pathname === '/'
-            : pathname.startsWith(item.href)
-          return (
-            <Link key={item.href} href={item.href} style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              padding: '10px 4px 8px', textDecoration: 'none', gap: 2,
-              borderTop: `2px solid ${isActive ? ACCENT : 'transparent'}`,
-            }}>
-              <span style={{ fontSize: 20 }}>{item.icon}</span>
-              <span style={{
-                fontSize: 9, fontWeight: 700,
-                color: isActive ? ACCENT : MUTED,
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-              }}>
-                {item.label}
-              </span>
-            </Link>
-          )
-        })}
-      </nav>
+      <BottomNav userId={userId} />
 
       {/* ── Modals ───────────────────────────────────────────────── */}
       {showAddMatch && (
         <CreateMatchModal
           currentUserId={userId}
           currentUserName={myName}
+          currentUserAvatarUrl={myAvatarUrl}
           players={players}
           onClose={() => setShowAddMatch(false)}
         />
@@ -782,12 +760,12 @@ function AdminPasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onC
   )
 }
 
-function Section({ title, children, action, icon }: { title: string; children: ReactNode; action?: ReactNode; icon?: string }) {
+function Section({ title, children, action, icon }: { title: string; children: ReactNode; action?: ReactNode; icon?: ReactNode }) {
   return (
     <div style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 5 }}>
-          {icon && <span style={{ fontSize: 13 }}>{icon}</span>}
+          {icon}
           {title}
         </span>
         {action}
@@ -823,6 +801,272 @@ function PlayerAvatar({ name, avatarUrl, size }: { name: string; avatarUrl?: str
   )
 }
 
+// ─── Pending matches section — home page inline score entry ───────────────────
+
+function HomeMatchesList({ matches, userId }: {
+  matches: HomeMatchItem[]
+  userId: string
+}) {
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
+        Matches · {matches.length}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {matches.map((match) => (
+          <HomeMatchCard key={match.id} match={match} userId={userId} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string }) {
+  const router = useRouter()
+  const [showForm, setShowForm] = useState(false)
+  const [homeScore, setHomeScore] = useState('')
+  const [awayScore, setAwayScore] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const [isDeleting, startDeleteTransition] = useTransition()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  function handleDelete() {
+    startDeleteTransition(async () => {
+      try {
+        await deleteMatchAction(match.id)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to delete.')
+        setShowDeleteConfirm(false)
+      }
+    })
+  }
+
+  function hdpLabel(h: number) { return h === 0 ? '±0' : h > 0 ? `+${h}` : `${h}` }
+
+  function handleConfirm() {
+    const h = parseInt(homeScore, 10)
+    const a = parseInt(awayScore, 10)
+    if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
+      setError('Enter valid scores (0 or more).')
+      return
+    }
+    setError(null)
+    startTransition(async () => {
+      try {
+        await confirmMatchAction(match.id, h, a)
+        router.refresh()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to set score.')
+      }
+    })
+  }
+
+  const isHome    = match.homePlayerId === userId
+  const myPlayer  = isHome ? match.homePlayerName : match.awayPlayerName
+  const oppPlayer = isHome ? match.awayPlayerName : match.homePlayerName
+  const myShort   = myPlayer.length  > 10 ? myPlayer.slice(0, 9)  + '…' : myPlayer
+  const oppShort  = oppPlayer.length > 10 ? oppPlayer.slice(0, 9) + '…' : oppPlayer
+
+  return (
+    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden' }}>
+
+      {/* VS row */}
+      <div style={{ padding: '13px 14px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0 }}>
+          <PlayerAvatar name={match.homePlayerName} avatarUrl={match.homePlayerAvatarUrl} size={28} />
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: match.homePlayerId === userId ? ACCENT : TEXT,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
+          }}>
+            {match.homePlayerId === userId ? 'You' : match.homePlayerName.split(' ')[0]}
+          </span>
+          <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, flexShrink: 0 }}>vs</span>
+          <PlayerAvatar name={match.awayPlayerName} avatarUrl={match.awayPlayerAvatarUrl} size={28} />
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: match.awayPlayerId === userId ? ACCENT : TEXT,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
+          }}>
+            {match.awayPlayerId === userId ? 'You' : match.awayPlayerName.split(' ')[0]}
+          </span>
+        </div>
+        <span style={{
+          fontSize: 9, fontWeight: 700, padding: '2px 7px',
+          background: 'rgba(245,158,11,0.1)', color: GOLD,
+          border: '1px solid rgba(245,158,11,0.25)', borderRadius: 5,
+          textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
+        }}>Friendly</span>
+      </div>
+
+      {/* Probability bar */}
+      <div style={{ display: 'flex', height: 3, margin: '0 14px', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${match.homeWinPct}%`, background: ACCENT }} />
+        <div style={{ width: `${match.drawPct}%`, background: '#334155' }} />
+        <div style={{ width: `${match.awayWinPct}%`, background: LOSS }} />
+      </div>
+
+      {/* Odds chips */}
+      <div style={{ padding: '10px 14px', display: 'flex', gap: 6 }}>
+        {[
+          { label: '1',   value: match.homeWinOdds.toFixed(2), c: '#60a5fa', bg: 'rgba(37,99,235,0.12)' },
+          { label: 'X',   value: match.drawOdds.toFixed(2),    c: TEXT2,     bg: 'rgba(71,85,105,0.2)'  },
+          { label: '2',   value: match.awayWinOdds.toFixed(2), c: '#f87171', bg: 'rgba(220,38,38,0.12)' },
+          { label: 'HDP', value: hdpLabel(match.homeHandicap), c: '#a78bfa', bg: 'rgba(139,92,246,0.12)' },
+          ...(match.ouLine ? [{ label: 'O/U', value: match.ouLine, c: GOLD, bg: 'rgba(245,158,11,0.1)' }] : []),
+        ].map((chip) => (
+          <div key={chip.label} style={{
+            flex: 1, textAlign: 'center', padding: '6px 3px',
+            background: chip.bg, borderRadius: 8, border: `1px solid ${chip.c}33`,
+          }}>
+            <div style={{ fontSize: 7, fontWeight: 700, color: chip.c, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{chip.label}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: chip.c }}>{chip.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer: Set Score + Delete buttons */}
+      {!showForm && !showDeleteConfirm && (
+        <div style={{ padding: '0 14px 12px', display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setShowForm(true)}
+            style={{
+              flex: 1, padding: '9px',
+              background: 'linear-gradient(135deg,#059669,#10b981)',
+              color: '#fff', border: 'none', borderRadius: 9,
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 2px 12px rgba(16,185,129,0.3)',
+            }}
+          >
+            Set Score
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            style={{
+              padding: '9px 14px',
+              background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)',
+              borderRadius: 9, color: '#f87171',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
+      {/* Inline delete confirmation */}
+      {showDeleteConfirm && (
+        <div style={{ borderTop: `1px solid rgba(220,38,38,0.25)`, padding: '12px 14px 14px', background: 'rgba(220,38,38,0.06)' }}>
+          <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: TEXT, textAlign: 'center' }}>
+            Remove this match?
+          </p>
+          <p style={{ margin: '0 0 14px', fontSize: 11, color: TEXT2, textAlign: 'center', lineHeight: 1.5 }}>
+            This is permanent and cannot be undone.
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+              style={{
+                flex: 1, padding: '9px',
+                background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
+                borderRadius: 8, color: TEXT2, fontSize: 13, fontWeight: 600,
+                cursor: isDeleting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              style={{
+                flex: 1, padding: '9px',
+                background: isDeleting ? 'rgba(220,38,38,0.3)' : 'linear-gradient(135deg,#b91c1c,#ef4444)',
+                border: 'none', borderRadius: 8, color: '#fff',
+                fontSize: 13, fontWeight: 700,
+                cursor: isDeleting ? 'not-allowed' : 'pointer',
+                boxShadow: isDeleting ? 'none' : '0 2px 12px rgba(239,68,68,0.35)',
+              }}
+            >
+              {isDeleting ? 'Deleting…' : 'Yes, Delete'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline score form */}
+      {showForm && (
+        <div style={{ borderTop: `1px solid ${BORDER}`, padding: '12px 14px', background: '#07101e' }}>
+          <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
+            Enter final score
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: MUTED, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                {myShort}
+              </div>
+              <input
+                type="number" min={0} max={99}
+                value={isHome ? homeScore : awayScore}
+                onChange={(e) => isHome ? setHomeScore(e.target.value) : setAwayScore(e.target.value)}
+                style={{
+                  width: 52, textAlign: 'center', padding: '8px 4px',
+                  background: 'rgba(255,255,255,0.07)', border: `1px solid ${BORDER}`,
+                  borderRadius: 8, fontSize: 22, fontWeight: 900, color: ACCENT, outline: 'none',
+                }}
+              />
+            </div>
+            <span style={{ fontSize: 18, color: MUTED, fontWeight: 700, marginTop: 16 }}>:</span>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 9, color: MUTED, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+                {oppShort}
+              </div>
+              <input
+                type="number" min={0} max={99}
+                value={isHome ? awayScore : homeScore}
+                onChange={(e) => isHome ? setAwayScore(e.target.value) : setHomeScore(e.target.value)}
+                style={{
+                  width: 52, textAlign: 'center', padding: '8px 4px',
+                  background: 'rgba(255,255,255,0.07)', border: `1px solid ${BORDER}`,
+                  borderRadius: 8, fontSize: 22, fontWeight: 900, color: '#f87171', outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+          {error && (
+            <p style={{ margin: '0 0 8px', fontSize: 11, color: LOSS, textAlign: 'center' }}>{error}</p>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => { setShowForm(false); setError(null); setHomeScore(''); setAwayScore('') }}
+              style={{
+                flex: 1, padding: '9px',
+                background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
+                borderRadius: 8, color: TEXT2, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={isPending}
+              style={{
+                flex: 2, padding: '9px',
+                background: isPending ? MUTED : 'linear-gradient(135deg,#059669,#10b981)',
+                border: 'none', borderRadius: 8, color: '#fff',
+                fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isPending ? 'Saving…' : 'Confirm Score'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ResultPill({ entry }: { entry: FormEntry }) {
   const isW = entry.result === 'W'
   const isL = entry.result === 'L'
@@ -848,7 +1092,7 @@ function ResultPill({ entry }: { entry: FormEntry }) {
         {entry.opponentName.split(' ')[0]}
       </div>
       {entry.matchType === 'championship' && (
-        <div style={{ fontSize: 8, color: GOLD, fontWeight: 700 }}>🏆</div>
+        <Trophy size={10} style={{ color: GOLD }} />
       )}
     </div>
   )
@@ -911,7 +1155,10 @@ function ChampCard({
           borderRadius: 10, padding: '12px 14px', marginBottom: 12,
         }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: isLeading ? GOLD : MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 9 }}>
-            {isLeading ? '👑 You\'re Leading' : '🏆 Current Leader'}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              {isLeading ? <Crown size={9} /> : <Trophy size={9} />}
+              {isLeading ? "You're Leading" : 'Current Leader'}
+            </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -923,7 +1170,7 @@ function ChampCard({
                   borderRadius: '50%', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', fontSize: 10,
                   boxShadow: '0 0 8px rgba(245,158,11,0.6)',
-                }}>👑</div>
+                }}><Crown size={10} style={{ color: '#fff' }} /></div>
               )}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -955,7 +1202,7 @@ function ChampCard({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: placement.rank <= 3 ? 16 : 13, fontWeight: 900, color: rankColor,
           }}>
-            {placement.rank === 1 ? '🏆' : placement.rank === 2 ? '🥈' : placement.rank === 3 ? '🥉' : `#${placement.rank}`}
+            {placement.rank === 1 ? <Trophy size={16} /> : placement.rank === 2 ? <Medal size={15} /> : placement.rank === 3 ? <Medal size={14} /> : `#${placement.rank}`}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 11, color: TEXT2 }}>Your position #{placement.rank}</div>

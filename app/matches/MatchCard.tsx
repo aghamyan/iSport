@@ -4,7 +4,6 @@ import { useState, useEffect, useTransition } from 'react'
 import supabase from '@/lib/supabase/client'
 import { confirmMatchAction } from './actions'
 import { EditMatchModal } from './EditMatchModal'
-import { useEditTimer } from './useEditTimer'
 import { useOddsFormat } from '@/lib/hooks/useOddsFormat'
 import { formatOdds, FORMAT_LABELS, type OddsFactor } from '@/lib/odds'
 
@@ -92,16 +91,12 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
     return () => { supabase.removeChannel(channel) }
   }, [match.id])
 
-  const { timeLeft, isExpired } = useEditTimer(
-    match.status === 'confirmed' ? match.editDeadline : null
-  )
-
-  const isLockedForUser = isExpired && !isAdmin
-  const canConfirm = match.status === 'pending' && match.awayPlayerId === currentUserId
+  const canConfirm =
+    match.status === 'pending' &&
+    (match.homePlayerId === currentUserId || match.awayPlayerId === currentUserId)
   const canEdit    =
     match.status === 'confirmed' &&
-    !isLockedForUser &&
-    (match.createdBy === currentUserId || isAdmin)
+    (match.homePlayerId === currentUserId || match.awayPlayerId === currentUserId || isAdmin)
 
   function handleConfirmSubmit() {
     const h = parseFloat(confirmHome)
@@ -147,20 +142,6 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: STATUS_COLOR[match.status] ?? '#6b7280' }}>
           {match.status}
         </span>
-        {match.status === 'confirmed' && (
-          <span
-            style={{
-              fontSize: 11, padding: '2px 8px', borderRadius: 4,
-              background: isExpired ? '#fee2e2' : '#fef9c3',
-              color: isExpired ? '#dc2626' : '#854d0e',
-              fontWeight: 500,
-            }}
-          >
-            {isExpired
-              ? isAdmin ? 'Locked (admin can still edit)' : 'Edit window closed'
-              : `Edit window: ${timeLeft}`}
-          </span>
-        )}
       </div>
 
       {/* ── Score row ── */}
@@ -252,7 +233,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
               onClick={() => setShowCF(true)}
               style={{ padding: '6px 14px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >
-              Confirm Match
+              Set Score
             </button>
           )}
           {canEdit && (
@@ -260,7 +241,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
               onClick={() => setShowEdit(true)}
               style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >
-              Edit
+              {match.homeScore === null && match.awayScore === null ? 'Set Score' : 'Edit Score'}
             </button>
           )}
         </div>

@@ -7,11 +7,12 @@ type Props = {
   rivalryId: string
   player1Name: string
   player2Name: string
+  targetScore: number
   onClose: () => void
   onSuccess: (matchId: string, p1Score: number, p2Score: number) => void
 }
 
-export function RecordMatchModal({ rivalryId, player1Name, player2Name, onClose, onSuccess }: Props) {
+export function RecordMatchModal({ rivalryId, player1Name, player2Name, targetScore, onClose, onSuccess }: Props) {
   const [p1Score, setP1Score] = useState('')
   const [p2Score, setP2Score] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -56,9 +57,21 @@ export function RecordMatchModal({ rivalryId, player1Name, player2Name, onClose,
         <h2 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 700, color: '#111827' }}>
           Record Match
         </h2>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>
-          Enter the final score. Draws don&apos;t count toward either player&apos;s series wins.
-        </p>
+        <div style={{ margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>
+            First to score {targetScore} wins the match (+1 in series).
+          </p>
+          <span
+            style={{
+              flexShrink: 0, fontSize: 11, fontWeight: 700,
+              padding: '2px 8px', borderRadius: 10,
+              background: '#eff6ff', color: '#2563eb',
+              border: '1px solid #bfdbfe',
+            }}
+          >
+            Target: {targetScore}
+          </span>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>

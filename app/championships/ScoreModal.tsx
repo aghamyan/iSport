@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { recordChampionshipScoreAction, updateChampionshipMatchAction } from './actions'
-import { useEditTimer } from '../matches/useEditTimer'
 
 type Props = {
   championshipId: string
@@ -29,12 +28,9 @@ export function ScoreModal({
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const { timeLeft, isExpired } = useEditTimer(editDeadline)
   const isEditMode = editDeadline !== null
-  const isLocked = isEditMode && isExpired && !isAdmin
 
   function handleSave() {
-    if (isLocked) return
 
     const h = homeScore !== '' ? parseInt(homeScore, 10) : NaN
     const a = awayScore !== '' ? parseInt(awayScore, 10) : NaN
@@ -115,30 +111,6 @@ export function ScoreModal({
           </button>
         </div>
 
-        {editDeadline && (
-          <div
-            style={{
-              padding: '8px 12px',
-              borderRadius: 7,
-              marginBottom: 20,
-              background: isExpired ? '#fee2e2' : '#fef9c3',
-              color: isExpired ? '#dc2626' : '#854d0e',
-              fontSize: 13,
-              fontWeight: 500,
-            }}
-          >
-            {isExpired ? (
-              isAdmin ? (
-                <>⚠️ Edit window expired — editing as <strong>admin</strong>.</>
-              ) : (
-                '🔒 Edit window has expired. Only admins can make changes.'
-              )
-            ) : (
-              <>⏱ Edit window closes in: <strong>{timeLeft}</strong></>
-            )}
-          </div>
-        )}
-
         <div
           style={{
             display: 'flex',
@@ -166,18 +138,18 @@ export function ScoreModal({
               placeholder="0"
               value={homeScore}
               onChange={(e) => setHomeScore(e.target.value)}
-              disabled={isLocked || isPending}
+              disabled={isPending}
               autoFocus
               style={{
                 width: 72,
                 textAlign: 'center',
                 padding: '8px',
-                border: `1px solid ${isLocked ? '#e5e7eb' : '#d1d5db'}`,
+                border: '1px solid #d1d5db',
                 borderRadius: 8,
                 fontSize: 28,
                 fontWeight: 800,
-                color: isLocked ? '#9ca3af' : '#111827',
-                background: isLocked ? '#f9fafb' : '#fff',
+                color: '#111827',
+                background: '#fff',
               }}
             />
           </div>
@@ -203,17 +175,17 @@ export function ScoreModal({
               placeholder="0"
               value={awayScore}
               onChange={(e) => setAwayScore(e.target.value)}
-              disabled={isLocked || isPending}
+              disabled={isPending}
               style={{
                 width: 72,
                 textAlign: 'center',
                 padding: '8px',
-                border: `1px solid ${isLocked ? '#e5e7eb' : '#d1d5db'}`,
+                border: '1px solid #d1d5db',
                 borderRadius: 8,
                 fontSize: 28,
                 fontWeight: 800,
-                color: isLocked ? '#9ca3af' : '#111827',
-                background: isLocked ? '#f9fafb' : '#fff',
+                color: '#111827',
+                background: '#fff',
               }}
             />
           </div>
@@ -239,14 +211,14 @@ export function ScoreModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={isPending || isLocked}
+            disabled={isPending}
             style={{
               padding: '8px 20px',
-              background: isPending || isLocked ? '#93c5fd' : '#2563eb',
+              background: isPending ? '#93c5fd' : '#2563eb',
               color: '#fff',
               border: 'none',
               borderRadius: 7,
-              cursor: isPending || isLocked ? 'not-allowed' : 'pointer',
+              cursor: isPending ? 'not-allowed' : 'pointer',
               fontWeight: 600,
               fontSize: 14,
               minWidth: 100,

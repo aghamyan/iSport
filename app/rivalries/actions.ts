@@ -18,18 +18,34 @@ function requireSession(session: Awaited<ReturnType<typeof getSession>>) {
  */
 export async function createRivalryAction(
   opponentId: string,
-  bestOf: number
+  bestOf: number,
+  history?: { myWins: number; opponentWins: number; draws: number }
 ): Promise<{ id: string }> {
   const session = requireSession(await getSession())
 
   if (opponentId === session.sub) throw new Error('You cannot start a rivalry with yourself')
-  if (!Number.isInteger(bestOf) || bestOf < 1 || bestOf > 20) {
-    throw new Error('Series length must be between 1 and 20')
+  if (!Number.isInteger(bestOf) || bestOf < 1 || bestOf > 999) {
+    throw new Error('Score target must be between 1 and 999')
+  }
+
+  if (history) {
+    const { myWins, opponentWins, draws } = history
+    if (!Number.isInteger(myWins) || myWins < 0 ||
+        !Number.isInteger(opponentWins) || opponentWins < 0 ||
+        !Number.isInteger(draws) || draws < 0) {
+      throw new Error('Initial scores must be non-negative integers')
+    }
   }
 
   const userId = session.sub
   const player1Id = userId < opponentId ? userId : opponentId
   const player2Id = userId < opponentId ? opponentId : userId
+
+  // Determine initial win counts (canonical ordering: player1 < player2 by uuid)
+  const isPlayer1 = userId < opponentId
+  const initialPlayer1Wins = history ? (isPlayer1 ? history.myWins : history.opponentWins) : 0
+  const initialPlayer2Wins = history ? (isPlayer1 ? history.opponentWins : history.myWins) : 0
+  const initialDraws = history?.draws ?? 0
 
   // Use authed client so the RLS insert policy (player1_id = auth.uid() OR player2_id = auth.uid()) applies
   const supabase = await getAuthedClient()
@@ -37,7 +53,16 @@ export async function createRivalryAction(
 
   const { data, error } = await supabase
     .from('rivalries')
-    .insert({ player1_id: player1Id, player2_id: player2Id, best_of: bestOf })
+    .insert({
+      player1_id:   player1Id,
+      player2_id:   player2Id,
+      best_of:      bestOf,
+      player1_wins: initialPlayer1Wins,
+      player2_wins: initialPlayer2Wins,
+      draws:        initialDraws,
+      winner_id:    null,
+      status:       'active',
+    })
     .select('id')
     .single()
 
@@ -115,6 +140,40 @@ export async function recordRivalryMatchAction(
   revalidatePath('/rivalries')
   revalidatePath(`/rivalries/${rivalryId}`)
   return { matchId: result.match_id }
+}
+
+// ─── Admin: set rivalry score ─────────────────────────────────────────────────
+
+export async function setRivalryScoreAction(
+  rivalryId: string,
+  player1Wins: number,
+  player2Wins: number,
+  draws: number
+): Promise<void> {
+  const session = requireSession(await getSession())
+  if (!session.isAdmin) throw new Error('Unauthorized')
+
+  if (!Number.isInteger(player1Wins) || player1Wins < 0 ||
+      !Number.isInteger(player2Wins) || player2Wins < 0 ||
+      !Number.isInteger(draws) || draws < 0) {
+    throw new Error('Scores must be non-negative integers')
+  }
+
+  const svc = createServiceClient()
+
+  const { error } = await svc
+    .from('rivalries')
+    .update({
+      player1_wins: player1Wins,
+      player2_wins: player2Wins,
+      draws,
+    })
+    .eq('id', rivalryId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/rivalries')
+  revalidatePath(`/rivalries/${rivalryId}`)
 }
 
 // ─── Admin: delete rivalry ────────────────────────────────────────────────────

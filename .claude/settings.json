@@ -44,13 +44,20 @@
       "Bash(git stash *)",
       "Bash(node -e \"const {revalidateTag} = require\\('next/cache'\\); console.log\\(revalidateTag.length\\)\")",
       "Bash(grep -n \"revalidateTag\" node_modules/next/dist/server/app-render/server-action-utilities.d.ts)",
-      "Bash(grep -A2 \"function revalidateTag\" node_modules/next/dist/server/web/spec-extension/revalidate-tag.d.ts)"
+      "Bash(grep -A2 \"function revalidateTag\" node_modules/next/dist/server/web/spec-extension/revalidate-tag.d.ts)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(node -e \"const {chromium}=require\\('/opt/homebrew/lib/node_modules/playwright'\\);console.log\\('found'\\)\")",
+      "Bash(npx --yes playwright@1.60.0 --version)",
+      "Bash(curl -s http://localhost:3000/players/ab8f0b60-0fd6-4a0e-af5f-33eb8e03e1c1 -L --max-redirs 2 -o /tmp/playerpage.html)",
+      "Bash(cat > *)"
     ],
     "additionalDirectories": [
       "/Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports",
       "/Users/arthuraghamyan/Desktop/Esports/app/championships",
       "/Users/arthuraghamyan/Desktop/Esports",
-      "/Users/arthuraghamyan/Desktop/esports"
+      "/Users/arthuraghamyan/Desktop/esports",
+      "/tmp"
     ]
   }
 }

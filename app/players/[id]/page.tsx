@@ -18,7 +18,7 @@ export default async function PlayerProfilePage({
 
   const [userResult, playerResult, badgesResult, rivalriesResult, formResult, placementsResult] =
     await Promise.all([
-      supabase.from('users').select('id, name, avatar_url, is_active').eq('id', id).single(),
+      supabase.from('users').select('id, name, avatar_url, intro_video_url, is_active').eq('id', id).single(),
       supabase
         .from('players')
         .select('wins, losses, draws, matches_played, goals_for, goals_against, goal_diff')
@@ -95,8 +95,9 @@ export default async function PlayerProfilePage({
       player={{
         id:            user.id,
         name:          user.name,
-        avatarUrl:     user.avatar_url as string | null,
-        isActive:      user.is_active,
+        avatarUrl:      user.avatar_url as string | null,
+        introVideoUrl:  user.intro_video_url as string | null,
+        isActive:       user.is_active,
         wins:          player?.wins ?? 0,
         losses:        player?.losses ?? 0,
         draws:         player?.draws ?? 0,
@@ -111,6 +112,7 @@ export default async function PlayerProfilePage({
       championshipPlacements={placementsResult}
       isOwnProfile={session.sub === id}
       isAdmin={session.isAdmin}
+      viewerId={session.sub}
     />
   )
 }

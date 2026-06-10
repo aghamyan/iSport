@@ -4,6 +4,8 @@ import {
   getLeaderboard,
   getRivalryWinners,
   getChampionshipLeaders,
+  getLastChampionshipPodium,
+  getChampionshipOnlyStats,
 } from '@/lib/stats/queries'
 import { rankByP4P } from '@/lib/stats/p4p'
 import { LeaderboardClient } from './LeaderboardClient'
@@ -12,10 +14,12 @@ export default async function LeaderboardPage() {
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const [players, rivalryWinners, championshipLeaders] = await Promise.all([
+  const [players, rivalryWinners, championshipLeaders, lastChampionshipPodium, champOnlyStats] = await Promise.all([
     getLeaderboard(),
     getRivalryWinners(),
     getChampionshipLeaders(),
+    getLastChampionshipPodium(),
+    getChampionshipOnlyStats(),
   ])
 
   const titlesByPlayer = new Map<string, number>()
@@ -25,7 +29,7 @@ export default async function LeaderboardPage() {
     }
   }
 
-  const p4pRanked = rankByP4P(players, titlesByPlayer)
+  const p4pRanked = rankByP4P(champOnlyStats, titlesByPlayer)
 
   return (
     <LeaderboardClient
@@ -33,6 +37,7 @@ export default async function LeaderboardPage() {
       rivalryWinners={rivalryWinners}
       championshipLeaders={championshipLeaders}
       p4pRanked={p4pRanked}
+      lastChampionshipPodium={lastChampionshipPodium}
       currentUserId={session.sub}
     />
   )
