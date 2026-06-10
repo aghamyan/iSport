@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports/memory/)",
+      "Bash(mkdir -p /Users/arthuraghamyan/Desktop/Esports/lib/championships && mkdir -p /Users/arthuraghamyan/Desktop/Esports/app/championships/\\\\[id\\\\])",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(awk '{print $NF}')",
+      "Bash(xargs ls)",
+      "Bash(npx --no next build)",
+      "Bash(ls -la /Users/arthuraghamyan/Desktop/Esports/ && echo \"---\" && cat /Users/arthuraghamyan/Desktop/Esports/package.json 2>/dev/null || echo \"NO package.json\")",
+      "Read(//Users/arthuraghamyan/Desktop/Esports/**)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path:'.env'}\\); const {createClient}=require\\('@supabase/supabase-js'\\); createClient\\(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY\\).storage.listBuckets\\(\\).then\\(r=>console.log\\(JSON.stringify\\(r,null,2\\)\\)\\)\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('next:', p.dependencies.next\\)\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/next/package.json'\\).version\\)\")",
+      "Bash(node -e ' *)",
+      "Read(//Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-esports/memory/**)",
+      "Read(//Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports/memory/**)",
+      "Bash(curl -s -X POST https://kwwprdilpccgbqjtcomx.supabase.co/rest/v1/rpc/exec_sql -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d3ByZGlscGNjZ2JxanRjb214Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk4NTI0NCwiZXhwIjoyMDk2NTYxMjQ0fQ.k8X-DAuaVqI6UsLvdO5ZPamKmBf7bNsoI5cRH3ugY_8' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d3ByZGlscGNjZ2JxanRjb214Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk4NTI0NCwiZXhwIjoyMDk2NTYxMjQ0fQ.k8X-DAuaVqI6UsLvdO5ZPamKmBf7bNsoI5cRH3ugY_8' -H 'Content-Type: application/json' -d '{\"query\": \"ALTER TYPE champ_format ADD VALUE IF NOT EXISTS '\\\\''group_playoff'\\\\''\"}')",
+      "Bash(supabase --version)",
+      "Bash(npm run *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(curl -s http://localhost:3000/leaderboard -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/)",
+      "Bash(find /Users/arthuraghamyan -name \"playwright\" -type f 2>/dev/null | head -5 *)",
+      "Read(//Users/arthuraghamyan/**)",
+      "Bash(npm list *)",
+      "Bash(curl -sv http://localhost:3000/leaderboard)",
+      "Bash(curl -s 'https://kwwprdilpccgbqjtcomx.supabase.co/rest/v1/users?select=id,name,access_code,is_active&is_active=eq.true&limit=1' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d3ByZGlscGNjZ2JxanRjb214Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk4NTI0NCwiZXhwIjoyMDk2NTYxMjQ0fQ.k8X-DAuaVqI6UsLvdO5ZPamKmBf7bNsoI5cRH3ugY_8' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d3ByZGlscGNjZ2JxanRjb214Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk4NTI0NCwiZXhwIjoyMDk2NTYxMjQ0fQ.k8X-DAuaVqI6UsLvdO5ZPamKmBf7bNsoI5cRH3ugY_8')",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s 'https://kwwprdilpccgbqjtcomx.supabase.co/rest/v1/users?select=id,name,access_code&name=eq.Artur%20Aghamyan&limit=1' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d3ByZGlscGNjZ2JxanRjb214Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk4NTI0NCwiZXhwIjoyMDk2NTYxMjQ0fQ.k8X-DAuaVqI6UsLvdO5ZPamKmBf7bNsoI5cRH3ugY_8' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d3ByZGlscGNjZ2JxanRjb214Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk4NTI0NCwiZXhwIjoyMDk2NTYxMjQ0fQ.k8X-DAuaVqI6UsLvdO5ZPamKmBf7bNsoI5cRH3ugY_8')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d[0]['access_code'] if d else 'none'\\)\")",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(pip3 show *)",
+      "Bash(git checkout *)"
+    ],
+    "additionalDirectories": [
+      "/Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports",
+      "/Users/arthuraghamyan/Desktop/Esports/app/championships",
+      "/Users/arthuraghamyan/Desktop/Esports",
+      "/Users/arthuraghamyan/Desktop/esports"
+    ]
+  }
+}

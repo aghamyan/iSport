@@ -1,0 +1,24 @@
+# ──────────────────────────────────────────────────────────────
+# Supabase
+# ──────────────────────────────────────────────────────────────
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Service role key — NEVER expose to the browser
+# Used only for: login access-code lookup + sessions table management
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# ──────────────────────────────────────────────────────────────
+# JWT
+# ──────────────────────────────────────────────────────────────
+# ⚠ CRITICAL: This MUST match your Supabase project's JWT secret.
+# Find it in: Supabase Dashboard → Project Settings → API → JWT Secret
+#
+# The session cookie IS the Supabase auth token (signed HS256).
+# Supabase uses this secret to validate Authorization headers, which
+# makes auth.uid() resolve correctly in RLS policies and triggers.
+# If these secrets don't match, all RLS write policies silently fail.
+SUPABASE_JWT_SECRET=your-supabase-jwt-secret
+
+# Optional: override default 30-day session duration
+# SESSION_DURATION_DAYS=30
