@@ -66,10 +66,10 @@ function mapMatch(m: {
 }) {
   const homeName = Array.isArray(m.home_player)
     ? m.home_player[0]?.display_name
-    : (m.home_player as { display_name: string } | null)?.display_name
+    : (m.home_player as unknown as { display_name: string } | null)?.display_name
   const awayName = Array.isArray(m.away_player)
     ? m.away_player[0]?.display_name
-    : (m.away_player as { display_name: string } | null)?.display_name
+    : (m.away_player as unknown as { display_name: string } | null)?.display_name
 
   return {
     id:         m.id,

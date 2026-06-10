@@ -46,7 +46,7 @@ export async function adminDeleteChampionshipAction(championshipId: string): Pro
   }
 
   await logAdminAction('delete_championship', 'championship', championshipId)
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/admin/championships')
   revalidatePath('/championships')
 }
@@ -105,7 +105,7 @@ export async function adminUpdateChampionshipMatchAction(
   if (error) throw new Error(error.message)
 
   await logAdminAction('edit_championship_match', 'championship', matchId, { championshipId, homeScore, awayScore, status })
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
   revalidatePath('/admin/championships')
 }
@@ -148,7 +148,7 @@ export async function adminDeleteChampionshipMatchAction(
   }
 
   await logAdminAction('delete_championship_match', 'championship', matchId, { championshipId })
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
   revalidatePath('/admin/championships')
 }

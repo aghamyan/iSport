@@ -38,7 +38,7 @@ export async function proxy(request: NextRequest) {
   if (token) {
     try {
       const { payload } = await jwtVerify(token, getSecret())
-      session = payload as typeof session
+      session = payload as unknown as { sub: string; isAdmin: boolean }
     } catch {
       // expired or tampered — treat as logged-out
     }

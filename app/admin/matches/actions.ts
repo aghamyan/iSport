@@ -39,7 +39,7 @@ export async function adminUpdateFriendlyMatchAction(
   if (error) throw new Error(error.message)
 
   await logAdminAction('edit_match_score', 'match', matchId, { homeScore, awayScore, status })
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/admin/matches')
   revalidatePath('/matches')
 }
@@ -81,7 +81,7 @@ export async function adminDeleteFriendlyMatchAction(matchId: string): Promise<v
     homePid: match?.home_player_id,
     awayPid: match?.away_player_id,
   })
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/admin/matches')
   revalidatePath('/matches')
 }

@@ -67,7 +67,7 @@ export default async function RivalryPage({
   }))
 
   const winnerBadge = (badgesResult.data ?? []).find((b) => {
-    const badge = b.badges as { badge_type: string } | null
+    const badge = b.badges as unknown as { badge_type: string } | null
     return badge?.badge_type === 'rivalry_won'
   })
 

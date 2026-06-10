@@ -47,7 +47,7 @@ export default async function ChampionshipPage({
   const champ = champResult.data
 
   const players = (playersResult.data ?? []).map((row) => {
-    const p = row.players as { id: string; display_name: string | null } | null
+    const p = row.players as unknown as { id: string; display_name: string | null } | null
     return {
       id: row.player_id,
       displayName: p?.display_name ?? 'Unknown',

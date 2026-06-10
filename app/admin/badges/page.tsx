@@ -46,9 +46,9 @@ export default async function AdminBadgesPage() {
     return {
       id:         pb.id,
       playerId:   pb.player_id,
-      playerName: (player as { display_name: string } | null)?.display_name ?? 'Unknown',
+      playerName: (player as unknown as { display_name: string } | null)?.display_name ?? 'Unknown',
       badgeId:    pb.badge_id,
-      badgeName:  (badge as { name: string } | null)?.name ?? 'Unknown',
+      badgeName:  (badge as unknown as { name: string } | null)?.name ?? 'Unknown',
       earnedAt:   pb.earned_at,
     }
   })

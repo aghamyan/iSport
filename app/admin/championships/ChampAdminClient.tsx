@@ -84,7 +84,7 @@ function EditCMatchModal({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           {[['HOME', homeScore, setHome], ['AWAY', awayScore, setAway]].map(([label, val, setter], i) => (
             <div key={String(label)}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>{label as string}</div>
               <input
                 type="number" min={0} max={99}
                 value={val as number}

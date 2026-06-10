@@ -37,7 +37,14 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(pip3 show *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(git commit *)",
+      "Bash(git reset *)",
+      "Bash(git branch *)",
+      "Bash(git stash *)",
+      "Bash(node -e \"const {revalidateTag} = require\\('next/cache'\\); console.log\\(revalidateTag.length\\)\")",
+      "Bash(grep -n \"revalidateTag\" node_modules/next/dist/server/app-render/server-action-utilities.d.ts)",
+      "Bash(grep -A2 \"function revalidateTag\" node_modules/next/dist/server/web/spec-extension/revalidate-tag.d.ts)"
     ],
     "additionalDirectories": [
       "/Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports",

@@ -272,7 +272,7 @@ export async function confirmMatchAction(
     .eq('status', 'pending')
 
   if (error) throw new Error(error.message)
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/matches')
 }
 
@@ -305,6 +305,6 @@ export async function updateMatchAction(
     .eq('id', matchId)
 
   if (error) throw new Error(error.message)
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath('/matches')
 }

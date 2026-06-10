@@ -208,7 +208,7 @@ export const getSeasonalStats = unstable_cache(
     const { data, error } = await query
     if (error || !data) return []
 
-    return (data as StandingsRow[]).map((row) => ({
+    return (data as unknown as StandingsRow[]).map((row) => ({
       championshipId:   row.championship_id,
       championshipName: row.championships?.name ?? 'Unknown',
       played:           row.played,

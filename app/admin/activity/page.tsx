@@ -27,7 +27,7 @@ export default async function AdminActivityPage() {
     const admin = Array.isArray(row.admin) ? row.admin[0] : row.admin
     return {
       id:         row.id,
-      adminName:  (admin as { name: string } | null)?.name ?? 'Unknown',
+      adminName:  (admin as unknown as { name: string } | null)?.name ?? 'Unknown',
       action:     row.action,
       entityType: row.entity_type,
       entityId:   row.entity_id,

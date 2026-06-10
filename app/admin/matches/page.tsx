@@ -24,8 +24,8 @@ export default async function AdminMatchesPage() {
 
   const matches = (data ?? []).map((m) => ({
     id:         m.id,
-    homePlayer: (m.home_player as { display_name: string } | null)?.display_name ?? 'Unknown',
-    awayPlayer: (m.away_player as { display_name: string } | null)?.display_name ?? 'Unknown',
+    homePlayer: (m.home_player as unknown as { display_name: string } | null)?.display_name ?? 'Unknown',
+    awayPlayer: (m.away_player as unknown as { display_name: string } | null)?.display_name ?? 'Unknown',
     homeScore:  m.home_score,
     awayScore:  m.away_score,
     status:     m.status as 'pending' | 'confirmed' | 'final',

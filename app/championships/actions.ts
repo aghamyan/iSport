@@ -596,7 +596,7 @@ export async function addExtraMatchAction(
     })
   }
 
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
 }
 
@@ -750,7 +750,7 @@ export async function recordChampionshipScoreAction(
     .eq('status', 'pending')
 
   if (error) throw new Error(error.message)
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
 }
 
@@ -775,6 +775,6 @@ export async function updateChampionshipMatchAction(
     .eq('id', matchId)
 
   if (error) throw new Error(error.message)
-  revalidateTag(STATS_CACHE_TAG)
+  revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
 }

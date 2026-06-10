@@ -60,7 +60,7 @@ export default async function PlayerProfilePage({
   for (const o of opponents ?? []) opponentMap[o.id] = o.name
 
   const badges = (badgesResult.data ?? []).map((b) => {
-    const badge = b.badges as {
+    const badge = b.badges as unknown as {
       name: string; description: string | null; badge_type: string; icon_url: string | null
     } | null
     return {
