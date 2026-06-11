@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { ConfirmDialog } from '@/app/components/ConfirmDialog'
+import { useTranslation } from '@/lib/i18n/context'
 import { createBadgeAction, deleteBadgeAction, awardBadgeAction, revokeBadgeAction } from './actions'
 
 type Badge = {
@@ -40,6 +41,7 @@ const S = {
 }
 
 function CreateBadgeModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const [pending, start] = useTransition()
   const [error, setError] = useState('')
 
@@ -65,25 +67,25 @@ function CreateBadgeModal({ onClose }: { onClose: () => void }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 420, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Create Badge</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{t('admin.badges.createTitle')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>×</button>
         </div>
         <form onSubmit={submit}>
-          <label style={S.label}>Name</label>
+          <label style={S.label}>{t('admin.badges.nameLabel')}</label>
           <input name="name" required style={{ ...S.input, marginBottom: 14 }} placeholder="e.g. Rivalry Champion" />
 
-          <label style={S.label}>Type</label>
+          <label style={S.label}>{t('admin.badges.typeLabel')}</label>
           <input name="badgeType" required style={{ ...S.input, marginBottom: 14 }} placeholder="e.g. rivalry_won, streak, milestone" />
 
-          <label style={S.label}>Description</label>
+          <label style={S.label}>{t('admin.badges.descLabel')}</label>
           <input name="description" style={{ ...S.input, marginBottom: 14 }} placeholder="Short description" />
 
-          <label style={S.label}>Icon URL (optional)</label>
+          <label style={S.label}>{t('admin.badges.iconLabel')}</label>
           <input name="iconUrl" style={{ ...S.input, marginBottom: 20 }} placeholder="https://..." />
 
           {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '0 0 12px' }}>{error}</p>}
           <button type="submit" disabled={pending} style={{ ...S.btn('#fff', '#2563eb'), padding: '10px 20px', fontSize: 14, width: '100%' }}>
-            {pending ? 'Creating…' : 'Create Badge'}
+            {pending ? t('admin.badges.creating') : t('admin.badges.createBtn')}
           </button>
         </form>
       </div>
@@ -92,6 +94,7 @@ function CreateBadgeModal({ onClose }: { onClose: () => void }) {
 }
 
 function AwardBadgeModal({ badges, players, onClose }: { badges: Badge[]; players: Player[]; onClose: () => void }) {
+  const { t } = useTranslation()
   const [playerId, setPlayerId] = useState('')
   const [badgeId, setBadgeId]   = useState('')
   const [pending, start]        = useTransition()
@@ -114,28 +117,28 @@ function AwardBadgeModal({ badges, players, onClose }: { badges: Badge[]; player
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 380, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Award Badge</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{t('admin.badges.awardTitle')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>×</button>
         </div>
         <form onSubmit={submit}>
-          <label style={S.label}>Player</label>
+          <label style={S.label}>{t('admin.badges.playerLabel')}</label>
           <select value={playerId} onChange={(e) => setPlayerId(e.target.value)} required
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: '100%', marginBottom: 14 }}>
-            <option value="">Select player…</option>
+            <option value="">{t('admin.badges.selectPlayer')}</option>
             {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
-          <label style={S.label}>Badge</label>
+          <label style={S.label}>{t('admin.badges.badgeLabel')}</label>
           <select value={badgeId} onChange={(e) => setBadgeId(e.target.value)} required
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: '100%', marginBottom: 20 }}>
-            <option value="">Select badge…</option>
+            <option value="">{t('admin.badges.selectBadge')}</option>
             {badges.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
 
           {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '0 0 12px' }}>{error}</p>}
           <button type="submit" disabled={pending || !playerId || !badgeId}
             style={{ ...S.btn('#fff', '#2563eb'), padding: '10px 20px', fontSize: 14, width: '100%' }}>
-            {pending ? 'Awarding…' : 'Award Badge'}
+            {pending ? t('admin.badges.awarding') : t('admin.badges.awardBadge')}
           </button>
         </form>
       </div>
@@ -144,6 +147,7 @@ function AwardBadgeModal({ badges, players, onClose }: { badges: Badge[]; player
 }
 
 export function BadgesAdminClient({ badges, playerBadges, players }: Props) {
+  const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
   const [showAward, setShowAward]   = useState(false)
   const [confirmDel, setConfirmDel] = useState<{ id: string; label: string } | null>(null)
@@ -170,27 +174,34 @@ export function BadgesAdminClient({ badges, playerBadges, players }: Props) {
     <div style={{ padding: '32px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>Badges</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>{badges.length} badge type{badges.length !== 1 ? 's' : ''} · {playerBadges.length} awarded</p>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('admin.card.badges')}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+            {t(badges.length !== 1 ? 'admin.badges.count.many' : 'admin.badges.count.one', { n: badges.length, awarded: playerBadges.length })}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setShowAward(true)} disabled={badges.length === 0 || players.length === 0}
             style={{ ...S.btn('#fff', '#2563eb'), padding: '9px 18px', fontSize: 14 }}>
-            + Award Badge
+            {t('admin.badges.awardBtn')}
           </button>
           <button onClick={() => setShowCreate(true)} style={{ ...S.btn('#374151', '#f3f4f6'), padding: '9px 18px', fontSize: 14 }}>
-            + New Badge Type
+            {t('admin.badges.newTypeBtn')}
           </button>
         </div>
       </div>
 
       {/* Badge definitions */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Badge Types</h2>
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('admin.badges.typesTitle')}</h2>
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', marginBottom: 32 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              {['Name', 'Type', 'Description', 'Actions'].map((h) => (
+              {[
+                t('admin.badges.col.name'),
+                t('admin.badges.col.type'),
+                t('admin.badges.col.desc'),
+                t('admin.badges.col.actions'),
+              ].map((h) => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
@@ -207,24 +218,29 @@ export function BadgesAdminClient({ badges, playerBadges, players }: Props) {
                 </td>
                 <td style={{ padding: '12px 16px', fontSize: 13, color: '#6b7280' }}>{b.description ?? '—'}</td>
                 <td style={{ padding: '12px 16px' }}>
-                  <button onClick={() => setConfirmDel({ id: b.id, label: b.name })} disabled={pending} style={S.btn('#fff', '#dc2626')}>Delete</button>
+                  <button onClick={() => setConfirmDel({ id: b.id, label: b.name })} disabled={pending} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {badges.length === 0 && (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>No badge types yet.</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{t('admin.badges.noTypes')}</div>
         )}
       </div>
 
       {/* Awarded badges */}
-      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Awarded Badges</h2>
+      <h2 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('admin.badges.awardedTitle')}</h2>
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              {['Player', 'Badge', 'Awarded', 'Actions'].map((h) => (
+              {[
+                t('admin.badges.col.player'),
+                t('admin.badges.col.badge'),
+                t('admin.badges.col.awarded'),
+                t('admin.badges.col.actions'),
+              ].map((h) => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
@@ -236,14 +252,14 @@ export function BadgesAdminClient({ badges, playerBadges, players }: Props) {
                 <td style={{ padding: '12px 16px', fontSize: 13 }}>{pb.badgeName}</td>
                 <td style={{ padding: '12px 16px', fontSize: 12, color: '#6b7280' }}>{new Date(pb.earnedAt).toLocaleDateString()}</td>
                 <td style={{ padding: '12px 16px' }}>
-                  <button onClick={() => setConfirmRevoke({ id: pb.id, label: `${pb.badgeName} from ${pb.playerName}` })} disabled={pending} style={S.btn('#fff', '#dc2626')}>Revoke</button>
+                  <button onClick={() => setConfirmRevoke({ id: pb.id, label: `${pb.badgeName} from ${pb.playerName}` })} disabled={pending} style={S.btn('#fff', '#dc2626')}>{t('common.revoke')}</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         {playerBadges.length === 0 && (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>No badges awarded yet.</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{t('admin.badges.noAwarded')}</div>
         )}
       </div>
 
@@ -251,9 +267,9 @@ export function BadgesAdminClient({ badges, playerBadges, players }: Props) {
       {showAward && <AwardBadgeModal badges={badges} players={players} onClose={() => setShowAward(false)} />}
       {confirmDel && (
         <ConfirmDialog
-          title={`Delete badge "${confirmDel.label}"?`}
-          message="This will also remove this badge from all players who have it."
-          confirmLabel="Delete Badge"
+          title={t('admin.badges.deleteTitle', { name: confirmDel.label })}
+          message={t('admin.badges.deleteMsg')}
+          confirmLabel={t('admin.badges.deleteBadge')}
           danger
           onConfirm={doDeleteBadge}
           onCancel={() => setConfirmDel(null)}
@@ -261,9 +277,9 @@ export function BadgesAdminClient({ badges, playerBadges, players }: Props) {
       )}
       {confirmRevoke && (
         <ConfirmDialog
-          title="Revoke badge?"
-          message={`Revoke "${confirmRevoke.label}"? This cannot be undone.`}
-          confirmLabel="Revoke"
+          title={t('admin.badges.revokeTitle')}
+          message={t('admin.badges.revokeMsg', { label: confirmRevoke.label })}
+          confirmLabel={t('admin.badges.revokeBtn')}
           danger
           onConfirm={doRevoke}
           onCancel={() => setConfirmRevoke(null)}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { ConfirmDialog } from '@/app/components/ConfirmDialog'
+import { useTranslation } from '@/lib/i18n/context'
 import { adminDeleteFriendlyMatchAction, adminUpdateFriendlyMatchAction } from './actions'
 
 type Match = {
@@ -45,6 +46,7 @@ const S = {
 }
 
 function EditMatchModal({ match, onClose }: { match: Match; onClose: () => void }) {
+  const { t } = useTranslation()
   const [homeScore, setHome] = useState(match.homeScore ?? 0)
   const [awayScore, setAway] = useState(match.awayScore ?? 0)
   const [status, setStatus]  = useState<'pending' | 'confirmed' | 'final'>(match.status)
@@ -66,7 +68,7 @@ function EditMatchModal({ match, onClose }: { match: Match; onClose: () => void 
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 400, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Edit Match</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{t('admin.matches.editTitle')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>×</button>
         </div>
 
@@ -87,24 +89,26 @@ function EditMatchModal({ match, onClose }: { match: Match; onClose: () => void 
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {t('admin.matches.col.status')}
+          </div>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as typeof status)}
             style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: '100%' }}
           >
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="final">Final (locked)</option>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="confirmed">{t('admin.status.confirmed')}</option>
+            <option value="final">{t('admin.status.final')}</option>
           </select>
         </div>
 
         {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '0 0 12px' }}>{error}</p>}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={S.btn('#374151', '#f3f4f6')}>Cancel</button>
+          <button onClick={onClose} style={S.btn('#374151', '#f3f4f6')}>{t('common.cancel')}</button>
           <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>
-            {pending ? 'Saving…' : 'Save Changes'}
+            {pending ? t('common.saving') : t('admin.matches.saveChanges')}
           </button>
         </div>
       </div>
@@ -113,6 +117,7 @@ function EditMatchModal({ match, onClose }: { match: Match; onClose: () => void 
 }
 
 function MatchRow({ match }: { match: Match }) {
+  const { t } = useTranslation()
   const [editing, setEditing]   = useState(false)
   const [confirm, setConfirm]   = useState(false)
   const [pending, start]        = useTransition()
@@ -146,17 +151,17 @@ function MatchRow({ match }: { match: Match }) {
         </td>
         <td style={{ padding: '12px 16px' }}>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => setEditing(true)} style={S.btn('#374151', '#f3f4f6')}>Edit</button>
-            <button onClick={() => setConfirm(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>Delete</button>
+            <button onClick={() => setEditing(true)} style={S.btn('#374151', '#f3f4f6')}>{t('common.edit')}</button>
+            <button onClick={() => setConfirm(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
           </div>
         </td>
       </tr>
       {editing && <EditMatchModal match={match} onClose={() => setEditing(false)} />}
       {confirm && (
         <ConfirmDialog
-          title="Delete match?"
-          message={`${match.homePlayer} vs ${match.awayPlayer} will be permanently deleted and player stats will be recomputed.`}
-          confirmLabel="Delete"
+          title={t('admin.matches.deleteTitle')}
+          message={t('admin.matches.deleteMsg', { home: match.homePlayer, away: match.awayPlayer })}
+          confirmLabel={t('common.delete')}
           danger
           onConfirm={doDelete}
           onCancel={() => setConfirm(false)}
@@ -167,16 +172,26 @@ function MatchRow({ match }: { match: Match }) {
 }
 
 export function MatchesAdminClient({ matches }: Props) {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'final'>('all')
 
   const visible = filter === 'all' ? matches : matches.filter((m) => m.status === filter)
+
+  const FILTER_LABELS: Record<string, string> = {
+    all:       t('rivalry.filter.all'),
+    pending:   t('admin.status.pending'),
+    confirmed: t('admin.status.confirmed'),
+    final:     t('admin.status.final'),
+  }
 
   return (
     <div style={{ padding: '32px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>Matches</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>{matches.length} friendly match{matches.length !== 1 ? 'es' : ''}</p>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('admin.card.matches')}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+            {t(matches.length !== 1 ? 'admin.matches.count.many' : 'admin.matches.count.one', { n: matches.length })}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {(['all', 'pending', 'confirmed', 'final'] as const).map((f) => (
@@ -193,10 +208,9 @@ export function MatchesAdminClient({ matches }: Props) {
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 600,
-                textTransform: 'capitalize',
               }}
             >
-              {f}
+              {FILTER_LABELS[f]}
             </button>
           ))}
         </div>
@@ -206,7 +220,12 @@ export function MatchesAdminClient({ matches }: Props) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              {['Match', 'Score', 'Status', 'Actions'].map((h) => (
+              {[
+                t('admin.matches.col.match'),
+                t('admin.matches.col.score'),
+                t('admin.matches.col.status'),
+                t('admin.matches.col.actions'),
+              ].map((h) => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
               ))}
             </tr>
@@ -216,7 +235,7 @@ export function MatchesAdminClient({ matches }: Props) {
           </tbody>
         </table>
         {visible.length === 0 && (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>No matches found.</div>
+          <div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{t('admin.matches.noMatches')}</div>
         )}
       </div>
     </div>

@@ -12,6 +12,7 @@ import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader,
 import { BottomNav } from '@/app/components/BottomNav'
 import { logoutAction } from '@/lib/auth/actions'
 import { confirmMatchAction, deleteMatchAction } from '@/app/matches/actions'
+import { useTranslation } from '@/lib/i18n/context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -100,13 +101,13 @@ function computeStreak(form: FormEntry[]): { type: 'W' | 'L' | 'D' | null; count
   return { type: latest, count }
 }
 
-function getTier(rank: number, total: number): { label: string; color: string; icon: ReactNode } | null {
+function getTierKey(rank: number, total: number): { labelKey: string; color: string; icon: ReactNode } | null {
   if (rank <= 0 || total <= 0) return null
-  if (rank === 1) return { label: 'P4P #1', color: GOLD, icon: <Crown size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
-  if (rank === 2) return { label: 'Runner-up', color: '#94a3b8', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
-  if (rank === 3) return { label: '3rd Place', color: '#cd7c3a', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
-  if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { label: 'Elite', color: '#60a5fa', icon: <Zap size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
-  return { label: 'Contender', color: MUTED, icon: <Target size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank === 1) return { labelKey: 'home.tier.p4pNo1', color: GOLD, icon: <Crown size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank === 2) return { labelKey: 'home.tier.runnerUp', color: '#94a3b8', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank === 3) return { labelKey: 'home.tier.thirdPlace', color: '#cd7c3a', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { labelKey: 'home.tier.elite', color: '#60a5fa', icon: <Zap size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  return { labelKey: 'home.tier.contender', color: MUTED, icon: <Target size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
 }
 
 // ─── Root component ───────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ export function HomeLoggedIn({
   pendingMatches, globalStats,
 }: Props) {
   const router = useRouter()
+  const { t } = useTranslation()
   const [showAddMatch,    setShowAddMatch]    = useState(false)
   const [toast,           setToast]           = useState<string | null>(null)
   const [showAdminPrompt, setShowAdminPrompt] = useState(false)
@@ -135,7 +137,7 @@ export function HomeLoggedIn({
 
   const streak   = computeStreak(recentForm)
   const hotStreak = streak.type === 'W' && streak.count >= 3
-  const tier     = getTier(p4pRank, totalPlayers)
+  const tier     = getTierKey(p4pRank, totalPlayers)
 
   // ── Realtime ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -151,7 +153,7 @@ export function HomeLoggedIn({
       }, (payload) => {
         router.refresh()
         const n = payload.new as Record<string, unknown>
-        if (payload.eventType === 'UPDATE' && n.status === 'confirmed') notify('Match confirmed!')
+        if (payload.eventType === 'UPDATE' && n.status === 'confirmed') notify(t('home.toast.confirmed'))
       })
       .subscribe()
 
@@ -162,8 +164,8 @@ export function HomeLoggedIn({
       }, (payload) => {
         router.refresh()
         const n = payload.new as Record<string, unknown>
-        if (payload.eventType === 'INSERT') notify('New match recorded!')
-        if (payload.eventType === 'UPDATE' && n.status === 'confirmed') notify('Score confirmed!')
+        if (payload.eventType === 'INSERT') notify(t('home.toast.newMatch'))
+        if (payload.eventType === 'UPDATE' && n.status === 'confirmed') notify(t('home.toast.scoreConfirmed'))
       })
       .subscribe()
 
@@ -174,7 +176,7 @@ export function HomeLoggedIn({
         const n = payload.new as Record<string, unknown>
         if (n.player1_id === userId || n.player2_id === userId) {
           router.refresh()
-          if (n.status === 'completed') notify('Rivalry completed!')
+          if (n.status === 'completed') notify(t('home.toast.rivalryCompleted'))
         }
       })
       .subscribe()
@@ -250,11 +252,11 @@ export function HomeLoggedIn({
                 padding: '4px 10px', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer',
               }}
             >
-              Admin
+              {t('common.admin')}
             </button>
           )}
           <Link href={`/players/${userId}`} style={{ fontSize: 13, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>
-            Profile →
+            {t('common.profile')}
           </Link>
           <form action={logoutAction}>
             <button type="submit" style={{
@@ -262,7 +264,7 @@ export function HomeLoggedIn({
               border: `1px solid ${BORDER}`, borderRadius: 6,
               padding: '4px 10px', cursor: 'pointer',
             }}>
-              Sign out
+              {t('common.signOut')}
             </button>
           </form>
         </div>
@@ -317,12 +319,12 @@ export function HomeLoggedIn({
                     borderRadius: 6, border: `1px solid ${tier.color}40`,
                     textTransform: 'uppercase', letterSpacing: '0.07em',
                   }}>
-                    {tier.icon} {tier.label}
+                    {tier.icon} {t(tier.labelKey)}
                   </span>
                 )}
                 {p4pRank > 0 && (
                   <span style={{ fontSize: 11, color: TEXT2, fontWeight: 600 }}>
-                    #{p4pRank} of {totalPlayers}
+                    #{p4pRank} {t('lb.ofPlayers', { n: totalPlayers })}
                   </span>
                 )}
                 {hotStreak && (
@@ -333,14 +335,14 @@ export function HomeLoggedIn({
                     display: 'inline-flex', alignItems: 'center', gap: 3,
                     animation: 'fire-bounce 1.6s ease infinite',
                   }}>
-                    <Flame size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {streak.count} in a row
+                    <Flame size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {t('home.streak.inARow', { n: streak.count })}
                   </span>
                 )}
                 {!hotStreak && streak.type === 'W' && streak.count >= 2 && (
-                  <span style={{ fontSize: 11, color: WIN, fontWeight: 600 }}>↑ {streak.count}W streak</span>
+                  <span style={{ fontSize: 11, color: WIN, fontWeight: 600 }}>{t('home.streak.wStreak', { n: streak.count })}</span>
                 )}
                 {streak.type === 'L' && streak.count >= 2 && (
-                  <span style={{ fontSize: 11, color: LOSS, fontWeight: 600 }}>↓ {streak.count}L streak</span>
+                  <span style={{ fontSize: 11, color: LOSS, fontWeight: 600 }}>{t('home.streak.lStreak', { n: streak.count })}</span>
                 )}
               </div>
             </div>
@@ -349,10 +351,10 @@ export function HomeLoggedIn({
           {/* Stat tiles */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
             {([
-              { label: 'Wins',   value: stats.wins,     color: WIN,       bg: 'rgba(16,185,129,0.1)',  bd: 'rgba(16,185,129,0.25)' },
-              { label: 'Losses', value: stats.losses,   color: LOSS,      bg: 'rgba(239,68,68,0.1)',   bd: 'rgba(239,68,68,0.25)'  },
-              { label: 'Draws',  value: stats.draws,    color: DRAW,      bg: 'rgba(245,158,11,0.1)',  bd: 'rgba(245,158,11,0.25)' },
-              { label: 'Goals',  value: stats.goalsFor, color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', bd: 'rgba(96,165,250,0.25)' },
+              { label: t('common.wins'),   value: stats.wins,     color: WIN,       bg: 'rgba(16,185,129,0.1)',  bd: 'rgba(16,185,129,0.25)' },
+              { label: t('common.losses'), value: stats.losses,   color: LOSS,      bg: 'rgba(239,68,68,0.1)',   bd: 'rgba(239,68,68,0.25)'  },
+              { label: t('common.draws'),  value: stats.draws,    color: DRAW,      bg: 'rgba(245,158,11,0.1)',  bd: 'rgba(245,158,11,0.25)' },
+              { label: t('common.goals'),  value: stats.goalsFor, color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', bd: 'rgba(96,165,250,0.25)' },
             ]).map(({ label, value, color, bg, bd }) => (
               <div key={label} className="stat-tile" style={{
                 background: bg, border: `1px solid ${bd}`,
@@ -374,7 +376,7 @@ export function HomeLoggedIn({
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
                 <span style={{ fontSize: 9, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  Win Rate
+                  {t('common.winRate')}
                 </span>
                 <span style={{ fontSize: 14, fontWeight: 900, color: winRate >= 60 ? WIN : winRate >= 40 ? DRAW : TEXT2 }}>
                   {winRate}%
@@ -424,11 +426,11 @@ export function HomeLoggedIn({
             <Zap size={15} style={{ color: '#60a5fa', flexShrink: 0 }} />
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 12, color: TEXT2, flexWrap: 'wrap', flex: 1 }}>
               <span>
-                <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalMatches}</strong> matches
+                <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalMatches}</strong> {t('home.community.matches')}
               </span>
               <span style={{ color: BORDER }}>·</span>
               <span>
-                <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalGoals}</strong> goals
+                <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalGoals}</strong> {t('home.community.goals')}
               </span>
               {globalStats.topScorerName && globalStats.topScorerGoals > 0 && (
                 <>
@@ -446,7 +448,7 @@ export function HomeLoggedIn({
                       : <Trophy size={16} style={{ color: GOLD }} />
                     }
                     <strong style={{ color: GOLD, fontWeight: 700 }}>{globalStats.topScorerName}</strong>
-                    <span style={{ color: MUTED }}>top scorer ({globalStats.topScorerGoals}g)</span>
+                    <span style={{ color: MUTED }}>{t('home.community.topScorer', { n: globalStats.topScorerGoals })}</span>
                   </span>
                 </>
               )}
@@ -476,15 +478,15 @@ export function HomeLoggedIn({
           }}
         >
           <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
-          Record a Match
+          {t('home.recordMatch')}
         </button>
 
         {/* ── Quick nav ─────────────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 30 }}>
           {([
-            { label: 'Leaderboard',   href: '/leaderboard',   icon: <BarChart3 size={22} style={{ color: ACCENT }} /> },
-            { label: 'Championships', href: '/championships', icon: <Trophy    size={22} style={{ color: GOLD  }} /> },
-            { label: 'Rivalries',     href: '/rivalries',     icon: <Swords   size={22} style={{ color: '#a78bfa' }} /> },
+            { label: t('home.quickNav.leaderboard'),   href: '/leaderboard',   icon: <BarChart3 size={22} style={{ color: ACCENT }} /> },
+            { label: t('home.quickNav.championships'), href: '/championships', icon: <Trophy    size={22} style={{ color: GOLD  }} /> },
+            { label: t('home.quickNav.rivalries'),     href: '/rivalries',     icon: <Swords   size={22} style={{ color: '#a78bfa' }} /> },
           ] as { label: string; href: string; icon: ReactNode }[]).map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div style={{
@@ -502,7 +504,7 @@ export function HomeLoggedIn({
 
         {/* ── Current Champion ──────────────────────────────────── */}
         {currentChampion && (
-          <Section title="Current Champion" icon={<Trophy size={13} style={{ color: GOLD }} />}>
+          <Section title={t('home.section.currentChampion')} icon={<Trophy size={13} style={{ color: GOLD }} />}>
             <Link href={`/championships/${currentChampion.championshipId}`} style={{ textDecoration: 'none' }}>
               <div style={{
                 background: 'linear-gradient(135deg, rgba(245,158,11,0.13), rgba(251,191,36,0.06))',
@@ -540,7 +542,7 @@ export function HomeLoggedIn({
                   </div>
                 </div>
                 <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  <div style={{ fontSize: 9, color: GOLD, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Pts</div>
+                  <div style={{ fontSize: 9, color: GOLD, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>{t('common.pts').toUpperCase()}</div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: GOLD, lineHeight: 1 }}>{currentChampion.points}</div>
                 </div>
               </div>
@@ -550,7 +552,7 @@ export function HomeLoggedIn({
 
         {/* ── Recent form ───────────────────────────────────────── */}
         {recentForm.length > 0 && (
-          <Section title="Recent Form" icon={<TrendingUp size={13} style={{ color: '#22c55e' }} />}>
+          <Section title={t('home.section.recentForm')} icon={<TrendingUp size={13} style={{ color: '#22c55e' }} />}>
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
               {recentForm.slice(0, 7).map((entry) => (
                 <ResultPill key={entry.matchId} entry={entry} />
@@ -562,9 +564,9 @@ export function HomeLoggedIn({
         {/* ── Active championships ──────────────────────────────── */}
         {activeChamps.length > 0 && (
           <Section
-            title="My Championships"
+            title={t('home.section.myChampionships')}
             icon={<Trophy size={13} style={{ color: GOLD }} />}
-            action={<Link href="/championships" style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>View all →</Link>}
+            action={<Link href="/championships" style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>{t('common.viewAll')}</Link>}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {activeChamps.map((c) => {
@@ -582,9 +584,9 @@ export function HomeLoggedIn({
         {/* ── Active rivalries ──────────────────────────────────── */}
         {activeRivalries.length > 0 && (
           <Section
-            title="My Rivalries"
+            title={t('home.section.myRivalries')}
             icon={<Swords size={13} style={{ color: '#a78bfa' }} />}
-            action={<Link href="/rivalries" style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>View all →</Link>}
+            action={<Link href="/rivalries" style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>{t('common.viewAll')}</Link>}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {activeRivalries.map((r) => (
@@ -599,8 +601,8 @@ export function HomeLoggedIn({
         {/* ── Past championships ────────────────────────────────── */}
         {completedChamps.length > 0 && (
           <Section
-            title="Past Championships"
-            action={<Link href="/championships" style={{ fontSize: 12, color: MUTED, textDecoration: 'none' }}>View all →</Link>}
+            title={t('home.section.pastChampionships')}
+            action={<Link href="/championships" style={{ fontSize: 12, color: MUTED, textDecoration: 'none' }}>{t('common.viewAll')}</Link>}
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {completedChamps.slice(0, 3).map((c) => (
@@ -630,7 +632,7 @@ export function HomeLoggedIn({
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: 16, fontWeight: 900, color: c.rank === 1 ? GOLD : c.rank <= 3 ? TEXT : MUTED }}>
-                        {c.points} pts
+                        {c.points} {t('common.pts')}
                       </div>
                     </div>
                   </div>
@@ -649,9 +651,11 @@ export function HomeLoggedIn({
             marginTop: 8,
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}><Trophy size={52} style={{ color: ACCENT, opacity: 0.6 }} /></div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: TEXT, marginBottom: 8 }}>Ready to compete?</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: TEXT, marginBottom: 8 }}>{t('home.readyToCompete')}</div>
             <div style={{ fontSize: 14, color: TEXT2, marginBottom: 24, lineHeight: 1.6 }}>
-              Record your first match and start climbing<br />the leaderboard
+              {t('home.readyToCompeteDesc').split('\n').map((line, i) => (
+                <span key={i}>{line}{i === 0 && <br />}</span>
+              ))}
             </div>
             <button
               onClick={() => setShowAddMatch(true)}
@@ -663,7 +667,7 @@ export function HomeLoggedIn({
                 boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
               }}
             >
-              + Record First Match
+              {t('home.recordFirstMatch')}
             </button>
           </div>
         )}
@@ -698,6 +702,7 @@ function AdminPasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onC
   const [value, setValue] = useState('')
   const [error, setError] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useTranslation()
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -721,15 +726,15 @@ function AdminPasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onC
         style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 28, width: 320, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: TEXT }}>Admin Access</h2>
-        <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED }}>Enter the admin password to continue.</p>
+        <h2 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: TEXT }}>{t('home.admin.title')}</h2>
+        <p style={{ margin: '0 0 18px', fontSize: 13, color: MUTED }}>{t('home.admin.desc')}</p>
         <form onSubmit={handleSubmit}>
           <input
             ref={inputRef}
             type="password"
             value={value}
             onChange={(e) => { setValue(e.target.value); setError(false) }}
-            placeholder="Password"
+            placeholder={t('home.admin.password')}
             style={{
               width: '100%', padding: '10px 14px', boxSizing: 'border-box',
               background: BG, border: `1px solid ${error ? LOSS : BORDER}`,
@@ -737,7 +742,7 @@ function AdminPasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onC
             }}
           />
           {error && (
-            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#f87171' }}>Incorrect password</p>
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: '#f87171' }}>{t('home.admin.incorrectPassword')}</p>
           )}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button
@@ -745,13 +750,13 @@ function AdminPasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onC
               onClick={onClose}
               style={{ flex: 1, padding: '9px', background: 'none', border: `1px solid ${BORDER}`, borderRadius: 8, color: MUTED, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               style={{ flex: 2, padding: '9px', background: ACCENT, border: 'none', borderRadius: 8, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
             >
-              Enter
+              {t('auth.enter')}
             </button>
           </div>
         </form>
@@ -807,10 +812,11 @@ function HomeMatchesList({ matches, userId }: {
   matches: HomeMatchItem[]
   userId: string
 }) {
+  const { t } = useTranslation()
   return (
     <div style={{ marginBottom: 20 }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
-        Matches · {matches.length}
+        {t('home.matchesLabel', { n: matches.length })}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {matches.map((match) => (
@@ -823,6 +829,7 @@ function HomeMatchesList({ matches, userId }: {
 
 function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string }) {
   const router = useRouter()
+  const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
   const [homeScore, setHomeScore] = useState('')
   const [awayScore, setAwayScore] = useState('')
@@ -837,7 +844,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
         await deleteMatchAction(match.id)
         router.refresh()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to delete.')
+        setError(e instanceof Error ? e.message : t('home.err.failedDelete'))
         setShowDeleteConfirm(false)
       }
     })
@@ -849,7 +856,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
     const h = parseInt(homeScore, 10)
     const a = parseInt(awayScore, 10)
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
-      setError('Enter valid scores (0 or more).')
+      setError(t('home.err.invalidScores'))
       return
     }
     setError(null)
@@ -858,7 +865,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
         await confirmMatchAction(match.id, h, a)
         router.refresh()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to set score.')
+        setError(e instanceof Error ? e.message : t('home.err.failedScore'))
       }
     })
   }
@@ -880,7 +887,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
             fontSize: 12, fontWeight: 700, color: match.homePlayerId === userId ? ACCENT : TEXT,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
           }}>
-            {match.homePlayerId === userId ? 'You' : match.homePlayerName.split(' ')[0]}
+            {match.homePlayerId === userId ? t('common.you') : match.homePlayerName.split(' ')[0]}
           </span>
           <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, flexShrink: 0 }}>vs</span>
           <PlayerAvatar name={match.awayPlayerName} avatarUrl={match.awayPlayerAvatarUrl} size={28} />
@@ -888,7 +895,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
             fontSize: 12, fontWeight: 700, color: match.awayPlayerId === userId ? ACCENT : TEXT,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
           }}>
-            {match.awayPlayerId === userId ? 'You' : match.awayPlayerName.split(' ')[0]}
+            {match.awayPlayerId === userId ? t('common.you') : match.awayPlayerName.split(' ')[0]}
           </span>
         </div>
         <span style={{
@@ -896,7 +903,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
           background: 'rgba(245,158,11,0.1)', color: GOLD,
           border: '1px solid rgba(245,158,11,0.25)', borderRadius: 5,
           textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
-        }}>Friendly</span>
+        }}>{t('home.friendly')}</span>
       </div>
 
       {/* Probability bar */}
@@ -938,7 +945,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
               boxShadow: '0 2px 12px rgba(16,185,129,0.3)',
             }}
           >
-            Set Score
+            {t('home.setScore')}
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
@@ -950,7 +957,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
               flexShrink: 0,
             }}
           >
-            Delete
+            {t('common.delete')}
           </button>
         </div>
       )}
@@ -959,10 +966,10 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
       {showDeleteConfirm && (
         <div style={{ borderTop: `1px solid rgba(220,38,38,0.25)`, padding: '12px 14px 14px', background: 'rgba(220,38,38,0.06)' }}>
           <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: TEXT, textAlign: 'center' }}>
-            Remove this match?
+            {t('home.removeMatchTitle')}
           </p>
           <p style={{ margin: '0 0 14px', fontSize: 11, color: TEXT2, textAlign: 'center', lineHeight: 1.5 }}>
-            This is permanent and cannot be undone.
+            {t('home.removeMatchDesc')}
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
@@ -975,7 +982,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
                 cursor: isDeleting ? 'not-allowed' : 'pointer',
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleDelete}
@@ -989,7 +996,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
                 boxShadow: isDeleting ? 'none' : '0 2px 12px rgba(239,68,68,0.35)',
               }}
             >
-              {isDeleting ? 'Deleting…' : 'Yes, Delete'}
+              {isDeleting ? t('common.deleting') : t('home.yesDelete')}
             </button>
           </div>
         </div>
@@ -999,7 +1006,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
       {showForm && (
         <div style={{ borderTop: `1px solid ${BORDER}`, padding: '12px 14px', background: '#07101e' }}>
           <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
-            Enter final score
+            {t('home.enterFinalScore')}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
             <div style={{ textAlign: 'center' }}>
@@ -1046,7 +1053,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
                 borderRadius: 8, color: TEXT2, fontSize: 13, fontWeight: 600, cursor: 'pointer',
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleConfirm}
@@ -1058,7 +1065,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
                 fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer',
               }}
             >
-              {isPending ? 'Saving…' : 'Confirm Score'}
+              {isPending ? t('common.saving') : t('home.confirmScore')}
             </button>
           </div>
         </div>
@@ -1105,6 +1112,7 @@ function ChampCard({
   leader: ChampionshipLeader | null
   userId: string
 }) {
+  const { t } = useTranslation()
   const isLeading  = leader?.playerId === userId
   const ptsBehind  = !isLeading && leader ? leader.points - placement.points : 0
   const rankColor  =
@@ -1143,7 +1151,7 @@ function ChampCard({
           display: 'flex', alignItems: 'center', gap: 4,
         }}>
           <span style={{ width: 5, height: 5, borderRadius: '50%', background: WIN, display: 'inline-block', animation: 'live-dot 1.5s ease infinite' }} />
-          Live
+          {t('home.champCard.live')}
         </span>
       </div>
 
@@ -1157,7 +1165,7 @@ function ChampCard({
           <div style={{ fontSize: 9, fontWeight: 700, color: isLeading ? GOLD : MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 9 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               {isLeading ? <Crown size={9} /> : <Trophy size={9} />}
-              {isLeading ? "You're Leading" : 'Current Leader'}
+              {isLeading ? t('home.champCard.youreLeading') : t('home.champCard.currentLeader')}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1175,7 +1183,7 @@ function ChampCard({
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: isLeading ? GOLD : TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {isLeading ? 'You' : leader.playerName}
+                {isLeading ? t('common.you') : leader.playerName}
               </div>
               <div style={{ fontSize: 11, color: TEXT2, marginTop: 3 }}>
                 {leader.wins}W {leader.draws}D {leader.losses}L
@@ -1186,7 +1194,7 @@ function ChampCard({
               <div style={{ fontSize: 26, fontWeight: 900, color: isLeading ? GOLD : TEXT, lineHeight: 1 }}>
                 {leader.points}
               </div>
-              <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>pts</div>
+              <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('common.pts')}</div>
             </div>
           </div>
         </div>
@@ -1205,17 +1213,17 @@ function ChampCard({
             {placement.rank === 1 ? <Trophy size={16} /> : placement.rank === 2 ? <Medal size={15} /> : placement.rank === 3 ? <Medal size={14} /> : `#${placement.rank}`}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: TEXT2 }}>Your position #{placement.rank}</div>
+            <div style={{ fontSize: 11, color: TEXT2 }}>{t('home.champCard.yourPosition', { n: placement.rank })}</div>
             <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
-              {placement.points} pts · {placement.played} played
+              {placement.points} {t('common.pts')} · {placement.played} {t('common.played')}
               {ptsBehind > 0 && (
-                <span style={{ color: LOSS }}> · {ptsBehind} pts behind</span>
+                <span style={{ color: LOSS }}> · {t('home.champCard.ptsBehind', { n: ptsBehind })}</span>
               )}
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 20, fontWeight: 900, color: rankColor }}>{placement.points}</div>
-            <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>pts</div>
+            <div style={{ fontSize: 9, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('common.pts')}</div>
           </div>
         </div>
       )}
@@ -1224,8 +1232,8 @@ function ChampCard({
       {progressPct > 0 && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{placement.played} played</span>
-            <span style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{progressPct}% complete</span>
+            <span style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{placement.played} {t('common.played')}</span>
+            <span style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{t('home.champCard.complete', { n: progressPct })}</span>
           </div>
           <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
             <div style={{
@@ -1242,6 +1250,7 @@ function ChampCard({
 }
 
 function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string }) {
+  const { t } = useTranslation()
   const isP1     = rivalry.player1Id === userId
   const myWins   = isP1 ? rivalry.player1Wins : rivalry.player2Wins
   const oppWins  = isP1 ? rivalry.player2Wins : rivalry.player1Wins
@@ -1271,7 +1280,7 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
           <div style={{ fontSize: 13, fontWeight: 800, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {myName.split(' ')[0]}
           </div>
-          <div style={{ fontSize: 10, color: TEXT2 }}>You</div>
+          <div style={{ fontSize: 10, color: TEXT2 }}>{t('home.rivalryCard.you')}</div>
         </div>
         <div style={{
           padding: '4px 10px', background: 'rgba(255,255,255,0.06)',
@@ -1284,7 +1293,7 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
           <div style={{ fontSize: 13, fontWeight: 800, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {oppName.split(' ')[0]}
           </div>
-          <div style={{ fontSize: 10, color: TEXT2 }}>Opponent</div>
+          <div style={{ fontSize: 10, color: TEXT2 }}>{t('home.rivalryCard.opponent')}</div>
         </div>
       </div>
 
@@ -1308,7 +1317,7 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
       {/* Status */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, fontWeight: 700, color: statusColor }}>
-          {isAhead ? '↑ You\'re leading' : isTied ? '= Tied series' : '↓ Opponent ahead'}
+          {isAhead ? t('home.rivalryCard.youreLeading') : isTied ? t('home.rivalryCard.tiedSeries') : t('home.rivalryCard.opponentAhead')}
         </span>
         <span style={{ fontSize: 10, color: MUTED }}>
           BO{rivalry.bestOf} · {total} played

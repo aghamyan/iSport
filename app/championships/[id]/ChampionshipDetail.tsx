@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useTransition } from 'react'
+import { Trophy } from 'lucide-react'
 
 const CHAMP_ANIMS = `
   @keyframes goldPulse {
@@ -27,11 +28,13 @@ import {
   generateFinalPenaltyDeciderAction,
   getMatchOddsAction,
   regenerateMatchesAction,
+  generateNextCycleAction,
   updateChampionshipDateAction,
 } from '../actions'
 import { ScoreModal } from '../ScoreModal'
 import { AddMatchModal } from '../AddMatchModal'
 import { BottomNav } from '@/app/components/BottomNav'
+import { useTranslation } from '@/lib/i18n/context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -218,9 +221,10 @@ function OddsPanel({
   homeName: string
   awayName: string
 }) {
+  const { t } = useTranslation()
   const cells = [
     { label: homeName, odds: odds.homeWinOdds, pct: odds.homeWinPct, color: '#22c55e' },
-    { label: 'Draw', odds: odds.drawOdds, pct: odds.drawPct, color: '#f59e0b' },
+    { label: t('champ.draw'), odds: odds.drawOdds, pct: odds.drawPct, color: '#f59e0b' },
     { label: awayName, odds: odds.awayWinOdds, pct: odds.awayWinPct, color: '#3b82f6' },
   ]
 
@@ -293,7 +297,7 @@ function OddsPanel({
             </span>
           </span>
         )}
-        <span style={{ color: '#334155' }}>Live odds</span>
+        <span style={{ color: '#334155' }}>{t('champ.liveOdds')}</span>
       </div>
     </div>
   )
@@ -324,6 +328,7 @@ function MatchCard({
   const [oddsLoading, setOddsLoading] = useState(false)
   const [oddsError, setOddsError] = useState<string | null>(null)
 
+  const { t } = useTranslation()
   const homeName = playerMap.get(match.homePlayerId) ?? '?'
   const awayName = playerMap.get(match.awayPlayerId) ?? '?'
   const homeAvatar = avatarMap.get(match.homePlayerId)
@@ -508,7 +513,7 @@ function MatchCard({
                   letterSpacing: '0.02em',
                 }}
               >
-                Record
+                {t('champ.recordBtn')}
               </button>
             )}
             {canEdit && (
@@ -525,7 +530,7 @@ function MatchCard({
                   fontWeight: 600,
                 }}
               >
-                Edit
+                {t('champ.editBtn')}
               </button>
             )}
             {/* Odds toggle */}
@@ -545,7 +550,7 @@ function MatchCard({
                 transition: 'all 0.15s',
               }}
             >
-              {oddsLoading ? '…' : showOdds ? 'Odds ▲' : 'Odds'}
+              {oddsLoading ? '…' : showOdds ? t('champ.oddsBtnShow') : t('champ.oddsBtnHide')}
             </button>
           </div>
         </div>
@@ -601,6 +606,7 @@ function StandingsTable({
   avatarMap: Map<string, string | null | undefined>
   highlightTop?: number
 }) {
+  const { t } = useTranslation()
   const standings = calculateStandings(
     matches.map((m) => ({
       id: m.id,
@@ -644,7 +650,7 @@ function StandingsTable({
           }}
         >
           <span>#</span>
-          <span>Player</span>
+          <span>{t('champ.table.player')}</span>
           <span style={{ textAlign: 'center' }}>MP</span>
           <span style={{ textAlign: 'center' }}>W</span>
           <span style={{ textAlign: 'center' }}>D</span>
@@ -765,6 +771,7 @@ function KnockoutSection({
   onGeneratePenalty: (p1: string, p2: string) => void
   onGenerateFinalPenalty: () => void
 }) {
+  const { t } = useTranslation()
   const semiMatches = matches.filter((m) => m.round === 'semi')
   const penaltyMatches = matches.filter((m) => m.round === 'penalty')
   const finalMatch = matches.find((m) => m.round === 'final')
@@ -791,7 +798,7 @@ function KnockoutSection({
           fontStyle: 'italic',
         }}
       >
-        Knockout bracket unlocks once the group stage is complete.
+        {t('champ.knockoutUnlocks')}
       </div>
     )
   }
@@ -815,10 +822,10 @@ function KnockoutSection({
               boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
             }}
           >
-            Generate Semi-finals
+            {t('champ.generateSemis')}
           </button>
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
-            Top 2 from each group advance
+            {t('champ.top2Advance')}
           </p>
         </div>
       )}
@@ -826,7 +833,7 @@ function KnockoutSection({
       {/* Semi-final ties */}
       {hasSemis && (
         <div style={{ marginBottom: 24 }}>
-          <SectionLabel>Semi-finals</SectionLabel>
+          <SectionLabel>{t('champ.semiFinals')}</SectionLabel>
 
           {Array.from(ties.entries()).map(([key, tieMatches], tieIdx) => {
             const [p1, p2] = key.split('|')
@@ -901,7 +908,7 @@ function KnockoutSection({
                         letterSpacing: '0.06em',
                       }}
                     >
-                      Semi {tieIdx + 1}
+                      {t('champ.semiN', { n: tieIdx + 1 })}
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
                       {playerMap.get(p1) ?? '?'} vs {playerMap.get(p2) ?? '?'}
@@ -910,7 +917,7 @@ function KnockoutSection({
                   {allLegsPlayed && (
                     <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', gap: 8, alignItems: 'center' }}>
                       <span>
-                        Agg:{' '}
+                        {t('champ.aggregate')}{' '}
                         <strong style={{ color: '#e2e8f0' }}>
                           {p1Goals}–{p2Goals}
                         </strong>
@@ -927,7 +934,7 @@ function KnockoutSection({
                             fontWeight: 700,
                           }}
                         >
-                          {playerMap.get(tieResult.winner) ?? '?'} advances
+                          {t('champ.advances', { name: playerMap.get(tieResult.winner) ?? '?' })}
                         </span>
                       )}
                       {tieResult?.needsPenalty && !hasPenalty && (
@@ -942,7 +949,7 @@ function KnockoutSection({
                             fontWeight: 700,
                           }}
                         >
-                          Penalties needed
+                          {t('champ.penaltiesNeeded')}
                         </span>
                       )}
                     </div>
@@ -983,7 +990,7 @@ function KnockoutSection({
                                 letterSpacing: '0.06em',
                               }}
                             >
-                              Leg {m.leg}
+                              {t('champ.leg', { n: m.leg ?? 0 })}
                             </span>
                           }
                         />
@@ -1014,7 +1021,7 @@ function KnockoutSection({
                                 letterSpacing: '0.06em',
                               }}
                             >
-                              Pens
+                              {t('champ.pens')}
                             </span>
                           }
                         />
@@ -1037,7 +1044,7 @@ function KnockoutSection({
                         fontWeight: 700,
                       }}
                     >
-                      Record Penalty Shootout
+                      {t('champ.recordPenalty')}
                     </button>
                   </div>
                 )}
@@ -1082,7 +1089,7 @@ function KnockoutSection({
                       boxShadow: '0 4px 12px rgba(245,158,11,0.35)',
                     }}
                   >
-                    Generate Final
+                    {t('champ.generateFinal')}
                   </button>
                 </div>
               ) : null
@@ -1093,7 +1100,7 @@ function KnockoutSection({
       {/* Final */}
       {finalMatch && (
         <div style={{ marginBottom: 16 }}>
-          <SectionLabel gold>Final</SectionLabel>
+          <SectionLabel gold>{t('champ.final')}</SectionLabel>
 
           <div
             style={{
@@ -1134,7 +1141,7 @@ function KnockoutSection({
                         letterSpacing: '0.06em',
                       }}
                     >
-                      Pens
+                      {t('champ.pens')}
                     </span>
                   }
                 />
@@ -1164,7 +1171,7 @@ function KnockoutSection({
                   Record Penalty Shootout
                 </button>
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                  Final ended level — penalties decide the champion.
+                  {t('champ.finalLevel')}
                 </span>
               </div>
             )}
@@ -1225,6 +1232,7 @@ function PlayoffKnockoutSection({
   onGeneratePenalty: (p1: string, p2: string) => void
   onGenerateFinalPenalty: () => void
 }) {
+  const { t } = useTranslation()
   const semiMatches = matches.filter((m) => m.round === 'semi')
   const penaltyMatches = matches.filter((m) => m.round === 'penalty')
   const finalMatch = matches.find((m) => m.round === 'final')
@@ -1243,7 +1251,7 @@ function PlayoffKnockoutSection({
   if (!hasSemis && !groupStageDone) {
     return (
       <div style={{ padding: '28px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13, fontStyle: 'italic' }}>
-        Playoff bracket unlocks once the group stage is complete.
+        {t('champ.playoffUnlocks')}
       </div>
     )
   }
@@ -1279,15 +1287,15 @@ function PlayoffKnockoutSection({
               boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
             }}
           >
-            Generate Playoffs
+            {t('champ.generatePlayoffs')}
           </button>
-          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>Top 4 from group stage advance</p>
+          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>{t('champ.top4Advance')}</p>
         </div>
       )}
 
       {hasSemis && (
         <div style={{ marginBottom: 24 }}>
-          <SectionLabel>Semi-finals</SectionLabel>
+          <SectionLabel>{t('champ.semiFinals')}</SectionLabel>
 
           {Array.from(ties.entries()).map(([key, tieMatches], tieIdx) => {
             const [p1, p2] = key.split('|')
@@ -1362,7 +1370,7 @@ function PlayoffKnockoutSection({
                             fontWeight: 700,
                           }}
                         >
-                          {playerMap.get(tieResult.winner) ?? '?'} advances
+                          {t('champ.advances', { name: playerMap.get(tieResult.winner) ?? '?' })}
                         </span>
                       )}
                       {tieResult?.needsPenalty && !hasPenalty && (
@@ -1377,7 +1385,7 @@ function PlayoffKnockoutSection({
                             fontWeight: 700,
                           }}
                         >
-                          Penalties needed
+                          {t('champ.penaltiesNeeded')}
                         </span>
                       )}
                     </div>
@@ -1439,7 +1447,7 @@ function PlayoffKnockoutSection({
                         fontWeight: 700,
                       }}
                     >
-                      Record Penalty Shootout
+                      {t('champ.recordPenalty')}
                     </button>
                   </div>
                 )}
@@ -1463,7 +1471,7 @@ function PlayoffKnockoutSection({
                   boxShadow: '0 4px 12px rgba(245,158,11,0.35)',
                 }}
               >
-                Generate Final
+                {t('champ.generateFinal')}
               </button>
             </div>
           )}
@@ -1472,7 +1480,7 @@ function PlayoffKnockoutSection({
 
       {finalMatch && (
         <div style={{ marginBottom: 16 }}>
-          <SectionLabel gold>Final</SectionLabel>
+          <SectionLabel gold>{t('champ.final')}</SectionLabel>
           <div
             style={{
               border: '2px solid #fbbf24',
@@ -1512,7 +1520,7 @@ function PlayoffKnockoutSection({
                         letterSpacing: '0.06em',
                       }}
                     >
-                      Pens
+                      {t('champ.pens')}
                     </span>
                   }
                 />
@@ -1542,7 +1550,7 @@ function PlayoffKnockoutSection({
                   Record Penalty Shootout
                 </button>
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                  Final ended level — penalties decide the champion.
+                  {t('champ.finalLevel')}
                 </span>
               </div>
             )}
@@ -1613,6 +1621,7 @@ function SectionLabel({ children, gold }: { children: React.ReactNode; gold?: bo
 }
 
 function ChampionBanner({ name, penalty }: { name: string; penalty?: boolean }) {
+  const { t } = useTranslation()
   return (
     <div
       style={{
@@ -1626,10 +1635,10 @@ function ChampionBanner({ name, penalty }: { name: string; penalty?: boolean }) 
         boxShadow: '0 4px 16px rgba(251,191,36,0.25)',
       }}
     >
-      <span style={{ fontSize: 28 }}>🏆</span>
+      <Trophy size={28} style={{ color: '#fbbf24', flexShrink: 0 }} />
       <div>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
-          Champion{penalty ? ' (on penalties)' : ''}
+          {penalty ? t('champ.championPens') : t('champ.champion')}
         </div>
         <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{name}</div>
       </div>
@@ -1646,6 +1655,7 @@ export function ChampionshipDetail({
   currentUserId,
   isAdmin,
 }: Props) {
+  const { t } = useTranslation()
   const router = useRouter()
   const [matches, setMatches] = useState<ChampionshipMatch[]>(initialMatches)
   const [showAddMatch, setShowAddMatch] = useState(false)
@@ -1656,6 +1666,8 @@ export function ChampionshipDetail({
   const [isDeleting, startDeleteTransition] = useTransition()
   const [isKnockoutPending, startKnockoutTransition] = useTransition()
   const [isRegenerating, startRegenTransition] = useTransition()
+  const [nextCycleError, setNextCycleError] = useState<string | null>(null)
+  const [isGeneratingCycle, startCycleTransition] = useTransition()
   const [mobileTab, setMobileTab] = useState<'schedule' | 'standings'>('schedule')
   const [isMobile, setIsMobile] = useState(false)
   const effectiveDate = championship.playedAt ?? championship.createdAt
@@ -1807,6 +1819,17 @@ export function ChampionshipDetail({
     })
   }
 
+  function handleGenerateNextCycle() {
+    setNextCycleError(null)
+    startCycleTransition(async () => {
+      try {
+        await generateNextCycleAction(championship.id)
+      } catch (e) {
+        setNextCycleError(e instanceof Error ? e.message : 'Failed to generate next cycle.')
+      }
+    })
+  }
+
   function handleSaveDate(newDate: string | null) {
     setDateError(null)
     startDateTransition(async () => {
@@ -1863,11 +1886,11 @@ export function ChampionshipDetail({
         {/* Hero header */}
         <PageHeader
           name={championship.name}
-          badge="Group Knockout"
+          badge={t('champ.formatGroupKnockout')}
           badgeColor="#3b82f6"
-          meta={`${players.length} players · ${totalCycles} group cycle${totalCycles !== 1 ? 's' : ''}`}
+          meta={`${t('champ.playerCount', { n: players.length })} · ${t(totalCycles !== 1 ? 'champ.groupCycles' : 'champ.groupCycle', { n: totalCycles })}`}
           extraBadge={
-            groupStageDone ? { label: 'Group stage done', color: '#22c55e' } : undefined
+            groupStageDone ? { label: t('champ.groupStageDone'), color: '#22c55e' } : undefined
           }
           isAdmin={isAdmin}
           onAddMatch={() => setShowAddMatch(true)}
@@ -1895,14 +1918,14 @@ export function ChampionshipDetail({
           {allGroupMatches.length === 0 && isAdmin && (
             <div style={{ padding: '28px 20px', textAlign: 'center', border: '2px dashed #1a2840', borderRadius: 12, background: '#0a1220', marginBottom: 24 }}>
               <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>No matches yet</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Matches were not generated when this championship was created.</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>{t('champ.noMatchesYet')}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>{t('champ.matchesNotGenerated')}</div>
               <button
                 onClick={handleRegenerate}
                 disabled={isRegenerating}
                 style={{ padding: '9px 22px', background: isRegenerating ? 'rgba(59,130,246,0.4)' : 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff', border: 'none', borderRadius: 8, cursor: isRegenerating ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}
               >
-                {isRegenerating ? 'Generating…' : 'Generate Matches'}
+                {isRegenerating ? t('champ.generating') : t('champ.generateMatches')}
               </button>
             </div>
           )}
@@ -1953,7 +1976,7 @@ export function ChampionshipDetail({
                       color: '#e2e8f0',
                     }}
                   >
-                    Group {label}
+                    {t('champ.group', { label })}
                   </h2>
                 </div>
 
@@ -1976,7 +1999,7 @@ export function ChampionshipDetail({
                             letterSpacing: '0.08em',
                           }}
                         >
-                          Round {cycle}
+                          {t('champ.round', { n: cycle })}
                           {cycle === curCycle && (
                             <span
                               style={{
@@ -2036,7 +2059,7 @@ export function ChampionshipDetail({
                       highlightTop={2}
                     />
                     <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8' }}>
-                      Green = advances to semi-finals
+                      {t('champ.greenAdvances')}
                     </div>
                   </>
                 )}
@@ -2054,10 +2077,10 @@ export function ChampionshipDetail({
               boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
             }}
           >
-            <SectionLabel>Knockout Stage</SectionLabel>
+            <SectionLabel>{t('champ.knockoutStage')}</SectionLabel>
             {isKnockoutPending ? (
               <div style={{ color: '#94a3b8', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-                Updating…
+                {t('champ.updating')}
               </div>
             ) : (
               <KnockoutSection
@@ -2127,10 +2150,10 @@ export function ChampionshipDetail({
         <style dangerouslySetInnerHTML={{ __html: CHAMP_ANIMS }} />
         <PageHeader
           name={championship.name}
-          badge="Group Playoff"
+          badge={t('champ.formatGroupPlayoff')}
           badgeColor="#10b981"
-          meta={`${players.length} players · ${totalCycles} group cycle${totalCycles !== 1 ? 's' : ''}`}
-          extraBadge={groupStageDone ? { label: 'Group stage done', color: '#22c55e' } : undefined}
+          meta={`${t('champ.playerCount', { n: players.length })} · ${t(totalCycles !== 1 ? 'champ.groupCycles' : 'champ.groupCycle', { n: totalCycles })}`}
+          extraBadge={groupStageDone ? { label: t('champ.groupStageDone'), color: '#22c55e' } : undefined}
           isAdmin={isAdmin}
           onAddMatch={() => setShowAddMatch(true)}
           onDelete={() => setShowDeleteConfirm(true)}
@@ -2177,19 +2200,19 @@ export function ChampionshipDetail({
               </div>
             )}
 
-            <SectionLabel>Group Stage</SectionLabel>
+            <SectionLabel>{t('champ.groupStage')}</SectionLabel>
 
             {groupMatches.length === 0 && isAdmin ? (
               <div style={{ padding: '28px 20px', textAlign: 'center', border: '2px dashed #1a2840', borderRadius: 12, background: '#0a1220', marginBottom: 24 }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>No matches yet</div>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Matches were not generated when this championship was created.</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>{t('champ.noMatchesYet')}</div>
+                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>{t('champ.matchesNotGenerated')}</div>
                 <button
                   onClick={handleRegenerate}
                   disabled={isRegenerating}
                   style={{ padding: '9px 22px', background: isRegenerating ? 'rgba(59,130,246,0.4)' : 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff', border: 'none', borderRadius: 8, cursor: isRegenerating ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700 }}
                 >
-                  {isRegenerating ? 'Generating…' : 'Generate Matches'}
+                  {isRegenerating ? t('champ.generating') : t('champ.generateMatches')}
                 </button>
               </div>
             ) : (
@@ -2250,9 +2273,9 @@ export function ChampionshipDetail({
                 marginTop: 8,
               }}
             >
-              <SectionLabel>Playoffs</SectionLabel>
+              <SectionLabel>{t('champ.playoffs')}</SectionLabel>
               {isKnockoutPending ? (
-                <div style={{ color: '#94a3b8', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>Updating…</div>
+                <div style={{ color: '#94a3b8', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>{t('champ.updating')}</div>
               ) : (
                 <PlayoffKnockoutSection
                   matches={playoffMatches}
@@ -2273,7 +2296,7 @@ export function ChampionshipDetail({
 
           {/* Right: standings (sticky) */}
           <div style={{ position: isMobile ? undefined : 'sticky', top: 20, display: isMobile && mobileTab !== 'standings' ? 'none' : undefined }}>
-            <SectionLabel>Standings</SectionLabel>
+            <SectionLabel>{t('champ.standings')}</SectionLabel>
             <StandingsTable
               playerIds={playerIds}
               matches={groupMatches}
@@ -2282,7 +2305,7 @@ export function ChampionshipDetail({
               highlightTop={4}
             />
             <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
-              Green = advances to playoffs · Sorted by: Pts → GD → H2H → GF
+              {t('champ.greenAdvancesPlay')}
             </div>
           </div>
         </div>
@@ -2326,6 +2349,9 @@ export function ChampionshipDetail({
   const curCycle = currentCycleNumber(matches, totalCycles)
   const completedCycles = completedCyclesCount(matches, totalCycles)
   const remainingCycles = totalCycles - completedCycles
+  const maxGeneratedCycle = matches.length > 0 ? Math.max(...matches.map((m) => m.cycle)) : 0
+  const nextCycleNum = maxGeneratedCycle + 1
+  const canGenerateNextCycle = isAdmin && nextCycleNum <= totalCycles
 
   return (
     <div
@@ -2342,7 +2368,7 @@ export function ChampionshipDetail({
       {/* Hero header */}
       <PageHeader
         name={championship.name}
-        badge="Round Robin"
+        badge={t('champ.formatRoundRobin')}
         badgeColor="#8b5cf6"
         meta={`Cycle ${curCycle} / ${totalCycles} · ${remainingCycles} remaining · ${players.length} players`}
         isAdmin={isAdmin}
@@ -2361,9 +2387,9 @@ export function ChampionshipDetail({
             <button
               key={tab}
               onClick={() => setMobileTab(tab)}
-              style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? '#60a5fa' : '#64748b', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #3b82f6' : '2px solid transparent', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+              style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? '#60a5fa' : '#64748b', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #3b82f6' : '2px solid transparent', cursor: 'pointer', letterSpacing: '0.08em' }}
             >
-              {tab}
+              {tab === 'schedule' ? t('champ.schedule') : t('champ.standings')}
             </button>
           ))}
         </div>
@@ -2379,11 +2405,17 @@ export function ChampionshipDetail({
       >
         {/* Schedule */}
         <div style={{ display: isMobile && mobileTab !== 'schedule' ? 'none' : undefined }}>
-          <SectionLabel>Schedule</SectionLabel>
+          <SectionLabel>{t('champ.schedule')}</SectionLabel>
 
           {regenError && (
             <div style={{ marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#f87171', fontSize: 13 }}>
               {regenError}
+            </div>
+          )}
+
+          {nextCycleError && (
+            <div style={{ marginBottom: 12, padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, color: '#f87171', fontSize: 13 }}>
+              {nextCycleError}
             </div>
           )}
 
@@ -2399,10 +2431,10 @@ export function ChampionshipDetail({
             >
               <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>
-                No matches yet
+                {t('champ.noMatchesYet')}
               </div>
               <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: isAdmin ? 16 : 0 }}>
-                Matches were not generated when this championship was created.
+                {t('champ.matchesNotGenerated')}
               </div>
               {isAdmin && (
                 <button
@@ -2420,55 +2452,79 @@ export function ChampionshipDetail({
                     boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
                   }}
                 >
-                  {isRegenerating ? 'Generating…' : 'Generate Matches'}
+                  {isRegenerating ? t('champ.generating') : t('champ.generateMatches')}
                 </button>
               )}
             </div>
           ) : (
-            Array.from(byGroup.entries())
-              .sort(([a], [b]) => a - b)
-              .map(([cycle, cycleMatches]) => (
-                <div key={cycle} style={{ marginBottom: 24 }}>
-                  <div
+            <>
+              {Array.from(byGroup.entries())
+                .sort(([a], [b]) => a - b)
+                .map(([cycle, cycleMatches]) => (
+                  <div key={cycle} style={{ marginBottom: 24 }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        color: cycle === curCycle ? '#2563eb' : '#94a3b8',
+                        marginBottom: 8,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                      }}
+                    >
+                      Round {cycle}
+                      {cycle === curCycle && (
+                        <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
+                          Live
+                        </span>
+                      )}
+                      {cycle < curCycle && (
+                        <span style={{ fontSize: 9, background: 'rgba(34,197,94,0.12)', color: '#4ade80', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
+                          Done
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {cycleMatches.map((m) => (
+                        <MatchCard
+                          key={m.id}
+                          match={m}
+                          playerMap={playerMap}
+                          avatarMap={avatarMap}
+                          currentUserId={currentUserId}
+                          isAdmin={isAdmin}
+                          championshipId={championship.id}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+              {canGenerateNextCycle && (
+                <div style={{ marginTop: 8, paddingTop: 16, borderTop: '1px dashed #1a2840', textAlign: 'center' }}>
+                  <button
+                    onClick={handleGenerateNextCycle}
+                    disabled={isGeneratingCycle}
                     style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      color: cycle === curCycle ? '#2563eb' : '#94a3b8',
-                      marginBottom: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.08em',
+                      padding: '9px 22px',
+                      background: isGeneratingCycle ? 'rgba(59,130,246,0.4)' : 'linear-gradient(135deg, #1d4ed8, #2563eb)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      cursor: isGeneratingCycle ? 'not-allowed' : 'pointer',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
                     }}
                   >
-                    Round {cycle}
-                    {cycle === curCycle && (
-                      <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
-                        Live
-                      </span>
-                    )}
-                    {cycle < curCycle && (
-                      <span style={{ fontSize: 9, background: 'rgba(34,197,94,0.12)', color: '#4ade80', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
-                        Done
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                    {cycleMatches.map((m) => (
-                      <MatchCard
-                        key={m.id}
-                        match={m}
-                        playerMap={playerMap}
-                        avatarMap={avatarMap}
-                        currentUserId={currentUserId}
-                        isAdmin={isAdmin}
-                        championshipId={championship.id}
-                      />
-                    ))}
-                  </div>
+                    {isGeneratingCycle ? t('champ.generating') : t('champ.generateNextCycle', { n: nextCycleNum })}
+                  </button>
                 </div>
-              ))
+              )}
+            </>
           )}
         </div>
 
@@ -2482,7 +2538,7 @@ export function ChampionshipDetail({
             avatarMap={avatarMap}
           />
           <div style={{ marginTop: 8, fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
-            Sorted by: Pts → GD → H2H → GF
+            {t('champ.sortedBy')}
           </div>
 
           {/* Top player highlight */}
@@ -2506,7 +2562,7 @@ export function ChampionshipDetail({
               />
               <div>
                 <div style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  Leading
+                  {t('champ.leading')}
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#f8fafc' }}>
                   {playerMap.get(standings[0].playerId)}
@@ -2574,6 +2630,7 @@ function PageHeader({
   isSavingDate: boolean
   dateError: string | null
 }) {
+  const { t } = useTranslation()
   const [editingDate, setEditingDate] = useState(false)
   const [localDate, setLocalDate] = useState(dateValue)
 
@@ -2611,7 +2668,7 @@ function PageHeader({
             letterSpacing: '0.04em',
           }}
         >
-          ← Championships
+          {t('champ.back')}
         </a>
       </div>
 
@@ -2703,7 +2760,7 @@ function PageHeader({
                     fontWeight: 700,
                   }}
                 >
-                  {isSavingDate ? '…' : 'Save'}
+                  {isSavingDate ? '…' : t('champ.saveDate')}
                 </button>
                 <button
                   onClick={handleCancel}
@@ -2718,7 +2775,7 @@ function PageHeader({
                     fontWeight: 600,
                   }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 {dateError && (
                   <span style={{ fontSize: 11, color: '#f87171' }}>{dateError}</span>
@@ -2741,7 +2798,7 @@ function PageHeader({
                       fontWeight: 600,
                     }}
                   >
-                    Edit date
+                    {t('champ.editDate')}
                   </button>
                 )}
               </>
@@ -2765,7 +2822,7 @@ function PageHeader({
                 backdropFilter: 'blur(4px)',
               }}
             >
-              + Match
+              {t('champ.addMatch')}
             </button>
             <button
               onClick={onDelete}
@@ -2780,7 +2837,7 @@ function PageHeader({
                 color: '#f87171',
               }}
             >
-              Delete
+              {t('common.delete')}
             </button>
           </div>
         )}
@@ -2804,6 +2861,7 @@ function DeleteConfirmModal({
   deleteError: string | null
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <div
       style={{
@@ -2830,11 +2888,10 @@ function DeleteConfirmModal({
         }}
       >
         <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>
-          Delete Championship?
+          {t('champ.deleteTitle')}
         </h2>
         <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>
-          This permanently deletes <strong style={{ color: '#e2e8f0' }}>{championship.name}</strong> and all its matches. This
-          cannot be undone.
+          {t('champ.deleteDesc', { name: championship.name })}
         </p>
         {deleteError && (
           <p style={{ color: '#f87171', fontSize: 13, margin: '0 0 12px' }}>{deleteError}</p>
@@ -2853,7 +2910,7 @@ function DeleteConfirmModal({
               color: '#94a3b8',
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={onDelete}
@@ -2869,7 +2926,7 @@ function DeleteConfirmModal({
               fontSize: 14,
             }}
           >
-            {isDeleting ? 'Deleting…' : 'Delete'}
+            {isDeleting ? t('common.deleting') : t('common.delete')}
           </button>
         </div>
       </div>

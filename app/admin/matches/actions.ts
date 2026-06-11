@@ -26,8 +26,14 @@ export async function adminUpdateFriendlyMatchAction(
 
   const supabase = createServiceClient()
 
+  const { data: current } = await supabase
+    .from('friendly_matches')
+    .select('confirmed_at')
+    .eq('id', matchId)
+    .single()
+
   const payload: Record<string, unknown> = { home_score: homeScore, away_score: awayScore, status }
-  if (status === 'confirmed' || status === 'final') {
+  if ((status === 'confirmed' || status === 'final') && !current?.confirmed_at) {
     payload.confirmed_at = new Date().toISOString()
   }
 

@@ -28,3 +28,22 @@ export function generateRoundRobin(playerIds: string[], cycles: number): MatchSl
   }
   return slots
 }
+
+/**
+ * Generates pairings for a single specific cycle number only.
+ * Even cycle numbers reverse home/away relative to odd cycles.
+ */
+export function generateRoundRobinCycle(playerIds: string[], cycleNumber: number): MatchSlot[] {
+  const slots: MatchSlot[] = []
+  const evenCycle = cycleNumber % 2 === 0
+  for (let i = 0; i < playerIds.length; i++) {
+    for (let j = i + 1; j < playerIds.length; j++) {
+      slots.push({
+        homePlayerId: evenCycle ? playerIds[j] : playerIds[i],
+        awayPlayerId: evenCycle ? playerIds[i] : playerIds[j],
+        cycle: cycleNumber,
+      })
+    }
+  }
+  return slots
+}

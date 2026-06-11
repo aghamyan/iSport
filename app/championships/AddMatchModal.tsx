@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { addExtraMatchAction } from './actions'
 import { OddsPreview } from '@/app/components/OddsPreview'
+import { useTranslation } from '@/lib/i18n/context'
 
 type PlayerOption = {
   id: string
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export function AddMatchModal({ championshipId, players, onClose }: Props) {
+  const { t } = useTranslation()
   const [homeId, setHomeId] = useState('')
   const [awayId, setAwayId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,8 +34,8 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
   }
 
   function handleSubmit() {
-    if (!homeId || !awayId) { setError('Select both players.'); return }
-    if (homeId === awayId) { setError('Home and away must be different players.'); return }
+    if (!homeId || !awayId) { setError(t('champ.addMatch.errBoth')); return }
+    if (homeId === awayId) { setError(t('champ.addMatch.errDiff')); return }
     setError(null)
 
     startTransition(async () => {
@@ -41,7 +43,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
         await addExtraMatchAction(championshipId, homeId, awayId)
         onClose()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Something went wrong.')
+        setError(e instanceof Error ? e.message : t('champ.addMatch.errGeneral'))
       }
     })
   }
@@ -80,7 +82,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
             marginBottom: 20,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add Extra Match</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{t('champ.addMatch.title')}</h2>
           <button
             onClick={onClose}
             style={{
@@ -109,7 +111,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
             letterSpacing: '0.05em',
           }}
         >
-          Home Player
+          {t('champ.addMatch.homeLabel')}
         </label>
         <select
           style={{ ...selectStyle, marginBottom: 14 }}
@@ -117,7 +119,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
           onChange={(e) => setHomeId(e.target.value)}
           disabled={isPending}
         >
-          <option value="">Select player…</option>
+          <option value="">{t('champ.addMatch.selectPlayer')}</option>
           {players.map((p) => (
             <option key={p.id} value={p.id} disabled={p.id === awayId}>
               {p.displayName}
@@ -136,7 +138,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
             letterSpacing: '0.05em',
           }}
         >
-          Away Player
+          {t('champ.addMatch.awayLabel')}
         </label>
         <select
           style={{ ...selectStyle, marginBottom: 20 }}
@@ -144,7 +146,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
           onChange={(e) => setAwayId(e.target.value)}
           disabled={isPending}
         >
-          <option value="">Select player…</option>
+          <option value="">{t('champ.addMatch.selectPlayer')}</option>
           {players.map((p) => (
             <option key={p.id} value={p.id} disabled={p.id === homeId}>
               {p.displayName}
@@ -178,7 +180,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
               fontSize: 14,
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -194,7 +196,7 @@ export function AddMatchModal({ championshipId, players, onClose }: Props) {
               fontSize: 14,
             }}
           >
-            {isPending ? 'Adding…' : 'Add Match'}
+            {isPending ? t('champ.addMatch.adding') : t('champ.addMatch.addBtn')}
           </button>
         </div>
       </div>

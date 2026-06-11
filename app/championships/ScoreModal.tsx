@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { recordChampionshipScoreAction, updateChampionshipMatchAction } from './actions'
+import { useTranslation } from '@/lib/i18n/context'
 
 type Props = {
   championshipId: string
@@ -23,6 +24,7 @@ export function ScoreModal({
   isAdmin,
   onClose,
 }: Props) {
+  const { t } = useTranslation()
   const [homeScore, setHomeScore] = useState('')
   const [awayScore, setAwayScore] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +38,7 @@ export function ScoreModal({
     const a = awayScore !== '' ? parseInt(awayScore, 10) : NaN
 
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
-      setError('Enter valid scores (0 or more).')
+      setError(t('champ.score.errInvalid'))
       return
     }
 
@@ -52,7 +54,7 @@ export function ScoreModal({
         }
         onClose()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to save.')
+        setError(e instanceof Error ? e.message : t('champ.score.errFailed'))
       }
     })
   }
@@ -81,7 +83,7 @@ export function ScoreModal({
         }}
         role="dialog"
         aria-modal="true"
-        aria-label={editDeadline === null ? 'Record score' : 'Edit score'}
+        aria-label={editDeadline === null ? t('champ.score.recordTitle') : t('champ.score.editTitle')}
       >
         <div
           style={{
@@ -92,7 +94,7 @@ export function ScoreModal({
           }}
         >
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-            {editDeadline === null ? 'Record Score' : 'Edit Score'}
+            {editDeadline === null ? t('champ.score.recordTitle') : t('champ.score.editTitle')}
           </h2>
           <button
             onClick={onClose}
@@ -207,7 +209,7 @@ export function ScoreModal({
               fontSize: 14,
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -224,7 +226,7 @@ export function ScoreModal({
               minWidth: 100,
             }}
           >
-            {isPending ? 'Saving…' : 'Save'}
+            {isPending ? t('common.saving') : t('champ.saveDate')}
           </button>
         </div>
       </div>

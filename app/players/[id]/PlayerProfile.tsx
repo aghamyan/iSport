@@ -3,12 +3,14 @@
 import type { ReactNode } from 'react'
 import { useRef, useState, useTransition, useEffect } from 'react'
 import Link from 'next/link'
+import { Trophy, Flame, Star, Award } from 'lucide-react'
 import type { FormEntry, ChampionshipResult } from '@/lib/stats/types'
 import { H2HSection } from './H2HSection'
 import { logoutAction } from '@/lib/auth/actions'
 import { uploadAvatarAction } from '@/lib/auth/avatarAction'
 import { uploadIntroVideoAction, removeIntroVideoAction } from '@/lib/auth/introVideoAction'
 import { BottomNav } from '@/app/components/BottomNav'
+import { useTranslation } from '@/lib/i18n/context'
 
 type PlayerData = {
   id: string
@@ -57,10 +59,10 @@ type Props = {
   viewerId: string
 }
 
-const BADGE_ICONS: Record<string, string> = {
-  rivalry_won: '🏆',
-  streak:      '🔥',
-  milestone:   '⭐',
+const BADGE_ICONS: Record<string, ReactNode> = {
+  rivalry_won: <Trophy size={24} style={{ color: '#d97706' }} />,
+  streak:      <Flame   size={24} style={{ color: '#f97316' }} />,
+  milestone:   <Star    size={24} style={{ color: '#f59e0b' }} />,
 }
 
 // ── CSS keyframes injected once ──────────────────────────────
@@ -144,11 +146,12 @@ function AvatarIntroOverlay({
   playerName: string
   onDismiss: () => void
 }) {
+  const { t } = useTranslation()
   const [opacity, setOpacity] = useState(1)
 
   useEffect(() => {
-    const t = setTimeout(() => setOpacity(0), 3700)
-    return () => clearTimeout(t)
+    const timer = setTimeout(() => setOpacity(0), 3700)
+    return () => clearTimeout(timer)
   }, [])
 
   function dismiss() { setOpacity(0) }
@@ -264,7 +267,7 @@ function AvatarIntroOverlay({
           color: '#fff', letterSpacing: '0.24em', textTransform: 'uppercase',
           animation: 'intro-subtitle-in 0.5s 1.35s both',
         }}>
-          Player Profile
+          {t('player.subtitle')}
         </p>
       </div>
 
@@ -281,7 +284,7 @@ function AvatarIntroOverlay({
           padding: '6px 16px', cursor: 'pointer', letterSpacing: '0.04em',
         }}
       >
-        Skip →
+        {t('player.skip')}
       </button>
     </div>
   )
@@ -297,14 +300,15 @@ function VideoIntroOverlay({
   playerName: string
   onDismiss: () => void
 }) {
+  const { t } = useTranslation()
   const [opacity, setOpacity] = useState(1)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       videoRef.current?.play().catch(() => {})
     }, 100)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [])
 
   function dismiss() { setOpacity(0) }
@@ -391,7 +395,7 @@ function VideoIntroOverlay({
           padding: '5px 14px', cursor: 'pointer', letterSpacing: '0.04em',
         }}
       >
-        Skip →
+        {t('player.skip')}
       </button>
     </div>
   )
@@ -495,6 +499,7 @@ export function PlayerProfile({
   isAdmin,
   viewerId,
 }: Props) {
+  const { t } = useTranslation()
   const [avatarUrl, setAvatarUrl]           = useState(player.avatarUrl)
   const [introVideoUrl, setIntroVideoUrl]   = useState(player.introVideoUrl)
   const [showIntro, setShowIntro]           = useState(true)
@@ -518,7 +523,7 @@ export function PlayerProfile({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 3 * 1024 * 1024) { setUploadError('Image must be under 3 MB'); return }
+    if (file.size > 3 * 1024 * 1024) { setUploadError(t('player.err.imageSize')); return }
     setUploadError(null)
     const fd = new FormData()
     fd.append('avatar', file)
@@ -534,9 +539,9 @@ export function PlayerProfile({
   function handleVideoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 50 * 1024 * 1024) { setVideoError('Video must be under 50 MB'); return }
+    if (file.size > 50 * 1024 * 1024) { setVideoError(t('player.err.videoSize')); return }
     if (!['video/mp4', 'video/webm'].includes(file.type)) {
-      setVideoError('Only MP4 and WebM are supported (.mov not supported)')
+      setVideoError(t('player.err.videoFormat'))
       return
     }
     setVideoError(null)
@@ -559,6 +564,13 @@ export function PlayerProfile({
       else setIntroVideoUrl(null)
     })
   }
+
+  const STATS = [
+    { label: t('common.matches'), value: player.matchesPlayed },
+    { label: t('common.wins'),    value: player.wins,    color: '#16a34a' },
+    { label: t('common.draws'),   value: player.draws,   color: '#6b7280' },
+    { label: t('common.losses'),  value: player.losses,  color: '#dc2626' },
+  ]
 
   return (
     <>
@@ -583,7 +595,7 @@ export function PlayerProfile({
         {/* Breadcrumb + sign-out row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div style={{ fontSize: 12, color: '#9ca3af' }}>
-            <Link href="/leaderboard" style={{ color: '#6b7280', textDecoration: 'none' }}>Leaderboard</Link>
+            <Link href="/leaderboard" style={{ color: '#6b7280', textDecoration: 'none' }}>{t('lb.title')}</Link>
             {' / '}
             {player.name}
           </div>
@@ -597,7 +609,7 @@ export function PlayerProfile({
                   padding: '4px 12px', cursor: 'pointer',
                 }}
               >
-                Sign out
+                {t('common.signOut')}
               </button>
             </form>
           )}
@@ -678,12 +690,12 @@ export function PlayerProfile({
                 </h1>
                 {isOwnProfile && (
                   <span style={{ fontSize: 12, fontWeight: 500, color: '#6b7280', background: '#f3f4f6', borderRadius: 8, padding: '2px 8px' }}>
-                    you
+                    {t('common.youSmall')}
                   </span>
                 )}
                 {!player.isActive && (
                   <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', background: '#f9fafb', borderRadius: 8, padding: '2px 8px' }}>
-                    inactive
+                    {t('player.inactive')}
                   </span>
                 )}
               </div>
@@ -691,8 +703,8 @@ export function PlayerProfile({
               {badges.length > 0 && (
                 <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
                   {badges.map((b) => (
-                    <span key={b.id} title={b.name} style={{ fontSize: 20 }}>
-                      {BADGE_ICONS[b.badgeType] ?? '🎖️'}
+                    <span key={b.id} title={b.name} style={{ display: 'inline-flex' }}>
+                      {BADGE_ICONS[b.badgeType] ?? <Award size={20} style={{ color: '#d97706' }} />}
                     </span>
                   ))}
                 </div>
@@ -714,7 +726,7 @@ export function PlayerProfile({
                       opacity: isVideoPending ? 0.6 : 1,
                     }}
                   >
-                    🎬 {isVideoPending ? 'Uploading…' : introVideoUrl ? 'Change intro video' : 'Upload intro video'}
+                    🎬 {isVideoPending ? t('player.uploading') : introVideoUrl ? t('player.changeIntroVideo') : t('player.uploadIntroVideo')}
                   </button>
                   {introVideoUrl && !isVideoPending && (
                     <button
@@ -726,7 +738,7 @@ export function PlayerProfile({
                         background: '#fef2f2', color: '#dc2626',
                       }}
                     >
-                      Remove
+                      {t('player.removeVideo')}
                     </button>
                   )}
                   {introVideoUrl && (
@@ -739,7 +751,7 @@ export function PlayerProfile({
                         background: '#eff6ff', color: '#2563eb',
                       }}
                     >
-                      Preview
+                      {t('player.previewVideo')}
                     </button>
                   )}
                 </div>
@@ -749,12 +761,7 @@ export function PlayerProfile({
 
           {/* Stats grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
-            {[
-              { label: 'Matches', value: player.matchesPlayed },
-              { label: 'Wins',    value: player.wins,    color: '#16a34a' },
-              { label: 'Draws',   value: player.draws,   color: '#6b7280' },
-              { label: 'Losses',  value: player.losses,  color: '#dc2626' },
-            ].map(({ label, value, color }) => (
+            {STATS.map(({ label, value, color }) => (
               <div key={label} style={{ background: '#f9fafb', borderRadius: 10, padding: '12px 0', textAlign: 'center' }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: color ?? '#111827' }}>{value}</div>
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -773,14 +780,14 @@ export function PlayerProfile({
                 {player.goalDiff > 0 ? `+${player.goalDiff}` : player.goalDiff}
               </strong>
             </span>
-            <span>Win rate: <strong style={{ color: '#111827' }}>{winRate}%</strong></span>
+            <span>{t('common.winRate')}: <strong style={{ color: '#111827' }}>{winRate}%</strong></span>
           </div>
         </div>
 
         {/* ── Recent matches ── */}
         {recentMatches.length > 0 && (
           <section style={{ marginBottom: 20 }}>
-            <SectionHeader>Recent Matches</SectionHeader>
+            <SectionHeader>{t('player.recentMatches')}</SectionHeader>
             <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
               {recentMatches.map((m) => <FormPip key={m.matchId} result={m.result} />)}
             </div>
@@ -806,7 +813,7 @@ export function PlayerProfile({
                         </Link>
                       </div>
                       <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
-                        {m.matchType === 'championship' ? 'Championship' : 'Friendly'} ·{' '}
+                        {m.matchType === 'championship' ? t('player.matchType.championship') : t('home.friendly')} ·{' '}
                         {new Date(m.playedAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -823,7 +830,7 @@ export function PlayerProfile({
         {/* ── Head-to-head ── */}
         {h2hOpponents.length > 0 && (
           <section style={{ marginBottom: 20 }}>
-            <SectionHeader>Head-to-Head</SectionHeader>
+            <SectionHeader>{t('player.h2h')}</SectionHeader>
             <H2HSection playerId={player.id} opponents={h2hOpponents} />
           </section>
         )}
@@ -831,7 +838,7 @@ export function PlayerProfile({
         {/* ── Championship placements ── */}
         {championshipPlacements.length > 0 && (
           <section style={{ marginBottom: 20 }}>
-            <SectionHeader>Championships</SectionHeader>
+            <SectionHeader>{t('player.champSection')}</SectionHeader>
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', background: '#fff' }}>
               <div style={{
                 display: 'grid',
@@ -841,8 +848,8 @@ export function PlayerProfile({
                 fontSize: 10, fontWeight: 700, color: '#9ca3af',
                 textTransform: 'uppercase', letterSpacing: '0.06em', gap: 4,
               }}>
-                <span>Championship</span>
-                <span style={{ textAlign: 'center' }}>Rank</span>
+                <span>{t('player.matchType.championship')}</span>
+                <span style={{ textAlign: 'center' }}>{t('player.rank')}</span>
                 <span style={{ textAlign: 'center' }}>Pts</span>
                 <span style={{ textAlign: 'center' }}>W</span>
                 <span style={{ textAlign: 'center' }}>D</span>
@@ -867,7 +874,7 @@ export function PlayerProfile({
                     </Link>
                     {cp.isActive && (
                       <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '1px 5px', borderRadius: 8, textTransform: 'uppercase' }}>
-                        active
+                        {t('common.active')}
                       </span>
                     )}
                   </div>
@@ -889,21 +896,21 @@ export function PlayerProfile({
         {badges.length > 0 && (
           <section style={{ marginBottom: 20 }}>
             <SectionHeader>
-              Badges ({wonRivalries.length} rivalry win{wonRivalries.length !== 1 ? 's' : ''})
+              {t('player.badges')} ({wonRivalries.length} {t(wonRivalries.length !== 1 ? 'player.rivalryWins.many' : 'player.rivalryWins.one')})
             </SectionHeader>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
               {badges.map((b) => (
                 <div key={b.id} style={{ border: '1px solid #fbbf24', borderRadius: 10, padding: '10px 16px', background: '#fffbeb', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 24 }}>{BADGE_ICONS[b.badgeType] ?? '🎖️'}</span>
+                  <span style={{ display: 'inline-flex' }}>{BADGE_ICONS[b.badgeType] ?? <Award size={24} style={{ color: '#d97706' }} />}</span>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#92400e' }}>{b.name}</div>
                     {b.description && (
                       <div style={{ fontSize: 11, color: '#b45309', marginTop: 1 }}>{b.description}</div>
                     )}
                     <div style={{ fontSize: 10, color: '#d97706', marginTop: 2 }}>
-                      Earned {new Date(b.earnedAt).toLocaleDateString()}
+                      {t('player.earned', { date: new Date(b.earnedAt).toLocaleDateString() })}
                       {b.sourceRivalryId && (
-                        <> · <Link href={`/rivalries/${b.sourceRivalryId}`} style={{ color: '#d97706' }}>View rivalry →</Link></>
+                        <> · <Link href={`/rivalries/${b.sourceRivalryId}`} style={{ color: '#d97706' }}>{t('player.viewRivalry')}</Link></>
                       )}
                     </div>
                   </div>
@@ -917,7 +924,7 @@ export function PlayerProfile({
         {rivalries.length > 0 && (
           <section>
             <SectionHeader>
-              Rivalries ({wonRivalries.length} won · {activeRivalries.length} active)
+              {t('player.rivalriesTitle', { won: wonRivalries.length, active: activeRivalries.length })}
             </SectionHeader>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {rivalries.map((r) => {
@@ -932,10 +939,10 @@ export function PlayerProfile({
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {iWon && <span style={{ fontSize: 16 }}>🏆</span>}
+                        {iWon && <Trophy size={16} style={{ color: '#d97706', flexShrink: 0 }} />}
                         <div>
                           <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>vs {r.opponentName}</div>
-                          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>First to {r.bestOf} wins</div>
+                          <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>{t('player.firstTo', { n: r.bestOf })}</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
@@ -948,7 +955,7 @@ export function PlayerProfile({
                           background: r.status === 'active' ? '#dcfce7' : iWon ? '#fef3c7' : '#f3f4f6',
                           color: r.status === 'active' ? '#16a34a' : iWon ? '#92400e' : theyWon ? '#6b7280' : '#6b7280',
                         }}>
-                          {r.status === 'active' ? 'Active' : iWon ? 'Won' : 'Lost'}
+                          {r.status === 'active' ? t('common.active') : iWon ? t('player.won') : t('player.lost')}
                         </span>
                       </div>
                     </div>
@@ -961,7 +968,7 @@ export function PlayerProfile({
 
         {rivalries.length === 0 && badges.length === 0 && recentMatches.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 14 }}>
-            No match history yet.
+            {t('player.noHistory')}
           </div>
         )}
 

@@ -3,7 +3,7 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createServiceClient, getAuthedClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/session'
-import { generateRoundRobin } from '@/lib/championships/roundRobin'
+import { generateRoundRobin, generateRoundRobinCycle } from '@/lib/championships/roundRobin'
 import {
   splitIntoGroups,
   generateGroupStageSlots,
@@ -207,7 +207,9 @@ export async function createChampionshipAction(
   } else if (format === 'group_playoff') {
     slots = generateGroupPlayoffStageSlots(playerIds, numberOfCycles)
   } else {
-    slots = generateRoundRobin(playerIds, numberOfCycles)
+    // Only generate cycle 1; subsequent cycles are generated one-at-a-time
+    // via generateNextCycleAction on the championship detail page.
+    slots = generateRoundRobinCycle(playerIds, 1)
   }
 
   await insertMatchesWithOdds(supabase, champ.id, slots, statsMap, playedAt)
@@ -650,11 +652,68 @@ export async function regenerateMatchesAction(championshipId: string): Promise<v
   } else if (champ.format === 'group_playoff') {
     slots = generateGroupPlayoffStageSlots(playerIds, champ.number_of_cycles)
   } else {
-    slots = generateRoundRobin(playerIds, champ.number_of_cycles)
+    // Only regenerate cycle 1; subsequent cycles use generateNextCycleAction.
+    slots = generateRoundRobinCycle(playerIds, 1)
   }
 
   await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at)
   revalidatePath(`/championships/${championshipId}`)
+}
+
+/**
+ * Generates matches for the next cycle of a round-robin championship.
+ * Cycles are generated one at a time so results can be registered before the
+ * next set of matches is created.
+ */
+export async function generateNextCycleAction(championshipId: string): Promise<{ cycle: number }> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+
+  const { data: champ } = await supabase
+    .from('championships')
+    .select('format, number_of_cycles, played_at')
+    .eq('id', championshipId)
+    .single()
+  if (!champ) throw new Error('Championship not found')
+  if (champ.format !== 'round_robin') throw new Error('Cycle-by-cycle generation is only available for round-robin championships')
+
+  const { data: maxRow } = await supabase
+    .from('championship_matches')
+    .select('cycle')
+    .eq('championship_id', championshipId)
+    .order('cycle', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const maxCycle = maxRow?.cycle ?? 0
+  const nextCycle = maxCycle + 1
+
+  if (nextCycle > champ.number_of_cycles) {
+    throw new Error('All cycles have already been generated')
+  }
+
+  const { data: cpRows } = await supabase
+    .from('championship_players')
+    .select('player_id')
+    .eq('championship_id', championshipId)
+  const playerIds = (cpRows ?? []).map((r) => r.player_id)
+  if (playerIds.length < 2) throw new Error('Not enough players')
+
+  const { data: playersData } = await supabase
+    .from('players')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .in('id', playerIds)
+  const statsMap: Record<string, PlayerStats> = {}
+  for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
+
+  const slots = generateRoundRobinCycle(playerIds, nextCycle)
+  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at)
+
+  await logAdminAction('generate_cycle', 'championship', championshipId, { cycle: nextCycle })
+  revalidatePath(`/championships/${championshipId}`)
+  return { cycle: nextCycle }
 }
 
 /**

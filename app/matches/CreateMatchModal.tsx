@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { createMatchesBatchAction, getMatchPreviewDataAction } from './actions'
 import type { MatchDraft, MatchPreviewData } from './actions'
+import { useTranslation } from '@/lib/i18n/context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,14 @@ const MODAL_ANIMS = `
   @keyframes cmSlideUp {
     from { transform: translateY(100%); opacity: 0; }
     to   { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes factIn {
+    from { opacity: 0; transform: translateX(-10px) scale(0.98); }
+    to   { opacity: 1; transform: translateX(0)     scale(1); }
+  }
+  @keyframes factGlow {
+    0%, 100% { opacity: 0.6; }
+    50%       { opacity: 1; }
   }
 `
 
@@ -115,7 +124,7 @@ function generateFacts(
   if (diff > 20) {
     facts.push({ icon: '👑', text: `${homeName} is a clear favourite — ${odds.homeWinPct}% win probability`, color: WIN })
   } else if (diff > 8) {
-    facts.push({ icon: '⭐', text: `${homeName} has the edge — ${odds.homeWinPct}% vs ${odds.awayWinPct}%`, color: ACCENT })
+    facts.push({ icon: '🌟', text: `${homeName} has the edge — ${odds.homeWinPct}% vs ${odds.awayWinPct}%`, color: ACCENT })
   } else if (diff < -20) {
     facts.push({ icon: '⚡', text: `${awayName} enters as favourite — ${odds.awayWinPct}% win chance`, color: LOSS })
   } else if (diff < -8) {
@@ -133,16 +142,16 @@ function generateFacts(
   // H2H
   if (h2h && h2h.total >= 2) {
     if (h2h.homeWins > h2h.awayWins) {
-      facts.push({ icon: '📊', text: `H2H: You lead ${h2h.homeWins}–${h2h.awayWins} (${h2h.draws} draws, ${h2h.total} meetings)`, color: WIN })
+      facts.push({ icon: '🤝', text: `H2H: You lead ${h2h.homeWins}–${h2h.awayWins} (${h2h.draws} draws, ${h2h.total} meetings)`, color: WIN })
     } else if (h2h.awayWins > h2h.homeWins) {
-      facts.push({ icon: '📊', text: `H2H: ${awayName} leads ${h2h.awayWins}–${h2h.homeWins} (${h2h.draws} draws, ${h2h.total} meetings)`, color: LOSS })
+      facts.push({ icon: '🤝', text: `H2H: ${awayName} leads ${h2h.awayWins}–${h2h.homeWins} (${h2h.draws} draws, ${h2h.total} meetings)`, color: LOSS })
     } else {
-      facts.push({ icon: '📊', text: `H2H is dead level — ${h2h.homeWins}–${h2h.awayWins} (${h2h.draws} draws, ${h2h.total} meetings)`, color: GOLD })
+      facts.push({ icon: '🤝', text: `H2H is dead level — ${h2h.homeWins}–${h2h.awayWins} (${h2h.draws} draws, ${h2h.total} meetings)`, color: GOLD })
     }
   } else if (h2h && h2h.total === 1) {
-    facts.push({ icon: '📊', text: `Only 1 previous meeting — rivalry is just beginning!`, color: TEXT2 })
+    facts.push({ icon: '🤝', text: `Only 1 previous meeting — rivalry is just beginning!`, color: TEXT2 })
   } else {
-    facts.push({ icon: '🆕', text: `First ever meeting! No H2H history yet`, color: TEXT2 })
+    facts.push({ icon: '✨', text: `First ever meeting! No H2H history yet`, color: TEXT2 })
   }
 
   // Home form
@@ -159,7 +168,7 @@ function generateFacts(
   if (awayForm.length >= 3) {
     const wins = awayForm.filter((r) => r === 'W').length
     if (wins >= 3) {
-      facts.push({ icon: '⚠️', text: `${awayName} is in hot form (${wins}/${awayForm.length} recent wins) — watch out!`, color: '#f97316' })
+      facts.push({ icon: '🚨', text: `${awayName} is in hot form (${wins}/${awayForm.length} recent wins) — watch out!`, color: '#f97316' })
     } else if (wins === 0) {
       facts.push({ icon: '📉', text: `${awayName} is struggling — ${awayForm.length} games without a win`, color: TEXT2 })
     }
@@ -167,7 +176,7 @@ function generateFacts(
 
   // Win rates
   if (Math.abs(homeWinRate - awayWinRate) > 15 && (homeWinRate > 0 || awayWinRate > 0)) {
-    facts.push({ icon: '📈', text: `Career win rates: You ${homeWinRate}% vs ${awayName} ${awayWinRate}%`, color: homeWinRate > awayWinRate ? WIN : TEXT2 })
+    facts.push({ icon: '🏅', text: `Career win rates: You ${homeWinRate}% vs ${awayName} ${awayWinRate}%`, color: homeWinRate > awayWinRate ? WIN : TEXT2 })
   }
 
   // Scoring comparison
@@ -198,6 +207,7 @@ function PickOpponentStep({
   onSelect: (p: ActivePlayer) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const filtered = search
     ? players.filter((p) => p.displayName.toLowerCase().includes(search.toLowerCase()))
@@ -210,7 +220,7 @@ function PickOpponentStep({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 22 }}>⚡</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>Record Match</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>{t('match.create.recordTitle')}</span>
           </div>
           <button
             onClick={onClose}
@@ -220,13 +230,13 @@ function PickOpponentStep({
           </button>
         </div>
         <p style={{ margin: '0 0 16px', fontSize: 13, color: TEXT2 }}>
-          You (<strong style={{ color: TEXT }}>{currentUserName}</strong>) vs…
+          {t('match.create.youVs', { name: currentUserName })}
         </p>
         {players.length > 6 && (
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search player…"
+            placeholder={t('match.create.searchPlaceholder')}
             style={{
               width: '100%', boxSizing: 'border-box',
               padding: '9px 12px', borderRadius: 10,
@@ -242,7 +252,7 @@ function PickOpponentStep({
       <div style={{ overflowY: 'auto', flex: 1, padding: '4px 20px 24px' }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 13 }}>
-            No players found
+            {t('match.create.noPlayersFound')}
           </div>
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -300,6 +310,7 @@ function PreviewStep({
   onClose: () => void
   onSubmit: () => void
 }) {
+  const { t } = useTranslation()
   const [showCustom, setShowCustom] = useState(false)
   const [customVal,  setCustomVal]  = useState('')
 
@@ -330,7 +341,7 @@ function PreviewStep({
             onClick={onBack}
             style={{ background: 'none', border: 'none', color: TEXT2, fontSize: 14, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
           >
-            ← Back
+            {t('common.back')}
           </button>
           <button
             onClick={onClose}
@@ -345,7 +356,7 @@ function PreviewStep({
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 1 }}>
             <AvatarBubble name={currentUserName} url={currentUserAvatarUrl} size={54} ring={ACCENT} />
             <span style={{ fontSize: 12, fontWeight: 700, color: TEXT, textAlign: 'center' }}>{meShort}</span>
-            <span style={{ fontSize: 10, color: TEXT2 }}>You</span>
+            <span style={{ fontSize: 10, color: TEXT2 }}>{t('rivalry.create.youLabel')}</span>
           </div>
           <div style={{
             width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
@@ -359,7 +370,7 @@ function PreviewStep({
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flex: 1 }}>
             <AvatarBubble name={opp} url={opponent.avatarUrl} size={54} ring={BORDER} />
             <span style={{ fontSize: 12, fontWeight: 700, color: TEXT, textAlign: 'center' }}>{oppShort}</span>
-            <span style={{ fontSize: 10, color: TEXT2 }}>Opponent</span>
+            <span style={{ fontSize: 10, color: TEXT2 }}>{t('rivalry.create.opponentLabel')}</span>
           </div>
         </div>
       </div>
@@ -370,7 +381,7 @@ function PreviewStep({
         {/* ── Count selector ── */}
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-            How many matches?
+            {t('match.create.howMany')}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             {COUNT_PRESETS.map((n) => {
@@ -404,7 +415,7 @@ function PreviewStep({
                 transition: 'all 0.15s',
               }}
             >
-              Custom
+              {t('match.create.custom')}
             </button>
           </div>
           {showCustom && (
@@ -428,12 +439,12 @@ function PreviewStep({
         {/* ── Odds section ── */}
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
-            Pre-match Odds
+            {t('odds.preMatch')}
           </div>
 
           {loadingPreview && (
             <div style={{ textAlign: 'center', padding: '18px 0', color: TEXT2, fontSize: 13 }}>
-              Calculating odds…
+              {t('odds.calculating')}
             </div>
           )}
 
@@ -465,7 +476,7 @@ function PreviewStep({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, fontSize: 10 }}>
                 <span style={{ color: '#60a5fa', fontWeight: 600 }}>{meShort}</span>
-                <span style={{ color: TEXT2 }}>Draw</span>
+                <span style={{ color: TEXT2 }}>{t('odds.draw')}</span>
                 <span style={{ color: '#f87171', fontWeight: 600 }}>{oppShort}</span>
               </div>
 
@@ -475,8 +486,8 @@ function PreviewStep({
                   { label: '1',   value: preview.odds.homeWinOdds.toFixed(2), sub: `${preview.odds.homeWinPct}%`, c: '#60a5fa', bg: 'rgba(37,99,235,0.14)' },
                   { label: 'X',   value: preview.odds.drawOdds.toFixed(2),    sub: `${preview.odds.drawPct}%`,   c: TEXT2,     bg: 'rgba(71,85,105,0.25)' },
                   { label: '2',   value: preview.odds.awayWinOdds.toFixed(2), sub: `${preview.odds.awayWinPct}%`,c: '#f87171', bg: 'rgba(220,38,38,0.14)' },
-                  { label: 'HDP', value: handicapLabel(preview.odds.homeHandicap), sub: 'handicap', c: '#a78bfa', bg: 'rgba(139,92,246,0.14)' },
-                  ...(ouLine ? [{ label: 'O/U', value: ouLine, sub: 'goals', c: GOLD, bg: 'rgba(245,158,11,0.12)' }] : []),
+                  { label: 'HDP', value: handicapLabel(preview.odds.homeHandicap), sub: t('match.create.handicap'), c: '#a78bfa', bg: 'rgba(139,92,246,0.14)' },
+                  ...(ouLine ? [{ label: 'O/U', value: ouLine, sub: t('match.create.goalsLower'), c: GOLD, bg: 'rgba(245,158,11,0.12)' }] : []),
                 ].map((chip) => (
                   <div key={chip.label} style={{
                     flex: 1, textAlign: 'center', padding: '8px 3px',
@@ -496,18 +507,46 @@ function PreviewStep({
         {/* ── Match Facts ── */}
         {facts.length > 0 && (
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-              Match Facts
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+              <span style={{ fontSize: 13 }}>✨</span>
+              <div style={{ fontSize: 10, fontWeight: 800, color: TEXT2, textTransform: 'uppercase', letterSpacing: '0.13em' }}>
+                {t('match.create.matchFacts')}
+              </div>
+              <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${BORDER}, transparent)` }} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {facts.map((fact, i) => (
                 <div key={i} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '10px 12px', borderRadius: 10,
-                  background: CARD2, border: `1px solid ${BORDER}`,
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '11px 14px 11px 0',
+                  borderRadius: 14,
+                  background: `linear-gradient(105deg, ${fact.color}14 0%, ${CARD2} 55%)`,
+                  border: `1px solid ${fact.color}28`,
+                  borderLeft: `3px solid ${fact.color}`,
+                  boxShadow: `0 2px 16px ${fact.color}12, inset 0 1px 0 ${fact.color}10`,
+                  overflow: 'hidden',
+                  animation: 'factIn 0.38s cubic-bezier(0.22,1,0.36,1) both',
+                  animationDelay: `${i * 0.07}s`,
                 }}>
-                  <span style={{ fontSize: 15, flexShrink: 0, lineHeight: 1, marginTop: 1 }}>{fact.icon}</span>
-                  <span style={{ fontSize: 12, color: fact.color, lineHeight: 1.45 }}>{fact.text}</span>
+                  {/* Icon badge */}
+                  <div style={{
+                    width: 42, height: 42, borderRadius: '0 10px 10px 0', flexShrink: 0,
+                    background: `${fact.color}18`,
+                    borderRight: `1px solid ${fact.color}25`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18,
+                  }}>
+                    {fact.icon}
+                  </div>
+                  <span style={{
+                    fontSize: 12.5,
+                    color: '#e2e8f0',
+                    lineHeight: 1.5,
+                    fontWeight: 500,
+                    flex: 1,
+                  }}>
+                    {fact.text}
+                  </span>
                 </div>
               ))}
             </div>
@@ -518,7 +557,7 @@ function PreviewStep({
         {preview && (preview.homeForm.length > 0 || preview.awayForm.length > 0) && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-              Recent Form
+              {t('match.create.recentForm')}
             </div>
             {[
               { name: currentUserName, form: preview.homeForm, wr: preview.homeWinRate },
@@ -530,7 +569,7 @@ function PreviewStep({
                 </span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   {form.length === 0
-                    ? <span style={{ fontSize: 11, color: MUTED }}>No data</span>
+                    ? <span style={{ fontSize: 11, color: MUTED }}>{t('match.create.noData')}</span>
                     : form.map((r, i) => (
                       <div key={i} style={{
                         width: 22, height: 22, borderRadius: 5, flexShrink: 0,
@@ -573,8 +612,8 @@ function PreviewStep({
           }}
         >
           {isPending
-            ? 'Creating…'
-            : `⚡ Create ${count} Match${count > 1 ? 'es' : ''} vs ${opp.split(' ')[0]}`}
+            ? t('match.create.creating')
+            : t(count > 1 ? 'match.create.createBtn.many' : 'match.create.createBtn.one', { n: count, name: opp.split(' ')[0] })}
         </button>
       </div>
     </div>
@@ -586,6 +625,7 @@ function PreviewStep({
 export function CreateMatchModal({
   currentUserId, currentUserName, currentUserAvatarUrl, players, onClose,
 }: Props) {
+  const { t } = useTranslation()
   const [step,           setStep]           = useState<Step>('pick')
   const [opponent,       setOpponent]       = useState<ActivePlayer | null>(null)
   const [count,          setCount]          = useState(1)
@@ -628,7 +668,7 @@ export function CreateMatchModal({
         await createMatchesBatchAction(drafts)
         onClose()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Something went wrong.')
+        setError(e instanceof Error ? e.message : t('match.create.errGeneral'))
       }
     })
   }

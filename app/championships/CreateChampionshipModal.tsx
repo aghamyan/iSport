@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createChampionshipAction } from './actions'
 import { splitIntoGroups } from '@/lib/championships/groupKnockout'
+import { useTranslation } from '@/lib/i18n/context'
 
 export type PlayerOption = {
   id: string
@@ -188,6 +189,7 @@ const S = {
 }
 
 export function CreateChampionshipModal({ players, onClose }: Props) {
+  const { t } = useTranslation()
   const router = useRouter()
   const [name, setName] = useState('')
   const [format, setFormat] = useState<Format>('round_robin')
@@ -239,11 +241,11 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
     : 0
 
   function handleSubmit() {
-    if (!name.trim()) { setError('Championship name is required.'); return }
-    if (format === 'round_robin' && n < 2) { setError('Select at least 2 players.'); return }
-    if (format === 'group_knockout' && n < 4) { setError('Group Knockout requires at least 4 players.'); return }
-    if (format === 'group_playoff' && n < 4) { setError('Group Playoff requires at least 4 players.'); return }
-    if (cycles < 1 || cycles > 10) { setError('Cycles must be between 1 and 10.'); return }
+    if (!name.trim()) { setError(t('champ.create.errName')); return }
+    if (format === 'round_robin' && n < 2) { setError(t('champ.create.errMin2')); return }
+    if (format === 'group_knockout' && n < 4) { setError(t('champ.create.errMin4ko')); return }
+    if (format === 'group_playoff' && n < 4) { setError(t('champ.create.errMin4po')); return }
+    if (cycles < 1 || cycles > 10) { setError(t('champ.create.errCycles')); return }
     setError(null)
 
     startTransition(async () => {
@@ -254,7 +256,7 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
         onClose()
         router.push(`/championships/${id}`)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Something went wrong.')
+        setError(e instanceof Error ? e.message : t('common.somethingWentWrong'))
       }
     })
   }
@@ -263,17 +265,17 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
 
   return (
     <div style={S.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={S.modal} role="dialog" aria-modal="true" aria-label="Create championship">
+      <div style={S.modal} role="dialog" aria-modal="true" aria-label={t('champ.create.title')}>
         <div style={S.header}>
-          <h2 style={S.title}>New Championship</h2>
+          <h2 style={S.title}>{t('champ.create.title')}</h2>
           <button style={S.closeBtn} onClick={onClose} aria-label="Close">×</button>
         </div>
 
-        <label style={S.label}>Championship name</label>
+        <label style={S.label}>{t('champ.create.nameLabel')}</label>
         <input
           style={S.input}
           type="text"
-          placeholder="e.g. Season 1"
+          placeholder={t('champ.create.namePlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={isPending}
@@ -281,9 +283,9 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
         />
 
         <label style={S.label}>
-          Championship date{' '}
+          {t('champ.create.dateLabel')}{' '}
           <span style={{ fontWeight: 400, color: '#9ca3af', textTransform: 'none', letterSpacing: 0 }}>
-            (optional — set for past championships)
+            {t('champ.create.dateOpt')}
           </span>
         </label>
         <input
@@ -296,49 +298,48 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
         />
         {playedAt && (
           <p style={{ fontSize: 11, color: '#6b7280', margin: '0 0 16px' }}>
-            All matches will be timestamped to this date so they don&apos;t appear in
-            &quot;recent matches&quot; for players who played newer championships after it.
+            {t('champ.create.dateHint')}
           </p>
         )}
 
-        <label style={S.label}>Format</label>
+        <label style={S.label}>{t('champ.create.formatLabel')}</label>
         <div style={S.formatRow}>
           <button
             style={S.formatBtn(format === 'round_robin')}
             onClick={() => setFormat('round_robin')}
             disabled={isPending}
           >
-            <span style={S.formatBtnTitle(format === 'round_robin')}>Round Robin</span>
-            <span style={S.formatBtnDesc}>Everyone plays everyone. Simple league table.</span>
+            <span style={S.formatBtnTitle(format === 'round_robin')}>{t('champ.create.roundRobin')}</span>
+            <span style={S.formatBtnDesc}>{t('champ.create.roundRobinDesc')}</span>
           </button>
           <button
             style={S.formatBtn(format === 'group_knockout')}
             onClick={() => { if (canUseGroupKnockout) setFormat('group_knockout') }}
             disabled={isPending || !canUseGroupKnockout}
-            title={!canUseGroupKnockout ? 'Requires 4+ players' : undefined}
+            title={!canUseGroupKnockout ? t('champ.create.requires4') : undefined}
           >
-            <span style={S.formatBtnTitle(format === 'group_knockout')}>Group Knockout</span>
+            <span style={S.formatBtnTitle(format === 'group_knockout')}>{t('champ.create.groupKnockout')}</span>
             <span style={S.formatBtnDesc}>
-              2 groups → top 2 advance → semi-finals (home & away) → final.{' '}
-              {!canUseGroupKnockout && <strong>Needs 4+ players.</strong>}
+              {t('champ.create.groupKnockoutDesc')}{' '}
+              {!canUseGroupKnockout && <strong>{t('champ.create.needs4')}</strong>}
             </span>
           </button>
           <button
             style={S.formatBtn(format === 'group_playoff')}
             onClick={() => { if (canUseGroupPlayoff) setFormat('group_playoff') }}
             disabled={isPending || !canUseGroupPlayoff}
-            title={!canUseGroupPlayoff ? 'Requires 4+ players' : undefined}
+            title={!canUseGroupPlayoff ? t('champ.create.requires4') : undefined}
           >
-            <span style={S.formatBtnTitle(format === 'group_playoff')}>Group Playoff</span>
+            <span style={S.formatBtnTitle(format === 'group_playoff')}>{t('champ.create.groupPlayoff')}</span>
             <span style={S.formatBtnDesc}>
-              Single group → top 4 advance → semi-finals → final.{' '}
-              {!canUseGroupPlayoff && <strong>Needs 4+ players.</strong>}
+              {t('champ.create.groupPlayoffDesc')}{' '}
+              {!canUseGroupPlayoff && <strong>{t('champ.create.needs4')}</strong>}
             </span>
           </button>
         </div>
 
         <label style={S.label}>
-          {format === 'round_robin' ? 'Number of cycles' : 'Group stage cycles'}
+          {format === 'round_robin' ? t('champ.create.cycleLabel') : t('champ.create.cycleLabelGroup')}
         </label>
         <div style={S.cycleRow}>
           <input
@@ -352,12 +353,12 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
           />
           <span style={S.cycleNote}>
             {format === 'round_robin'
-              ? '1 cycle = each pair plays once. 2 cycles = home + away swap.'
-              : '1 cycle = each pair plays once in the group.'}
+              ? t('champ.create.cycleNote1')
+              : t('champ.create.cycleNote2')}
           </span>
         </div>
 
-        <label style={S.label}>Players ({n} selected)</label>
+        <label style={S.label}>{t('champ.create.playersLabel', { n })}</label>
         <div style={S.playersGrid}>
           {players.map((p) => (
             <button
@@ -393,23 +394,20 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
 
         {format === 'round_robin' && matchCount > 0 && (
           <p style={S.selectionNote}>
-            This will generate <strong>{matchCount}</strong> match
-            {matchCount !== 1 ? 'es' : ''} across <strong>{cycles}</strong> cycle
-            {cycles !== 1 ? 's' : ''}.
+            {cycles === 1
+              ? t((n * (n - 1)) / 2 !== 1 ? 'champ.create.matchCount.many' : 'champ.create.matchCount.one', { count: (n * (n - 1)) / 2, cycles: 1 })
+              : t((n * (n - 1)) / 2 !== 1 ? 'champ.create.rrMultiNote.many' : 'champ.create.rrMultiNote.one', { count: (n * (n - 1)) / 2, max: cycles })
+            }
           </p>
         )}
         {format === 'group_knockout' && groupPreview && (
           <p style={S.selectionNote}>
-            Group stage: <strong>{groupKnockoutMatchCount - 5}</strong> matches across{' '}
-            <strong>{cycles}</strong> cycle{cycles !== 1 ? 's' : ''}. Plus 4 semi-final legs +
-            1 final = <strong>{groupKnockoutMatchCount}</strong> total.
+            {t(cycles !== 1 ? 'champ.create.koNote.many' : 'champ.create.koNote.one', { group: groupKnockoutMatchCount - 5, cycles, total: groupKnockoutMatchCount })}
           </p>
         )}
         {format === 'group_playoff' && n >= 4 && (
           <p style={S.selectionNote}>
-            Group stage: <strong>{((n * (n - 1)) / 2) * cycles}</strong> matches across{' '}
-            <strong>{cycles}</strong> cycle{cycles !== 1 ? 's' : ''}. Plus 2 semi-finals +
-            1 final = <strong>{groupPlayoffMatchCount}</strong> total.
+            {t(cycles !== 1 ? 'champ.create.poNote.many' : 'champ.create.poNote.one', { group: ((n * (n - 1)) / 2) * cycles, cycles, total: groupPlayoffMatchCount })}
           </p>
         )}
 
@@ -417,14 +415,14 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
 
         <div style={S.footer}>
           <button style={S.cancelBtn} onClick={onClose} disabled={isPending}>
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             style={S.submitBtn(isDisabled)}
             onClick={handleSubmit}
             disabled={isDisabled}
           >
-            {isPending ? 'Creating…' : 'Create Championship'}
+            {isPending ? t('champ.create.creating') : t('champ.create.submit')}
           </button>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import type { NamedPlayerStats, ChampionshipLeader } from '@/lib/stats/types'
 import type { RivalryItem } from './HomeLoggedIn'
+import { useTranslation } from '@/lib/i18n/context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ const LOSS   = '#dc2626'
 
 export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
   const [tab, setTab] = useState<Tab>('stats')
+  const { t } = useTranslation()
 
   const top        = players.slice(0, 8)
   const activeChamps = champLeaders.filter((c) => c.isActive)
@@ -51,7 +53,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
           padding: '8px 18px', background: ACCENT, color: '#fff',
           borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none',
         }}>
-          Login
+          {t('common.login')}
         </Link>
       </div>
 
@@ -67,7 +69,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
           FC26 Tracker
         </h1>
         <p style={{ margin: '0 0 28px', fontSize: 15, color: '#94a3b8', maxWidth: 280, marginLeft: 'auto', marginRight: 'auto' }}>
-          Track matches, championships &amp; rivalries with your squad
+          {t('out.tagline')}
         </p>
         <Link href="/login" style={{
           display: 'inline-block',
@@ -76,7 +78,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
           color: '#fff', borderRadius: 12, fontWeight: 800, fontSize: 16,
           textDecoration: 'none', boxShadow: '0 4px 24px rgba(37,99,235,0.45)',
         }}>
-          Get Started →
+          {t('out.getStarted')}
         </Link>
       </div>
 
@@ -86,7 +88,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         background: CARD, borderBottom: `1px solid ${BORDER}`,
         position: 'sticky', top: 57, zIndex: 30,
       }}>
-        {([['stats', 'Stats'], ['rivalries', 'Rivalries']] as [Tab, string][]).map(([id, label]) => (
+        {([['stats', t('out.tab.stats')], ['rivalries', t('out.tab.rivalries')]] as [Tab, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             flex: 1, padding: '13px', background: 'none', border: 'none',
             borderBottom: `2px solid ${tab === id ? ACCENT : 'transparent'}`,
@@ -106,10 +108,10 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         {tab === 'stats' && (
           <>
             {/* Leaderboard */}
-            <SectionHeader label="Leaderboard" />
+            <SectionHeader label={t('out.leaderboard')} />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 28 }}>
               {top.length === 0 && (
-                <Empty text="No players yet." />
+                <Empty text={t('out.noPlayers')} />
               )}
               {top.map((p, i) => (
                 <div key={p.id} style={{
@@ -126,7 +128,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
                       {p.name}
                     </div>
                     <div style={{ fontSize: 11, color: MUTED }}>
-                      {p.matchesPlayed} matches
+                      {p.matchesPlayed} {t('common.matches')}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
@@ -145,7 +147,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
             {/* Active championships */}
             {activeChamps.length > 0 && (
               <>
-                <SectionHeader label="Active Championships" />
+                <SectionHeader label={t('out.activeChamps')} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 28 }}>
                   {activeChamps.map((c) => (
                     <div key={c.championshipId} style={{
@@ -162,7 +164,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
                           <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {c.playerName}
                           </div>
-                          <div style={{ fontSize: 11, color: '#b45309' }}>Current leader</div>
+                          <div style={{ fontSize: 11, color: '#b45309' }}>{t('out.currentLeader')}</div>
                         </div>
                         <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
                           <MiniStat label="Pts" value={c.points}   color="#f59e0b" />
@@ -181,8 +183,8 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         {/* ══ Rivalries tab ══════════════════════════════════════════ */}
         {tab === 'rivalries' && (
           <>
-            <SectionHeader label="Active Rivalries" />
-            {rivalries.length === 0 && <Empty text="No active rivalries." />}
+            <SectionHeader label={t('out.activeRivalries')} />
+            {rivalries.length === 0 && <Empty text={t('out.noRivalries')} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {rivalries.map((r) => (
                 <div key={r.id} style={{
@@ -203,7 +205,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
                     </div>
                   </div>
                   <div style={{ textAlign: 'center', marginTop: 6, fontSize: 11, color: MUTED }}>
-                    First to {r.bestOf} · {r.player1Wins + r.player2Wins} played
+                    {t('out.firstTo', { n: r.bestOf, played: r.player1Wins + r.player2Wins })}
                   </div>
                 </div>
               ))}
@@ -219,12 +221,12 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         padding: '12px 20px',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
       }}>
-        <span style={{ fontSize: 13, color: MUTED }}>Join the league</span>
+        <span style={{ fontSize: 13, color: MUTED }}>{t('out.joinLeague')}</span>
         <Link href="/login" style={{
           padding: '9px 22px', background: ACCENT, color: '#fff',
           borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none',
         }}>
-          Login →
+          {t('out.loginArrow')}
         </Link>
       </div>
     </div>

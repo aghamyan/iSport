@@ -12,7 +12,7 @@ export async function loginAction(
 ): Promise<LoginState> {
   const raw = formData.get('accessCode')
   if (typeof raw !== 'string' || !raw.trim()) {
-    return { error: 'Access code is required' }
+    return { error: 'auth.err.required' }
   }
 
   // Normalise: trim + uppercase so admin-created codes always match
@@ -26,11 +26,11 @@ export async function loginAction(
     .single()
 
   if (error || !user) {
-    return { error: 'Invalid access code' }
+    return { error: 'auth.err.invalid' }
   }
 
   if (!user.is_active) {
-    return { error: 'This access code has been deactivated' }
+    return { error: 'auth.err.deactivated' }
   }
 
   // Persist session record for admin-forced-logout support
@@ -41,7 +41,7 @@ export async function loginAction(
     .single()
 
   if (sessionErr || !session) {
-    return { error: 'Could not create session — try again' }
+    return { error: 'auth.err.session' }
   }
 
   await createSession(user.id, user.is_admin, session.id)

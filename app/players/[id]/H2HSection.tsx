@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { fetchH2HAction } from '../actions'
 import type { H2HRecord } from '@/lib/stats/types'
+import { useTranslation } from '@/lib/i18n/context'
 
 type Opponent = { id: string; name: string }
 
@@ -14,6 +15,7 @@ type Props = {
 type LoadState = { status: 'idle' } | { status: 'loading' } | { status: 'done'; data: H2HRecord | null }
 
 function H2HRow({ playerId, opponent }: { playerId: string; opponent: Opponent }) {
+  const { t } = useTranslation()
   const [state, setState] = useState<LoadState>({ status: 'idle' })
   const [isPending, startTransition] = useTransition()
 
@@ -65,13 +67,13 @@ function H2HRow({ playerId, opponent }: { playerId: string; opponent: Opponent }
         >
           {state.status === 'loading' || isPending ? (
             <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: '8px 0' }}>
-              Loading…
+              {t('common.loading')}
             </div>
           ) : state.status === 'done' && state.data ? (
             <H2HStats playerId={playerId} record={state.data} opponentName={opponent.name} />
           ) : (
             <div style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', padding: '8px 0' }}>
-              No matches played yet.
+              {t('h2h.noMatches')}
             </div>
           )}
         </div>
@@ -89,6 +91,7 @@ function H2HStats({
   record: H2HRecord
   opponentName: string
 }) {
+  const { t } = useTranslation()
   // player1 in the record is whoever was passed as player1Id (= our player)
   const myWins    = record.player1Wins
   const theirWins = record.player2Wins
@@ -132,20 +135,20 @@ function H2HStats({
       >
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: 700, fontSize: 20, color: '#111827' }}>{myWins}</div>
-          <div style={{ fontSize: 11, color: '#6b7280' }}>wins</div>
+          <div style={{ fontSize: 11, color: '#6b7280' }}>{t('h2h.wins')}</div>
         </div>
         <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 11 }}>
           <div style={{ fontWeight: 700, color: '#6b7280', fontSize: 13 }}>{draws}</div>
-          <div>draws</div>
+          <div>{t('h2h.draws')}</div>
         </div>
         <div style={{ textAlign: 'left' }}>
           <div style={{ fontWeight: 700, fontSize: 20, color: '#111827' }}>{theirWins}</div>
-          <div style={{ fontSize: 11, color: '#6b7280' }}>{opponentName} wins</div>
+          <div style={{ fontSize: 11, color: '#6b7280' }}>{t('h2h.opponentWins', { name: opponentName })}</div>
         </div>
       </div>
 
       <div style={{ marginTop: 10, fontSize: 11, color: '#9ca3af', textAlign: 'center' }}>
-        {myGoals} – {theirGoals} goals across {total} match{total !== 1 ? 'es' : ''}
+        {t(total !== 1 ? 'h2h.goalsLine.many' : 'h2h.goalsLine.one', { a: myGoals, b: theirGoals, n: total })}
       </div>
     </div>
   )

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/components/ConfirmDialog'
+import { useTranslation } from '@/lib/i18n/context'
 import {
   adminDeleteChampionshipAction,
   adminSetChampionshipActiveAction,
@@ -54,6 +55,7 @@ function EditCMatchModal({
   match: CMatch
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const [homeScore, setHome] = useState(match.homeScore ?? 0)
   const [awayScore, setAway] = useState(match.awayScore ?? 0)
   const [status, setStatus]  = useState<'pending' | 'confirmed' | 'final'>(match.status)
@@ -75,11 +77,11 @@ function EditCMatchModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 380, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Edit Match</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{t('admin.matches.editTitle')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>×</button>
         </div>
         <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
-          Cycle {match.cycle}: {match.homePlayer} vs {match.awayPlayer}
+          {t('admin.champ.editCycle', { n: match.cycle, home: match.homePlayer, away: match.awayPlayer })}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           {[['HOME', homeScore, setHome], ['AWAY', awayScore, setAway]].map(([label, val, setter], i) => (
@@ -96,15 +98,17 @@ function EditCMatchModal({
         </div>
         <div style={{ marginBottom: 20 }}>
           <select value={status} onChange={(e) => setStatus(e.target.value as typeof status)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: '100%' }}>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="final">Final (locked)</option>
+            <option value="pending">{t('admin.status.pending')}</option>
+            <option value="confirmed">{t('admin.status.confirmed')}</option>
+            <option value="final">{t('admin.status.final')}</option>
           </select>
         </div>
         {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '0 0 12px' }}>{error}</p>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={S.btn('#374151', '#f3f4f6')}>Cancel</button>
-          <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>{pending ? 'Saving…' : 'Save'}</button>
+          <button onClick={onClose} style={S.btn('#374151', '#f3f4f6')}>{t('common.cancel')}</button>
+          <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>
+            {pending ? t('common.saving') : t('common.save')}
+          </button>
         </div>
       </div>
     </div>
@@ -112,6 +116,7 @@ function EditCMatchModal({
 }
 
 function ChampionshipRow({ champ }: { champ: Championship }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded]     = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editMatch, setEditMatch]   = useState<CMatch | null>(null)
@@ -145,24 +150,24 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{champ.name}</span>
               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: champ.isActive ? '#dcfce7' : '#f3f4f6', color: champ.isActive ? '#16a34a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {champ.isActive ? 'Active' : 'Ended'}
+                {champ.isActive ? t('champ.active') : t('champ.ended')}
               </span>
             </div>
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
-              {champ.playerCount} players · {champ.matches.length} matches · {new Date(champ.createdAt).toLocaleDateString()}
+              {t('admin.champ.playerCount', { n: champ.playerCount })} · {t('admin.champ.matchCount', { n: champ.matches.length })} · {new Date(champ.createdAt).toLocaleDateString()}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <Link href={`/championships/${champ.id}`} style={{ ...S.btn('#374151', '#f3f4f6'), textDecoration: 'none', display: 'inline-block' }}>
-              View
+              {t('admin.champ.view')}
             </Link>
             <button onClick={toggleActive} disabled={pending} style={S.btn('#fff', champ.isActive ? '#d97706' : '#16a34a')}>
-              {champ.isActive ? 'Mark Complete' : 'Reactivate'}
+              {champ.isActive ? t('admin.champ.markComplete') : t('admin.champ.reactivate')}
             </button>
             <button onClick={() => setExpanded(!expanded)} style={S.btn('#2563eb', '#eff6ff')}>
-              {expanded ? 'Hide Matches' : 'Matches'}
+              {expanded ? t('admin.champ.hideMatches') : t('admin.champ.showMatches')}
             </button>
-            <button onClick={() => setConfirmDelete(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>Delete</button>
+            <button onClick={() => setConfirmDelete(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
           </div>
         </div>
 
@@ -171,7 +176,13 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  {['Cycle', 'Match', 'Score', 'Status', 'Actions'].map((h) => (
+                  {[
+                    t('admin.champ.col.cycle'),
+                    t('admin.champ.col.match'),
+                    t('admin.champ.col.score'),
+                    t('admin.champ.col.status'),
+                    t('admin.champ.col.actions'),
+                  ].map((h) => (
                     <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                   ))}
                 </tr>
@@ -191,8 +202,8 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
                     </td>
                     <td style={{ padding: '8px' }}>
                       <div style={{ display: 'flex', gap: 4 }}>
-                        <button onClick={() => setEditMatch(m)} style={S.btn('#374151', '#f3f4f6')}>Edit</button>
-                        <button onClick={() => setConfirmMatchDel(m)} style={S.btn('#fff', '#dc2626')}>Del</button>
+                        <button onClick={() => setEditMatch(m)} style={S.btn('#374151', '#f3f4f6')}>{t('common.edit')}</button>
+                        <button onClick={() => setConfirmMatchDel(m)} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
                       </div>
                     </td>
                   </tr>
@@ -205,9 +216,9 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
 
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete "${champ.name}"?`}
-          message="All matches and standings will be permanently deleted. Player career stats will be recomputed."
-          confirmLabel="Delete Championship"
+          title={t('admin.champ.deleteTitle', { name: champ.name })}
+          message={t('admin.champ.deleteMsg')}
+          confirmLabel={t('admin.champ.deleteBtn')}
           danger
           onConfirm={doDeleteChamp}
           onCancel={() => setConfirmDelete(false)}
@@ -218,9 +229,9 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
       )}
       {confirmMatchDel && (
         <ConfirmDialog
-          title="Delete match?"
-          message={`Cycle ${confirmMatchDel.cycle}: ${confirmMatchDel.homePlayer} vs ${confirmMatchDel.awayPlayer} will be removed and standings recomputed.`}
-          confirmLabel="Delete"
+          title={t('admin.champ.matchDeleteTitle')}
+          message={t('admin.champ.matchDeleteMsg', { cycle: confirmMatchDel.cycle, home: confirmMatchDel.homePlayer, away: confirmMatchDel.awayPlayer })}
+          confirmLabel={t('common.delete')}
           danger
           onConfirm={doDeleteMatch}
           onCancel={() => setConfirmMatchDel(null)}
@@ -231,19 +242,20 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
 }
 
 export function ChampAdminClient({ championships }: Props) {
+  const { t } = useTranslation()
   return (
     <div style={{ padding: '32px 40px' }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>Championships</h1>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('admin.card.championships')}</h1>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
-          {championships.length} championship{championships.length !== 1 ? 's' : ''} · Create new ones from the{' '}
-          <Link href="/championships" style={{ color: '#2563eb' }}>Championships page</Link>
+          {t(championships.length !== 1 ? 'admin.champ.count.many' : 'admin.champ.count.one', { n: championships.length })} · {t('admin.champ.createHint')}{' '}
+          <Link href="/championships" style={{ color: '#2563eb' }}>{t('champ.title')}</Link>
         </p>
       </div>
 
       {championships.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center', color: '#9ca3af', fontSize: 14, background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb' }}>
-          No championships yet.
+          {t('admin.champ.noChamps')}
         </div>
       ) : (
         championships.map((c) => <ChampionshipRow key={c.id} champ={c} />)

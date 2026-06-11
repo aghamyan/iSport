@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslation } from '@/lib/i18n/context'
+
 type Props = {
   title: string
   message: string
@@ -12,11 +14,12 @@ type Props = {
 export function ConfirmDialog({
   title,
   message,
-  confirmLabel = 'Confirm',
+  confirmLabel,
   danger = false,
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useTranslation()
   return (
     <div
       style={{
@@ -61,7 +64,7 @@ export function ConfirmDialog({
               color: '#374151',
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={onConfirm}
@@ -76,7 +79,7 @@ export function ConfirmDialog({
               color: '#fff',
             }}
           >
-            {confirmLabel}
+            {confirmLabel ?? t('common.confirm')}
           </button>
         </div>
       </div>

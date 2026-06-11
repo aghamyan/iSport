@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from '@/lib/i18n/context'
 
 type LogEntry = {
   id: string
@@ -22,29 +23,8 @@ const ENTITY_COLORS: Record<string, { color: string; bg: string }> = {
   settings:     { color: '#374151', bg: '#f3f4f6' },
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  create_player:          'Created player',
-  update_player_name:     'Renamed player',
-  activate_player:        'Activated player',
-  deactivate_player:      'Deactivated player',
-  grant_admin:            'Granted admin role',
-  revoke_admin:           'Revoked admin role',
-  rotate_access_code:     'Rotated access code',
-  edit_match_score:       'Edited match score',
-  delete_match:           'Deleted match',
-  delete_championship:    'Deleted championship',
-  reactivate_championship:'Reactivated championship',
-  complete_championship:  'Completed championship',
-  edit_championship_match:'Edited championship match',
-  delete_championship_match: 'Deleted championship match',
-  create_badge:           'Created badge type',
-  delete_badge:           'Deleted badge type',
-  award_badge:            'Awarded badge',
-  revoke_badge:           'Revoked badge',
-  update_setting:         'Updated setting',
-}
-
 export function ActivityLogClient({ entries }: Props) {
+  const { t } = useTranslation()
   const [entityFilter, setEntityFilter] = useState('all')
 
   const visible = entityFilter === 'all'
@@ -57,30 +37,30 @@ export function ActivityLogClient({ entries }: Props) {
     <div style={{ padding: '32px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>Activity Log</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('admin.activity.title')}</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
-            {entries.length} action{entries.length !== 1 ? 's' : ''} recorded
+            {t(entries.length !== 1 ? 'admin.activity.count.many' : 'admin.activity.count.one', { n: entries.length })}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          {entityTypes.map((t) => (
+          {entityTypes.map((entityType) => (
             <button
-              key={t}
-              onClick={() => setEntityFilter(t)}
+              key={entityType}
+              onClick={() => setEntityFilter(entityType)}
               style={{
                 padding: '6px 14px',
                 border: '1px solid',
-                borderColor: entityFilter === t ? '#2563eb' : '#d1d5db',
+                borderColor: entityFilter === entityType ? '#2563eb' : '#d1d5db',
                 borderRadius: 8,
-                background: entityFilter === t ? '#eff6ff' : '#fff',
-                color: entityFilter === t ? '#2563eb' : '#6b7280',
+                background: entityFilter === entityType ? '#eff6ff' : '#fff',
+                color: entityFilter === entityType ? '#2563eb' : '#6b7280',
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 600,
                 textTransform: 'capitalize',
               }}
             >
-              {t}
+              {entityType === 'all' ? t('admin.activity.filter.all') : entityType}
             </button>
           ))}
         </div>
@@ -89,12 +69,13 @@ export function ActivityLogClient({ entries }: Props) {
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         {visible.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-            No activity logged yet.
+            {t('admin.activity.noActivity')}
           </div>
         ) : (
           <div>
             {visible.map((entry, i) => {
               const sc = ENTITY_COLORS[entry.entityType] ?? { color: '#6b7280', bg: '#f3f4f6' }
+              const actionKey = `admin.activity.action.${entry.action}` as const
               return (
                 <div
                   key={entry.id}
@@ -129,7 +110,7 @@ export function ActivityLogClient({ entries }: Props) {
                     <div style={{ fontSize: 14, color: '#111827' }}>
                       <span style={{ fontWeight: 600 }}>{entry.adminName}</span>
                       {' '}
-                      {ACTION_LABELS[entry.action] ?? entry.action}
+                      {t(actionKey) !== actionKey ? t(actionKey) : entry.action}
                       {entry.entityId && (
                         <span style={{ fontSize: 12, color: '#9ca3af', marginLeft: 6, fontFamily: 'monospace' }}>
                           {entry.entityId.slice(0, 8)}…

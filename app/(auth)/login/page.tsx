@@ -2,19 +2,21 @@
 
 import { useActionState } from 'react'
 import { loginAction, type LoginState } from '@/lib/auth/actions'
+import { useTranslation } from '@/lib/i18n/context'
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState<LoginState, FormData>(
     loginAction,
     null
   )
+  const { t } = useTranslation()
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">iSport</h1>
-          <p className="mt-2 text-sm text-gray-400">Enter your access code to continue</p>
+          <p className="mt-2 text-sm text-gray-400">{t('auth.tagline')}</p>
         </div>
 
         <div className="rounded-2xl border border-gray-800 bg-gray-900 p-8">
@@ -24,7 +26,7 @@ export default function LoginPage() {
                 htmlFor="accessCode"
                 className="block text-sm font-medium text-gray-300 mb-1.5"
               >
-                Access Code
+                {t('auth.accessCode')}
               </label>
               <input
                 id="accessCode"
@@ -42,7 +44,7 @@ export default function LoginPage() {
 
             {state?.error && (
               <p role="alert" className="text-sm text-red-400">
-                {state.error}
+                {t(state.error)}
               </p>
             )}
 
@@ -54,13 +56,13 @@ export default function LoginPage() {
                          focus-visible:outline-offset-2 focus-visible:outline-blue-500
                          disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {pending ? 'Verifying…' : 'Enter'}
+              {pending ? t('auth.verifying') : t('auth.enter')}
             </button>
           </form>
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-600">
-          Don&apos;t have a code? Ask an admin.
+          {t('auth.noCode')}
         </p>
       </div>
     </main>

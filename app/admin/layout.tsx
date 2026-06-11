@@ -1,20 +1,23 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
-
-const NAV = [
-  { href: '/admin',              label: 'Overview'       },
-  { href: '/admin/players',      label: 'Players'        },
-  { href: '/admin/matches',      label: 'Matches'        },
-  { href: '/admin/championships',label: 'Championships'  },
-  { href: '/admin/badges',       label: 'Badges'         },
-  { href: '/admin/settings',     label: 'Settings'       },
-  { href: '/admin/activity',     label: 'Activity Log'   },
-]
+import { getServerT } from '@/lib/i18n/server'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession()
   if (!session?.isAdmin) redirect('/')
+
+  const t = await getServerT()
+
+  const NAV = [
+    { href: '/admin',               label: t('admin.card.overview')      },
+    { href: '/admin/players',       label: t('admin.card.players')       },
+    { href: '/admin/matches',       label: t('admin.card.matches')       },
+    { href: '/admin/championships', label: t('admin.card.championships') },
+    { href: '/admin/badges',        label: t('admin.card.badges')        },
+    { href: '/admin/settings',      label: t('admin.card.settings')      },
+    { href: '/admin/activity',      label: t('admin.card.activity')      },
+  ]
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
@@ -31,13 +34,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       >
         <div style={{ padding: '0 20px 24px', borderBottom: '1px solid #1f2937' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Admin Panel
+            {t('admin.panelLabel')}
           </div>
           <Link
             href="/"
             style={{ fontSize: 12, color: '#9ca3af', textDecoration: 'none', display: 'block', marginTop: 6 }}
           >
-            ← Back to site
+            {t('admin.backToSite')}
           </Link>
         </div>
 

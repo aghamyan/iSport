@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { getPreMatchOddsAction } from '@/app/matches/actions'
 import { useOddsFormat } from '@/lib/hooks/useOddsFormat'
 import { formatOdds, FORMAT_LABELS, type OddsResult, type OddsFactor } from '@/lib/odds'
+import { useTranslation } from '@/lib/i18n/context'
 
 type Props = {
   homeId: string
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'friendly', compact = false }: Props) {
+  const { t } = useTranslation()
   const [odds, setOdds]               = useState<OddsResult | null>(null)
   const [loading, setLoading]         = useState(false)
   const [showBreakdown, setBreakdown] = useState(false)
@@ -55,7 +57,7 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
   if (loading) {
     return (
       <div style={{ padding: compact ? '6px 0' : '10px 0', fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-        Calculating odds…
+        {t('odds.calculating')}
       </div>
     )
   }
@@ -87,7 +89,7 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: '#6366f1', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-          Pre-match Odds
+          {t('odds.preMatch')}
         </span>
         <button
           onClick={cycleFormat}
@@ -141,7 +143,7 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
         <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 600 }}>
           {homeName.length > 12 ? homeName.slice(0, 11) + '…' : homeName}
         </span>
-        <span style={{ fontSize: 10, color: '#94a3b8' }}>Draw</span>
+        <span style={{ fontSize: 10, color: '#94a3b8' }}>{t('odds.draw')}</span>
         <span style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>
           {awayName.length > 12 ? awayName.slice(0, 11) + '…' : awayName}
         </span>
@@ -162,7 +164,7 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
       {/* ── Expected score range ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span style={{ fontSize: 11, color: '#6b7280' }}>
-          Expected:{' '}
+          {t('odds.expected')}{' '}
           <strong style={{ color: '#111827' }}>
             {Math.round(odds.expectedHomeGoals)} – {Math.round(odds.expectedAwayGoals)}
           </strong>
@@ -173,7 +175,7 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
           </span>
         </span>
         <span style={{ fontSize: 10, color: '#9ca3af' }}>
-          Margin {((odds.overround - 1) * 100).toFixed(0)}%
+          {t('odds.margin', { n: ((odds.overround - 1) * 100).toFixed(0) })}
         </span>
       </div>
 
@@ -187,9 +189,9 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
             marginBottom: 6,
           }}
         >
-          {homeWider ? homeName : awayName} favoured
+          {t('odds.favoured', { name: homeWider ? homeName : awayName })}
           {odds.homeHandicap !== 0 && (
-            <> · Handicap: {homeWider
+            <> · {t('odds.handicap')} {homeWider
               ? `${awayName} ${handicapLabel(-odds.homeHandicap)}`
               : `${homeName} ${handicapLabel(odds.homeHandicap)}`
             }</>
@@ -205,7 +207,7 @@ export function OddsPreview({ homeId, awayId, homeName, awayName, matchType = 'f
           cursor: 'pointer', padding: 0, textDecoration: 'underline',
         }}
       >
-        {showBreakdown ? 'Hide breakdown' : 'Why these odds?'}
+        {showBreakdown ? t('odds.hideBreakdown') : t('odds.whyOdds')}
       </button>
 
       {showBreakdown && (

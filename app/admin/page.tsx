@@ -1,17 +1,10 @@
 import Link from 'next/link'
 import { createServiceClient } from '@/lib/supabase/server'
-
-const CARDS = [
-  { href: '/admin/players',       label: 'Players',        desc: 'Manage access codes and player status' },
-  { href: '/admin/matches',       label: 'Matches',        desc: 'View, edit, and delete friendly matches' },
-  { href: '/admin/championships', label: 'Championships',  desc: 'Create, delete, and manage championships' },
-  { href: '/admin/badges',        label: 'Badges',         desc: 'Award or revoke player badges' },
-  { href: '/admin/settings',      label: 'Settings',       desc: 'Gameplay rules and display preferences' },
-  { href: '/admin/activity',      label: 'Activity Log',   desc: 'Audit trail of all admin actions' },
-]
+import { getServerT } from '@/lib/i18n/server'
 
 export default async function AdminOverviewPage() {
   const supabase = createServiceClient()
+  const t = await getServerT()
 
   const [playersRes, matchesRes, champsRes] = await Promise.all([
     supabase.from('users').select('id', { count: 'exact', head: true }),
@@ -20,18 +13,27 @@ export default async function AdminOverviewPage() {
   ])
 
   const stats = [
-    { label: 'Players',       value: playersRes.count ?? 0 },
-    { label: 'Matches',       value: matchesRes.count ?? 0 },
-    { label: 'Championships', value: champsRes.count ?? 0 },
+    { label: t('admin.stats.players'),       value: playersRes.count ?? 0 },
+    { label: t('admin.stats.matches'),        value: matchesRes.count ?? 0 },
+    { label: t('admin.stats.championships'),  value: champsRes.count ?? 0 },
+  ]
+
+  const CARDS = [
+    { href: '/admin/players',       label: t('admin.card.players'),       desc: t('admin.card.playersDesc')       },
+    { href: '/admin/matches',       label: t('admin.card.matches'),        desc: t('admin.card.matchesDesc')       },
+    { href: '/admin/championships', label: t('admin.card.championships'),  desc: t('admin.card.championshipsDesc') },
+    { href: '/admin/badges',        label: t('admin.card.badges'),         desc: t('admin.card.badgesDesc')        },
+    { href: '/admin/settings',      label: t('admin.card.settings'),       desc: t('admin.card.settingsDesc')      },
+    { href: '/admin/activity',      label: t('admin.card.activity'),       desc: t('admin.card.activityDesc')      },
   ]
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: 900 }}>
       <h1 style={{ margin: '0 0 4px', fontSize: 26, fontWeight: 800, color: '#111827' }}>
-        Admin Dashboard
+        {t('admin.title')}
       </h1>
       <p style={{ margin: '0 0 32px', fontSize: 14, color: '#6b7280' }}>
-        Manage all platform data and settings
+        {t('admin.subtitle')}
       </p>
 
       {/* Stats row */}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateMatchAction } from './actions'
+import { useTranslation } from '@/lib/i18n/context'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type MatchSnapshot = {
@@ -30,6 +31,7 @@ export function EditMatchModal({
   isAdmin,
   onClose,
 }: Props) {
+  const { t } = useTranslation()
   const [homeScore, setHomeScore] = useState(match.homeScore?.toString() ?? '')
   const [awayScore, setAwayScore] = useState(match.awayScore?.toString() ?? '')
   const [notes, setNotes] = useState(match.notes ?? '')
@@ -43,7 +45,7 @@ export function EditMatchModal({
     const a = awayScore !== '' ? parseFloat(awayScore) : undefined
 
     if ((h !== undefined && !Number.isInteger(h)) || (a !== undefined && !Number.isInteger(a))) {
-      setError('Scores must be whole numbers.')
+      setError(t('match.edit.errWholeNumbers'))
       return
     }
 
@@ -56,7 +58,7 @@ export function EditMatchModal({
         })
         onClose()
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to save changes.')
+        setError(e instanceof Error ? e.message : t('match.edit.errFailed'))
       }
     })
   }
@@ -96,7 +98,7 @@ export function EditMatchModal({
             marginBottom: 16,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Edit Match</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{t('match.edit.title')}</h2>
           <button
             onClick={onClose}
             style={{
@@ -194,7 +196,7 @@ export function EditMatchModal({
 
         {/* Notes */}
         <textarea
-          placeholder="Notes (optional)"
+          placeholder={t('match.edit.notesPlaceholder')}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           disabled={false}
@@ -237,7 +239,7 @@ export function EditMatchModal({
               fontSize: 14,
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -254,7 +256,7 @@ export function EditMatchModal({
               minWidth: 110,
             }}
           >
-            {isPending ? 'Saving…' : 'Save Changes'}
+            {isPending ? t('common.saving') : t('match.edit.saveChanges')}
           </button>
         </div>
       </div>

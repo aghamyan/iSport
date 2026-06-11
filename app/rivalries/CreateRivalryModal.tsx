@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createRivalryAction } from './actions'
+import { useTranslation } from '@/lib/i18n/context'
 
 export type PlayerOption = { id: string; name: string }
 
@@ -12,6 +13,7 @@ type Props = {
 }
 
 export function CreateRivalryModal({ players, onClose }: Props) {
+  const { t } = useTranslation()
   const router = useRouter()
   const [opponentId, setOpponentId] = useState('')
   const [bestOf, setBestOf] = useState(5)
@@ -24,10 +26,10 @@ export function CreateRivalryModal({ players, onClose }: Props) {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!opponentId) { setError('Select an opponent'); return }
+    if (!opponentId) { setError(t('rivalry.create.errSelectOpponent')); return }
     if (withHistory) {
       if (myWins < 0 || opponentWins < 0 || draws < 0) {
-        setError('Scores cannot be negative'); return
+        setError(t('rivalry.create.errNegative')); return
       }
     }
     setError(null)
@@ -40,7 +42,7 @@ export function CreateRivalryModal({ players, onClose }: Props) {
         } : undefined)
         router.push(`/rivalries/${id}`)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create rivalry')
+        setError(err instanceof Error ? err.message : t('rivalry.create.errFailed'))
       }
     })
   }
@@ -75,21 +77,21 @@ export function CreateRivalryModal({ players, onClose }: Props) {
         }}
       >
         <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700, color: '#111827' }}>
-          Start a Rivalry
+          {t('rivalry.create.title')}
         </h2>
 
         <form onSubmit={handleSubmit}>
           {/* Opponent */}
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Opponent
+              {t('rivalry.create.opponentLabel')}
             </label>
             <select
               value={opponentId}
               onChange={(e) => setOpponentId(e.target.value)}
               style={inputStyle}
             >
-              <option value="">Select opponent…</option>
+              <option value="">{t('rivalry.create.opponentPlaceholder')}</option>
               {players.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -99,7 +101,7 @@ export function CreateRivalryModal({ players, onClose }: Props) {
           {/* Target score */}
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
-              Score to win a match
+              {t('rivalry.create.scoreLabel')}
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <input
@@ -111,7 +113,7 @@ export function CreateRivalryModal({ players, onClose }: Props) {
                 style={{ width: 80, padding: '8px 10px', borderRadius: 7, border: '1px solid #d1d5db', fontSize: 14, color: '#111827', textAlign: 'center' }}
               />
               <span style={{ fontSize: 13, color: '#6b7280' }}>
-                points to win the match (+1 in series)
+                {t('rivalry.create.scoreSub')}
               </span>
             </div>
           </div>
@@ -131,10 +133,10 @@ export function CreateRivalryModal({ players, onClose }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-                  We already played some games
+                  {t('rivalry.create.alreadyPlayed')}
                 </div>
                 <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-                  Import an existing head-to-head record instead of starting at 0–0
+                  {t('rivalry.create.importH2H')}
                 </div>
               </div>
               {/* Toggle switch */}
@@ -167,13 +169,13 @@ export function CreateRivalryModal({ players, onClose }: Props) {
               }}
             >
               <div style={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Existing record
+                {t('rivalry.create.existingRecord')}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 {/* My wins */}
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600 }}>
-                    You
+                    {t('rivalry.create.youLabel')}
                   </div>
                   <input
                     type="number"
@@ -190,7 +192,7 @@ export function CreateRivalryModal({ players, onClose }: Props) {
                 {/* Draws */}
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, fontWeight: 600 }}>
-                    Draws
+                    {t('rivalry.create.drawsLabel')}
                   </div>
                   <input
                     type="number"
@@ -221,14 +223,19 @@ export function CreateRivalryModal({ players, onClose }: Props) {
               </div>
 
               <div style={{ marginTop: 10, fontSize: 12, color: '#3b82f6', textAlign: 'center' }}>
-                {myWins + draws + opponentWins} game{myWins + draws + opponentWins !== 1 ? 's' : ''} already played
+                {(() => {
+                  const total = myWins + draws + opponentWins
+                  return total === 1
+                    ? t('rivalry.create.gamesPlayed.one')
+                    : t('rivalry.create.gamesPlayed.many', { n: total })
+                })()}
               </div>
             </div>
           )}
 
           {withHistory && !opponentId && (
             <div style={{ marginBottom: 20, padding: '12px 14px', borderRadius: 10, background: '#fafafa', border: '1px dashed #d1d5db', fontSize: 13, color: '#9ca3af', textAlign: 'center' }}>
-              Select an opponent to enter the existing record
+              {t('rivalry.create.selectOpponent')}
             </div>
           )}
 
@@ -246,7 +253,7 @@ export function CreateRivalryModal({ players, onClose }: Props) {
                 borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 14,
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
@@ -259,7 +266,7 @@ export function CreateRivalryModal({ players, onClose }: Props) {
                 fontWeight: 600, fontSize: 14,
               }}
             >
-              {isPending ? 'Creating…' : 'Start Rivalry'}
+              {isPending ? t('rivalry.create.creating') : t('rivalry.create.submit')}
             </button>
           </div>
         </form>

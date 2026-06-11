@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { P4PBreakdown } from '@/lib/stats/p4p'
+import { useTranslation } from '@/lib/i18n/context'
 
 export type RankedChamp = {
   id:            string
@@ -11,6 +12,12 @@ export type RankedChamp = {
   wins:          number
   matchesPlayed: number
   p4p:           P4PBreakdown
+}
+
+export type CurrentPlayerInfo = {
+  name:      string
+  avatarUrl: string | null
+  p4pRank:   number  // 0 = unranked
 }
 
 // ─── Keyframes ──────────────────────────────────────────────────────────────────
@@ -111,6 +118,49 @@ const ANIMS = `
     0%,100% { opacity: 0.32; }
     50%     { opacity: 0.62; }
   }
+
+  /* ── Personal entrance keyframes ───────────────────────────────────────────── */
+  @keyframes heroicDescent {
+    0%   { transform: translateY(-110vh) scale(2.2); opacity: 0; filter: blur(24px) brightness(3); }
+    40%  { transform: translateY(22px) scale(1.12); opacity: 1; filter: blur(0) brightness(1.6); }
+    60%  { transform: translateY(-10px) scale(0.97); filter: brightness(1.1); }
+    78%  { transform: translateY(5px) scale(1.01); filter: brightness(1); }
+    100% { transform: translateY(0) scale(1); opacity: 1; filter: brightness(1); }
+  }
+  @keyframes impactFlash {
+    0%   { opacity: 0.88; }
+    100% { opacity: 0; }
+  }
+  @keyframes energyRingExpand {
+    0%   { transform: scale(0.4); opacity: 0.95; }
+    100% { transform: scale(5.5); opacity: 0; }
+  }
+  @keyframes nameCrash {
+    0%   { transform: translateY(-42px) scale(1.3); opacity: 0; filter: blur(8px); }
+    55%  { transform: translateY(5px) scale(0.97); opacity: 1; filter: blur(0); }
+    75%  { transform: translateY(-2px) scale(1.01); }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  @keyframes rankBadgePop {
+    0%   { transform: scale(0) rotate(-16deg); opacity: 0; }
+    65%  { transform: scale(1.13) rotate(2deg); opacity: 1; }
+    82%  { transform: scale(0.97) rotate(-0.5deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes beamAppear {
+    0%   { opacity: 0; }
+    15%  { opacity: 0.85; }
+    75%  { opacity: 0.75; }
+    100% { opacity: 0; }
+  }
+  @keyframes auraBreath {
+    0%,100% { opacity: 0.26; transform: translate(-50%,-50%) scale(1); }
+    50%     { opacity: 0.56; transform: translate(-50%,-50%) scale(1.13); }
+  }
+  @keyframes personalFloat {
+    0%,100% { transform: translateY(0px); }
+    50%     { transform: translateY(-10px); }
+  }
 `
 
 const AUTO_MS   = 60000
@@ -120,7 +170,6 @@ const SPARK_N   = 8
 const GOLD   = '#f59e0b'
 const SILVER = '#94a3b8'
 const BRONZE = '#cd7f32'
-const MUTED  = 'rgba(255,255,255,0.35)'
 
 // ─── Stars ──────────────────────────────────────────────────────────────────────
 
@@ -148,7 +197,7 @@ function Stars() {
   )
 }
 
-// ─── Sparkle orbit (hero only) ───────────────────────────────────────────────────
+// ─── Sparkle orbit (podium hero) ────────────────────────────────────────────────
 
 function SparkleOrbit({ size }: { size: number }) {
   const r = size / 2 + 22
@@ -175,7 +224,34 @@ function SparkleOrbit({ size }: { size: number }) {
   )
 }
 
-// ─── Avatar ──────────────────────────────────────────────────────────────────────
+// ─── Colored sparkle orbit (personal entrance) ──────────────────────────────────
+
+function ColorSparkleOrbit({ size, color }: { size: number; color: string }) {
+  const r = size / 2 + 26
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+      {Array.from({ length: SPARK_N + 4 }, (_, i) => {
+        const a = (360 / (SPARK_N + 4)) * i
+        const x = Math.cos((a * Math.PI) / 180) * r
+        const y = Math.sin((a * Math.PI) / 180) * r
+        return (
+          <div key={i} style={{
+            position: 'absolute', top: '50%', left: '50%',
+            width: 7, height: 7, marginTop: -3.5, marginLeft: -3.5,
+            transform: `translate(${x}px,${y}px)`,
+            animation: `sparkle ${1.4 + i * 0.18}s ${i * 0.15}s ease-in-out infinite`,
+          }}>
+            <svg width="7" height="7" viewBox="0 0 8 8" fill={color}>
+              <path d="M4 0L4.9 3.1L8 4L4.9 4.9L4 8L3.1 4.9L0 4L3.1 3.1Z"/>
+            </svg>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Podium avatar ───────────────────────────────────────────────────────────────
 
 type AvatarProps = { url: string | null; name: string; size: number; rank: 1 | 2 | 3 }
 
@@ -268,25 +344,63 @@ function ScoreBadge({ score, rank }: { score: number; rank: 1 | 2 | 3 }) {
   )
 }
 
+// ─── Accent color + rank label for personal entrance ─────────────────────────────
+
+function accentForRank(rank: number): string {
+  if (rank === 4) return '#22d3ee'
+  if (rank === 5) return '#a855f7'
+  if (rank === 6) return '#f97316'
+  if (rank === 0) return '#3b82f6'
+  return '#10b981'
+}
+
+function rankLabelFor(rank: number): string {
+  if (rank === 0) return 'NEW CHALLENGER'
+  return `P4P RANK #${rank}`
+}
+
 // ─── Root component ───────────────────────────────────────────────────────────────
 
-export function WelcomeReveal({ top5 }: { top5: RankedChamp[] }) {
+export function WelcomeReveal({
+  top5,
+  currentPlayer,
+}: {
+  top5: RankedChamp[]
+  currentPlayer: CurrentPlayerInfo | null
+}) {
+  const { t } = useTranslation()
   const router   = useRouter()
   const [phase, setPhase]     = useState(0)
   const [leaving, setLeaving] = useState(false)
+  const [impacted, setImpacted] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const showPodium = !currentPlayer || (currentPlayer.p4pRank >= 1 && currentPlayer.p4pRank <= 3)
+
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase(1), 200)   // crown + label
-    const t2 = setTimeout(() => setPhase(2), 750)   // #1 avatar
-    const t3 = setTimeout(() => setPhase(3), 1350)  // #2 + #3 slide in
-    const t4 = setTimeout(() => setPhase(4), 1850)  // #1 name
-    const t5 = setTimeout(() => setPhase(5), 2250)  // all scores
-    const t6 = setTimeout(() => setPhase(6), 2650)  // bars
-    const t7 = setTimeout(() => setPhase(7), 3150)  // button
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const at = (fn: () => void, ms: number) => timers.push(setTimeout(fn, ms))
+
+    if (showPodium) {
+      at(() => setPhase(1), 200)
+      at(() => setPhase(2), 750)
+      at(() => setPhase(3), 1350)
+      at(() => setPhase(4), 1850)
+      at(() => setPhase(5), 2250)
+      at(() => setPhase(6), 2650)
+      at(() => setPhase(7), 3150)
+    } else {
+      at(() => setPhase(1), 200)
+      at(() => setPhase(2), 650)
+      at(() => setImpacted(true), 1530)
+      at(() => setPhase(3), 1650)
+      at(() => setPhase(4), 2500)
+      at(() => setPhase(5), 3150)
+    }
+
     timerRef.current = setTimeout(go, AUTO_MS)
     return () => {
-      [t1,t2,t3,t4,t5,t6,t7].forEach(clearTimeout)
+      timers.forEach(clearTimeout)
       if (timerRef.current) clearTimeout(timerRef.current)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -299,240 +413,461 @@ export function WelcomeReveal({ top5 }: { top5: RankedChamp[] }) {
     router.push('/')
   }
 
-  const hero    = top5[0]
-  const second  = top5[1] ?? null
-  const third   = top5[2] ?? null
-  const fourth  = top5[3] ?? null
-  const fifth   = top5[4] ?? null
+  // ─── Podium path ────────────────────────────────────────────────────────────────
 
-  // Visual order in the podium row: 2nd | 1st | 3rd
-  type Slot = { champ: RankedChamp; rank: 1 | 2 | 3; avSize: number; stepH: number; slideAnim: string }
-  const slots: Slot[] = [
-    ...(second ? [{ champ: second, rank: 2 as const, avSize: 82,  stepH: 56, slideAnim: 'slideLeft 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }] : []),
-    {              champ: hero,   rank: 1 as const, avSize: 118, stepH: 82, slideAnim: 'heroReveal 0.75s cubic-bezier(0.34,1.56,0.64,1) both' },
-    ...(third  ? [{ champ: third,  rank: 3 as const, avSize: 70,  stepH: 42, slideAnim: 'slideRight 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }] : []),
-  ]
+  if (showPodium) {
+    const hero    = top5[0]
+    const second  = top5[1] ?? null
+    const third   = top5[2] ?? null
+    const fourth  = top5[3] ?? null
+    const fifth   = top5[4] ?? null
 
-  const rankColor = (r: 1 | 2 | 3) => r === 1 ? GOLD : r === 2 ? SILVER : BRONZE
-  const rankMedal = (r: 1 | 2 | 3) => r === 1 ? '👑' : r === 2 ? '🥈' : '🥉'
+    type Slot = { champ: RankedChamp; rank: 1 | 2 | 3; avSize: number; stepH: number; slideAnim: string }
+    const slots: Slot[] = [
+      ...(second ? [{ champ: second, rank: 2 as const, avSize: 82,  stepH: 56, slideAnim: 'slideLeft 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }] : []),
+      {              champ: hero,   rank: 1 as const, avSize: 118, stepH: 82, slideAnim: 'heroReveal 0.75s cubic-bezier(0.34,1.56,0.64,1) both' },
+      ...(third  ? [{ champ: third,  rank: 3 as const, avSize: 70,  stepH: 42, slideAnim: 'slideRight 0.55s cubic-bezier(0.34,1.56,0.64,1) both' }] : []),
+    ]
+
+    const rankColor = (r: 1 | 2 | 3) => r === 1 ? GOLD : r === 2 ? SILVER : BRONZE
+    const rankMedal = (r: 1 | 2 | 3) => r === 1 ? '👑' : r === 2 ? '🥈' : '🥉'
+
+    return (
+      <div
+        onClick={go}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9999, cursor: 'pointer',
+          background: 'radial-gradient(ellipse 80% 55% at 50% 30%, #1c0900 0%, #0e0718 45%, #050911 100%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden',
+          opacity: leaving ? 0 : 1, transition: 'opacity 0.55s ease',
+        }}
+      >
+        <style dangerouslySetInnerHTML={{ __html: ANIMS }} />
+
+        <div style={{
+          position: 'absolute', top: '30%', left: '50%',
+          transform: 'translate(-50%,-50%)',
+          width: 520, height: 520, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(245,158,11,0.09) 0%, transparent 70%)',
+          animation: 'bgBreath 3.5s ease-in-out infinite', pointerEvents: 'none',
+        }} />
+
+        <Stars />
+
+        <div style={{
+          position: 'relative', zIndex: 10,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          padding: '0 16px', maxWidth: 440, width: '100%',
+        }}>
+
+          {phase >= 1 && (
+            <div style={{
+              fontSize: 52, lineHeight: 1, marginBottom: 24,
+              animation: 'crownDrop 0.6s cubic-bezier(0.34,1.56,0.64,1) both',
+              filter: 'drop-shadow(0 0 16px rgba(245,158,11,0.85))',
+            }}>👑</div>
+          )}
+
+          <div style={{
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            gap: 10, marginBottom: 20, width: '100%',
+          }}>
+            {slots.map(({ champ, rank, avSize, stepH, slideAnim }) => {
+              const color  = rankColor(rank)
+              const medal  = rankMedal(rank)
+              const isHero = rank === 1
+              const show   = isHero ? phase >= 2 : phase >= 3
+
+              if (!show) {
+                return <div key={rank} style={{ width: avSize, flexShrink: 0 }} />
+              }
+
+              return (
+                <div key={rank} style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  flexShrink: 0,
+                  animation: slideAnim,
+                }}>
+                  <span style={{
+                    fontSize: isHero ? 22 : 16, marginBottom: 8,
+                    filter: `drop-shadow(0 0 8px ${color}88)`,
+                  }}>{medal}</span>
+
+                  <RankAvatar url={champ.avatarUrl} name={champ.name} size={avSize} rank={rank} />
+
+                  {isHero
+                    ? phase >= 4 && (
+                      <div style={{
+                        fontSize: 26, fontWeight: 900, textAlign: 'center',
+                        marginTop: 14, marginBottom: 4,
+                        background: 'linear-gradient(90deg,#f59e0b,#fcd34d,#f97316,#fbbf24,#f59e0b)',
+                        backgroundSize: '300% auto',
+                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                        animation: 'nameReveal 0.55s ease both, shimmerText 4s linear 0.55s infinite',
+                        maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{champ.name}</div>
+                    )
+                    : phase >= 4 && (
+                      <div style={{
+                        fontSize: 12, fontWeight: 700, color, textAlign: 'center',
+                        marginTop: 8, maxWidth: avSize + 16,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        animation: 'fadeUp 0.4s ease both',
+                      }}>{champ.name}</div>
+                    )
+                  }
+
+                  {phase >= 5 && (
+                    <div style={{ marginTop: 6, animation: 'fadeUp 0.35s ease both' }}>
+                      <ScoreBadge score={champ.p4p.score} rank={rank} />
+                    </div>
+                  )}
+
+                  <div style={{
+                    width: avSize + (isHero ? 20 : 10),
+                    height: stepH,
+                    marginTop: 12,
+                    background: `linear-gradient(180deg, ${color}22, transparent)`,
+                    border: `1px solid ${color}33`, borderBottom: 'none',
+                    borderRadius: '6px 6px 0 0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <span style={{ fontSize: isHero ? 26 : 18, opacity: 0.12 }}>{medal}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {phase >= 6 && (fourth || fifth) && (
+            <div style={{ width: '100%', marginBottom: 20, animation: 'fadeUp 0.45s ease both' }}>
+              <div style={{
+                fontSize: 8, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase',
+                textAlign: 'center', marginBottom: 10,
+                color: 'rgba(255,255,255,0.22)',
+              }}>{t('welcome.challengers')}</div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {([
+                  { champ: fourth, rank: 4, color: '#22d3ee', glow: 'neonCyan 2.6s ease-in-out infinite',   scanDelay: '0s'   },
+                  { champ: fifth,  rank: 5, color: '#a855f7', glow: 'neonPurple 2.6s ease-in-out infinite', scanDelay: '2s'   },
+                ] as const).filter(({ champ }) => !!champ).map(({ champ, rank, color, glow, scanDelay }) => {
+                  const c = champ!
+                  const entryDelay = rank === 4 ? '0s' : '0.14s'
+                  return (
+                    <div key={rank} style={{
+                      flex: 1, position: 'relative', overflow: 'hidden',
+                      background: `radial-gradient(ellipse 100% 60% at 50% 0%, ${color}0e 0%, transparent 75%)`,
+                      border: `1px solid ${color}2e`,
+                      borderRadius: 18, padding: '22px 10px 16px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                      animation: `riseUp 0.65s cubic-bezier(0.34,1.56,0.64,1) ${entryDelay} both`,
+                    }}>
+                      <div style={{
+                        position: 'absolute', left: 0, right: 0, height: '38%',
+                        background: `linear-gradient(180deg, transparent, ${color}14, transparent)`,
+                        animation: `scanLine 4.2s ${scanDelay} linear infinite`,
+                        pointerEvents: 'none', zIndex: 0,
+                      }} />
+
+                      <div style={{
+                        position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+                        background: `linear-gradient(90deg, ${color}ee, ${color}aa)`,
+                        fontSize: 9, fontWeight: 900,
+                        color: rank === 4 ? '#061018' : '#fff',
+                        padding: '3px 14px', borderRadius: '0 0 10px 10px',
+                        letterSpacing: '0.1em',
+                        boxShadow: `0 4px 16px ${color}55`,
+                        zIndex: 2,
+                      }}>#{rank}</div>
+
+                      <div style={{ borderRadius: '50%', animation: glow, zIndex: 1, marginTop: 2 }}>
+                        <ChallengerAvatar url={c.avatarUrl} name={c.name} size={62} color={color} />
+                      </div>
+
+                      <div style={{
+                        fontSize: 12, fontWeight: 800, color: '#fff', textAlign: 'center',
+                        width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        padding: '0 6px', zIndex: 1,
+                      }}>{c.name.split(' ')[0]}</div>
+
+                      <div style={{
+                        background: `${color}18`, border: `1px solid ${color}44`,
+                        borderRadius: 10, padding: '6px 14px', textAlign: 'center',
+                        boxShadow: `0 0 18px ${color}2a`, zIndex: 1,
+                      }}>
+                        <div style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>
+                          {c.p4p.score.toFixed(1)}
+                        </div>
+                        <div style={{
+                          fontSize: 8, color: `${color}88`, fontWeight: 700,
+                          letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 2,
+                        }}>P4P</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {phase >= 7 && (
+            <div style={{ animation: 'fadeUp 0.4s ease both', textAlign: 'center' }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); go() }}
+                style={{
+                  padding: '12px 36px', border: 'none', borderRadius: 100,
+                  background: 'linear-gradient(135deg,#f59e0b,#f97316)',
+                  fontSize: 13, fontWeight: 800, color: '#fff', cursor: 'pointer',
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 4px 26px rgba(245,158,11,0.42)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)'
+                  e.currentTarget.style.boxShadow = '0 6px 36px rgba(245,158,11,0.65)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)'
+                  e.currentTarget.style.boxShadow = '0 4px 26px rgba(245,158,11,0.42)'
+                }}
+              >
+                {t('welcome.enter')}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {phase >= 1 && (
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: 'rgba(255,255,255,0.06)' }}>
+            <div style={{
+              height: '100%',
+              background: 'linear-gradient(90deg,#f59e0b,#f97316)',
+              animation: `countdownShrink ${AUTO_MS}ms linear both`,
+            }} />
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ─── Personal entrance path ──────────────────────────────────────────────────────
+
+  const cp         = currentPlayer!
+  const accentColor = accentForRank(cp.p4pRank)
+  const initials   = cp.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+  const AV_SIZE    = 145
+
+  const personalGlowAnim = `
+    @keyframes personalGlow {
+      0%,100% {
+        box-shadow: 0 0 0 3px ${accentColor}, 0 0 32px 8px ${accentColor}88, 0 0 65px 22px ${accentColor}33;
+      }
+      50% {
+        box-shadow: 0 0 0 3px ${accentColor}, 0 0 55px 16px ${accentColor}cc, 0 0 110px 38px ${accentColor}55;
+      }
+    }
+  `
 
   return (
     <div
       onClick={go}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999, cursor: 'pointer',
-        background: 'radial-gradient(ellipse 80% 55% at 50% 30%, #1c0900 0%, #0e0718 45%, #050911 100%)',
+        background: `radial-gradient(ellipse 90% 60% at 50% 35%, ${accentColor}12 0%, #0e0718 50%, #050911 100%)`,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden',
         opacity: leaving ? 0 : 1, transition: 'opacity 0.55s ease',
       }}
     >
-      <style dangerouslySetInnerHTML={{ __html: ANIMS }} />
+      <style dangerouslySetInnerHTML={{ __html: ANIMS + personalGlowAnim }} />
 
-      {/* Ambient glow */}
-      <div style={{
-        position: 'absolute', top: '30%', left: '50%',
-        transform: 'translate(-50%,-50%)',
-        width: 520, height: 520, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(245,158,11,0.09) 0%, transparent 70%)',
-        animation: 'bgBreath 3.5s ease-in-out infinite', pointerEvents: 'none',
-      }} />
+      {/* Ambient orb */}
+      {phase >= 1 && (
+        <div style={{
+          position: 'absolute',
+          top: '42%', left: '50%',
+          width: 480, height: 480, borderRadius: '50%',
+          background: `radial-gradient(circle, ${accentColor}18 0%, transparent 72%)`,
+          animation: 'auraBreath 3.2s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+      )}
 
       <Stars />
 
+      {/* Light beam descending */}
+      {phase >= 2 && (
+        <div style={{
+          position: 'absolute',
+          top: 0, left: '50%',
+          transform: 'translateX(-50%)',
+          width: 3, height: '46%',
+          background: `linear-gradient(to bottom, transparent 0%, ${accentColor}cc 100%)`,
+          animation: 'beamAppear 1.4s ease both',
+          pointerEvents: 'none',
+          zIndex: 5,
+        }} />
+      )}
+
+      {/* Impact flash */}
+      {impacted && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `radial-gradient(circle at 50% 42%, ${accentColor}55 0%, white 35%, white 100%)`,
+          animation: 'impactFlash 0.55s ease-out both',
+          pointerEvents: 'none',
+          zIndex: 20,
+        }} />
+      )}
+
+      {/* Main content */}
       <div style={{
         position: 'relative', zIndex: 10,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: '0 16px', maxWidth: 440, width: '100%',
+        padding: '0 24px', maxWidth: 420, width: '100%',
+        gap: 0,
       }}>
 
-        {/* Crown */}
+        {/* "Entering the arena" label */}
         {phase >= 1 && (
           <div style={{
-            fontSize: 52, lineHeight: 1, marginBottom: 24,
-            animation: 'crownDrop 0.6s cubic-bezier(0.34,1.56,0.64,1) both',
-            filter: 'drop-shadow(0 0 16px rgba(245,158,11,0.85))',
-          }}>👑</div>
+            fontSize: 9, fontWeight: 800, letterSpacing: '0.38em', textTransform: 'uppercase',
+            color: `${accentColor}99`, marginBottom: 32,
+            animation: 'fadeUp 0.5s ease both',
+          }}>
+            ENTERING THE ARENA
+          </div>
         )}
 
-        {/* Podium row */}
+        {/* Avatar area */}
         <div style={{
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-          gap: 10, marginBottom: 20, width: '100%',
+          height: AV_SIZE + 4,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 22,
         }}>
-          {slots.map(({ champ, rank, avSize, stepH, slideAnim }) => {
-            const color  = rankColor(rank)
-            const medal  = rankMedal(rank)
-            const isHero = rank === 1
-            const show   = isHero ? phase >= 2 : phase >= 3
+          {phase >= 2 && (
+            <div style={{
+              position: 'relative',
+              width: AV_SIZE, height: AV_SIZE,
+              animation: 'heroicDescent 0.88s cubic-bezier(0.25,0.46,0.45,0.94) both, personalFloat 4.5s 1.5s ease-in-out infinite',
+            }}>
+              {/* Pulse rings */}
+              {[1.45, 1.22].map((sc, i) => (
+                <div key={i} style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: AV_SIZE * sc, height: AV_SIZE * sc,
+                  marginTop: -(AV_SIZE * sc) / 2, marginLeft: -(AV_SIZE * sc) / 2,
+                  borderRadius: '50%',
+                  border: `1.5px solid ${accentColor}${i === 0 ? '30' : '45'}`,
+                  animation: `ringPulse ${2 + i * 0.7}s ${i * 0.45}s ease-out infinite`,
+                }} />
+              ))}
 
-            if (!show) {
-              // Reserve space so layout doesn't jump
-              return <div key={rank} style={{ width: avSize, flexShrink: 0 }} />
-            }
+              {/* Energy rings on impact */}
+              {impacted && [0, 0.14, 0.3].map((delay, i) => (
+                <div key={i} style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: AV_SIZE, height: AV_SIZE,
+                  marginTop: -AV_SIZE / 2, marginLeft: -AV_SIZE / 2,
+                  borderRadius: '50%',
+                  border: `2px solid ${accentColor}bb`,
+                  animation: `energyRingExpand 0.9s ${delay}s ease-out both`,
+                }} />
+              ))}
 
-            return (
-              <div key={rank} style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                flexShrink: 0,
-                animation: slideAnim,
+              {/* Sparkles */}
+              <ColorSparkleOrbit size={AV_SIZE} color={accentColor} />
+
+              {/* Avatar image / initials */}
+              <div style={{
+                position: 'relative', zIndex: 2,
+                width: AV_SIZE, height: AV_SIZE, borderRadius: '50%',
+                overflow: 'hidden',
+                animation: 'personalGlow 2.4s ease-in-out infinite',
               }}>
-                {/* Medal above avatar */}
-                <span style={{
-                  fontSize: isHero ? 22 : 16, marginBottom: 8,
-                  filter: `drop-shadow(0 0 8px ${color}88)`,
-                }}>{medal}</span>
-
-                {/* Avatar */}
-                <RankAvatar url={champ.avatarUrl} name={champ.name} size={avSize} rank={rank} />
-
-                {/* Name */}
-                {isHero
-                  ? phase >= 4 && (
-                    <div style={{
-                      fontSize: 26, fontWeight: 900, textAlign: 'center',
-                      marginTop: 14, marginBottom: 4,
-                      background: 'linear-gradient(90deg,#f59e0b,#fcd34d,#f97316,#fbbf24,#f59e0b)',
-                      backgroundSize: '300% auto',
-                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                      animation: 'nameReveal 0.55s ease both, shimmerText 4s linear 0.55s infinite',
-                      maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    }}>{champ.name}</div>
+                {cp.avatarUrl
+                  ? (
+                    <img
+                      src={cp.avatarUrl} alt={cp.name}
+                      width={AV_SIZE} height={AV_SIZE}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+                    />
                   )
-                  : phase >= 4 && (
+                  : (
                     <div style={{
-                      fontSize: 12, fontWeight: 700, color, textAlign: 'center',
-                      marginTop: 8, maxWidth: avSize + 16,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      animation: 'fadeUp 0.4s ease both',
-                    }}>{champ.name}</div>
-                  )
-                }
-
-                {/* Score badge */}
-                {phase >= 5 && (
-                  <div style={{ marginTop: 6, animation: 'fadeUp 0.35s ease both' }}>
-                    <ScoreBadge score={champ.p4p.score} rank={rank} />
-                  </div>
-                )}
-
-                {/* Podium step */}
-                <div style={{
-                  width: avSize + (isHero ? 20 : 10),
-                  height: stepH,
-                  marginTop: 12,
-                  background: `linear-gradient(180deg, ${color}22, transparent)`,
-                  border: `1px solid ${color}33`, borderBottom: 'none',
-                  borderRadius: '6px 6px 0 0',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <span style={{ fontSize: isHero ? 26 : 18, opacity: 0.12 }}>{medal}</span>
-                </div>
+                      width: '100%', height: '100%', borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${accentColor}99, ${accentColor}44)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: AV_SIZE * 0.34, fontWeight: 900, color: '#fff',
+                    }}>
+                      {initials}
+                    </div>
+                  )}
               </div>
-            )
-          })}
+            </div>
+          )}
         </div>
 
-        {/* Challengers — #4 & #5 */}
-        {phase >= 6 && (fourth || fifth) && (
-          <div style={{ width: '100%', marginBottom: 20, animation: 'fadeUp 0.45s ease both' }}>
+        {/* Player name */}
+        {phase >= 3 && (
+          <div style={{
+            fontSize: 32, fontWeight: 900, textAlign: 'center',
+            marginBottom: 14,
+            background: `linear-gradient(90deg, ${accentColor}, #fff, ${accentColor}, #fff, ${accentColor})`,
+            backgroundSize: '300% auto',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            animation: 'nameCrash 0.65s cubic-bezier(0.34,1.56,0.64,1) both, shimmerText 5s linear 0.7s infinite',
+            maxWidth: 340, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {cp.name}
+          </div>
+        )}
+
+        {/* Rank badge */}
+        {phase >= 4 && (
+          <div style={{
+            marginBottom: 28,
+            animation: 'rankBadgePop 0.55s cubic-bezier(0.34,1.56,0.64,1) both',
+          }}>
             <div style={{
-              fontSize: 8, fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase',
-              textAlign: 'center', marginBottom: 10,
-              color: 'rgba(255,255,255,0.22)',
-            }}>— Challengers —</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {([
-                { champ: fourth, rank: 4, color: '#22d3ee', glow: 'neonCyan 2.6s ease-in-out infinite',   scanDelay: '0s'   },
-                { champ: fifth,  rank: 5, color: '#a855f7', glow: 'neonPurple 2.6s ease-in-out infinite', scanDelay: '2s'   },
-              ] as const).filter(({ champ }) => !!champ).map(({ champ, rank, color, glow, scanDelay }) => {
-                const c = champ!
-                const entryDelay = rank === 4 ? '0s' : '0.14s'
-                return (
-                  <div key={rank} style={{
-                    flex: 1, position: 'relative', overflow: 'hidden',
-                    background: `radial-gradient(ellipse 100% 60% at 50% 0%, ${color}0e 0%, transparent 75%)`,
-                    border: `1px solid ${color}2e`,
-                    borderRadius: 18, padding: '22px 10px 16px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-                    animation: `riseUp 0.65s cubic-bezier(0.34,1.56,0.64,1) ${entryDelay} both`,
-                  }}>
-                    {/* Scan line sweep */}
-                    <div style={{
-                      position: 'absolute', left: 0, right: 0, height: '38%',
-                      background: `linear-gradient(180deg, transparent, ${color}14, transparent)`,
-                      animation: `scanLine 4.2s ${scanDelay} linear infinite`,
-                      pointerEvents: 'none', zIndex: 0,
-                    }} />
-
-                    {/* Rank pill tab */}
-                    <div style={{
-                      position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-                      background: `linear-gradient(90deg, ${color}ee, ${color}aa)`,
-                      fontSize: 9, fontWeight: 900,
-                      color: rank === 4 ? '#061018' : '#fff',
-                      padding: '3px 14px', borderRadius: '0 0 10px 10px',
-                      letterSpacing: '0.1em',
-                      boxShadow: `0 4px 16px ${color}55`,
-                      zIndex: 2,
-                    }}>#{rank}</div>
-
-                    {/* Avatar with neon glow */}
-                    <div style={{ borderRadius: '50%', animation: glow, zIndex: 1, marginTop: 2 }}>
-                      <ChallengerAvatar url={c.avatarUrl} name={c.name} size={62} color={color} />
-                    </div>
-
-                    {/* Name */}
-                    <div style={{
-                      fontSize: 12, fontWeight: 800, color: '#fff', textAlign: 'center',
-                      width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      padding: '0 6px', zIndex: 1,
-                    }}>{c.name.split(' ')[0]}</div>
-
-                    {/* P4P score badge */}
-                    <div style={{
-                      background: `${color}18`, border: `1px solid ${color}44`,
-                      borderRadius: 10, padding: '6px 14px', textAlign: 'center',
-                      boxShadow: `0 0 18px ${color}2a`, zIndex: 1,
-                    }}>
-                      <div style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>
-                        {c.p4p.score.toFixed(1)}
-                      </div>
-                      <div style={{
-                        fontSize: 8, color: `${color}88`, fontWeight: 700,
-                        letterSpacing: '0.14em', textTransform: 'uppercase', marginTop: 2,
-                      }}>P4P</div>
-                    </div>
-                  </div>
-                )
-              })}
+              padding: '7px 22px',
+              background: `${accentColor}18`,
+              border: `1.5px solid ${accentColor}66`,
+              borderRadius: 100,
+              fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: accentColor,
+              boxShadow: `0 0 22px ${accentColor}33, 0 0 44px ${accentColor}18`,
+              textAlign: 'center',
+            }}>
+              {rankLabelFor(cp.p4pRank)}
             </div>
           </div>
         )}
 
         {/* Enter button */}
-        {phase >= 7 && (
+        {phase >= 5 && (
           <div style={{ animation: 'fadeUp 0.4s ease both', textAlign: 'center' }}>
             <button
               onClick={(e) => { e.stopPropagation(); go() }}
               style={{
-                padding: '12px 36px', border: 'none', borderRadius: 100,
-                background: 'linear-gradient(135deg,#f59e0b,#f97316)',
+                padding: '13px 40px', border: 'none', borderRadius: 100,
+                background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
                 fontSize: 13, fontWeight: 800, color: '#fff', cursor: 'pointer',
-                letterSpacing: '0.05em',
-                boxShadow: '0 4px 26px rgba(245,158,11,0.42)',
+                letterSpacing: '0.06em',
+                boxShadow: `0 4px 28px ${accentColor}55`,
                 transition: 'transform 0.15s, box-shadow 0.15s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.05)'
-                e.currentTarget.style.boxShadow = '0 6px 36px rgba(245,158,11,0.65)'
+                e.currentTarget.style.transform = 'scale(1.06)'
+                e.currentTarget.style.boxShadow = `0 6px 40px ${accentColor}88`
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.boxShadow = '0 4px 26px rgba(245,158,11,0.42)'
+                e.currentTarget.style.boxShadow = `0 4px 28px ${accentColor}55`
               }}
             >
-              Enter →
+              {t('welcome.enter')}
             </button>
           </div>
         )}
@@ -543,7 +878,7 @@ export function WelcomeReveal({ top5 }: { top5: RankedChamp[] }) {
         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: 'rgba(255,255,255,0.06)' }}>
           <div style={{
             height: '100%',
-            background: 'linear-gradient(90deg,#f59e0b,#f97316)',
+            background: `linear-gradient(90deg, ${accentColor}, ${accentColor}88)`,
             animation: `countdownShrink ${AUTO_MS}ms linear both`,
           }} />
         </div>

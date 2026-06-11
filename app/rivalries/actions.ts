@@ -176,6 +176,62 @@ export async function setRivalryScoreAction(
   revalidatePath(`/rivalries/${rivalryId}`)
 }
 
+// ─── Participant: set prior history ──────────────────────────────────────────
+
+/**
+ * Allows a rivalry participant to import their existing head-to-head record
+ * (e.g., "we're already 7–6 overall") before any matches have been recorded.
+ * Once a match is recorded this window closes.
+ */
+export async function setRivalryHistoryAction(
+  rivalryId: string,
+  player1Wins: number,
+  player2Wins: number,
+  draws: number
+): Promise<void> {
+  const session = requireSession(await getSession())
+
+  if (!Number.isInteger(player1Wins) || player1Wins < 0 ||
+      !Number.isInteger(player2Wins) || player2Wins < 0 ||
+      !Number.isInteger(draws) || draws < 0) {
+    throw new Error('Scores must be non-negative integers')
+  }
+
+  const svc = createServiceClient()
+
+  const { data: rivalry } = await svc
+    .from('rivalries')
+    .select('player1_id, player2_id')
+    .eq('id', rivalryId)
+    .single()
+
+  if (!rivalry) throw new Error('Rivalry not found')
+
+  const userId = session.sub
+  if (rivalry.player1_id !== userId && rivalry.player2_id !== userId) {
+    throw new Error('You are not a participant in this rivalry')
+  }
+
+  const { count } = await svc
+    .from('rivalry_matches')
+    .select('*', { count: 'exact', head: true })
+    .eq('rivalry_id', rivalryId)
+
+  if ((count ?? 0) > 0) {
+    throw new Error('Prior history cannot be changed after matches have been recorded')
+  }
+
+  const { error } = await svc
+    .from('rivalries')
+    .update({ player1_wins: player1Wins, player2_wins: player2Wins, draws })
+    .eq('id', rivalryId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/rivalries')
+  revalidatePath(`/rivalries/${rivalryId}`)
+}
+
 // ─── Admin: delete rivalry ────────────────────────────────────────────────────
 
 export async function deleteRivalryAction(rivalryId: string): Promise<void> {

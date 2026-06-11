@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Trophy } from 'lucide-react'
 import { CreateChampionshipModal, type PlayerOption } from './CreateChampionshipModal'
 import { BottomNav } from '@/app/components/BottomNav'
+import { useTranslation } from '@/lib/i18n/context'
 
 const BG    = '#050911'
 const CARD  = '#0c1422'
@@ -52,6 +54,7 @@ type Props = {
 }
 
 export function ChampionshipsListClient({ championships, players, isAdmin, userId }: Props) {
+  const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
   const activeCount = championships.filter((c) => c.isActive).length
 
@@ -103,11 +106,11 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
               iSport FC
             </div>
             <h1 style={{ margin: '0 0 10px', fontSize: 30, fontWeight: 900, color: TEXT, letterSpacing: '-0.5px' }}>
-              Championships
+              {t('champ.title')}
             </h1>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: MUTED }}>
-                {championships.length} total
+                {t('champ.total', { n: championships.length })}
               </span>
               {activeCount > 0 && (
                 <span style={{
@@ -121,7 +124,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                     animation: 'activePulse 2s ease-in-out infinite',
                     display: 'inline-block',
                   }} />
-                  {activeCount} active
+                  {t('champ.activeCount', { n: activeCount })}
                 </span>
               )}
             </div>
@@ -146,7 +149,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                 ;(e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
               }}
             >
-              + New Championship
+              {t('champ.newChampionship')}
             </button>
           )}
         </div>
@@ -159,9 +162,9 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
             textAlign: 'center', padding: '80px 0', color: MUTED,
             border: `2px dashed ${BORDER}`, borderRadius: 16,
           }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🏆</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><Trophy size={48} style={{ color: GOLD, opacity: 0.5 }} /></div>
             <div style={{ fontSize: 16, fontWeight: 600, color: '#94a3b8', marginBottom: 8 }}>
-              No championships yet
+              {t('champ.noChampYet')}
             </div>
             {isAdmin && (
               <button
@@ -172,7 +175,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                   textDecoration: 'underline', textUnderlineOffset: 3,
                 }}
               >
-                Create the first one
+                {t('champ.createFirst')}
               </button>
             )}
           </div>
@@ -228,11 +231,11 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                         ? 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(251,191,36,0.12))'
                         : 'rgba(59,130,246,0.07)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 22, flexShrink: 0,
+                      flexShrink: 0,
                       border: `1px solid ${isActive ? 'rgba(245,158,11,0.35)' : BORDER}`,
                       animation: isActive ? 'trophyGlow 2.8s ease-in-out infinite' : 'none',
                     }}>
-                      🏆
+                      <Trophy size={22} style={{ color: isActive ? GOLD : ACCENT }} />
                     </div>
 
                     {/* Info */}
@@ -247,12 +250,9 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                       <div style={{
                         fontSize: 12, color: MUTED, display: 'flex', gap: 12, flexWrap: 'wrap',
                       }}>
+                        <span>{t('champ.playerCount', { n: c.playerCount })}</span>
                         <span>
-                          <strong style={{ color: '#94a3b8' }}>{c.playerCount}</strong> players
-                        </span>
-                        <span>
-                          <strong style={{ color: '#94a3b8' }}>{c.numberOfCycles}</strong>{' '}
-                          cycle{c.numberOfCycles !== 1 ? 's' : ''}
+                          {t(c.numberOfCycles !== 1 ? 'champ.cycle.many' : 'champ.cycle.one', { n: c.numberOfCycles })}
                         </span>
                         <span>
                           {new Date(c.playedAt ?? c.createdAt).toLocaleDateString('en-GB', {
@@ -271,7 +271,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                         border: isActive ? '1px solid rgba(34,197,94,0.3)' : `1px solid ${BORDER}`,
                         textTransform: 'uppercase', letterSpacing: '0.08em',
                       }}>
-                        {isActive ? 'Active' : 'Ended'}
+                        {isActive ? t('champ.active') : t('champ.ended')}
                       </span>
                       <span style={{ color: '#475569', fontSize: 18, lineHeight: 1 }}>›</span>
                     </div>

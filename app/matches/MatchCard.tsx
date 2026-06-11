@@ -6,6 +6,7 @@ import { confirmMatchAction } from './actions'
 import { EditMatchModal } from './EditMatchModal'
 import { useOddsFormat } from '@/lib/hooks/useOddsFormat'
 import { formatOdds, FORMAT_LABELS, type OddsFactor } from '@/lib/odds'
+import { useTranslation } from '@/lib/i18n/context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ function handicapLabel(h: number): string {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
+  const { t } = useTranslation()
   const [match, setMatch]               = useState(initial)
   const [showEdit, setShowEdit]         = useState(false)
   const [showConfirmForm, setShowCF]    = useState(false)
@@ -102,7 +104,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
     const h = parseFloat(confirmHome)
     const a = parseFloat(confirmAway)
     if (!Number.isInteger(h) || !Number.isInteger(a) || h < 0 || a < 0) {
-      setConfirmError('Enter valid scores (0 or more).')
+      setConfirmError(t('home.err.invalidScores'))
       return
     }
     setConfirmError(null)
@@ -111,7 +113,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
         await confirmMatchAction(match.id, h, a)
         setShowCF(false)
       } catch (e) {
-        setConfirmError(e instanceof Error ? e.message : 'Failed to confirm.')
+        setConfirmError(e instanceof Error ? e.message : t('match.errFailed'))
       }
     })
   }
@@ -198,7 +200,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
                   padding: 0, textDecoration: 'underline',
                 }}
               >
-                {showBreakdown ? 'Hide breakdown' : 'Why these odds?'}
+                {showBreakdown ? t('odds.hideBreakdown') : t('odds.whyOdds')}
               </button>
 
               {showBreakdown && (
@@ -233,7 +235,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
               onClick={() => setShowCF(true)}
               style={{ padding: '6px 14px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >
-              Set Score
+              {t('home.setScore')}
             </button>
           )}
           {canEdit && (
@@ -241,7 +243,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
               onClick={() => setShowEdit(true)}
               style={{ padding: '6px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
             >
-              {match.homeScore === null && match.awayScore === null ? 'Set Score' : 'Edit Score'}
+              {match.homeScore === null && match.awayScore === null ? t('home.setScore') : t('common.editScore')}
             </button>
           )}
         </div>
@@ -250,16 +252,16 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
       {/* ── Inline confirm form ── */}
       {showConfirmForm && (
         <div style={{ padding: '12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-          <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>Enter the final scores to confirm</p>
+          <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>{t('match.enterScoresToConfirm')}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <input
-              type="number" min={0} max={99} placeholder="Home"
+              type="number" min={0} max={99} placeholder={t('common.homeLabel')}
               value={confirmHome} onChange={(e) => setConfirmHome(e.target.value)}
               style={{ width: 60, padding: '6px', border: '1px solid #d1d5db', borderRadius: 6, textAlign: 'center', fontSize: 16, fontWeight: 700 }}
             />
             <span style={{ color: '#9ca3af', fontWeight: 700 }}>:</span>
             <input
-              type="number" min={0} max={99} placeholder="Away"
+              type="number" min={0} max={99} placeholder={t('common.awayLabel')}
               value={confirmAway} onChange={(e) => setConfirmAway(e.target.value)}
               style={{ width: 60, padding: '6px', border: '1px solid #d1d5db', borderRadius: 6, textAlign: 'center', fontSize: 16, fontWeight: 700 }}
             />
@@ -267,13 +269,13 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
               onClick={handleConfirmSubmit} disabled={isPending}
               style={{ padding: '6px 14px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 6, cursor: isPending ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 13 }}
             >
-              {isPending ? '…' : 'Confirm'}
+              {isPending ? '…' : t('match.confirm')}
             </button>
             <button
               onClick={() => { setShowCF(false); setConfirmError(null) }}
               style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 13 }}
             >
-              Cancel
+              {t('common.cancel')}
             </button>
           </div>
           {confirmError && <p style={{ margin: '8px 0 0', color: '#dc2626', fontSize: 12 }}>{confirmError}</p>}

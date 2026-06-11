@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useTranslation } from '@/lib/i18n/context'
 import { updateSettingAction } from './actions'
 
 type Setting = { key: string; value: unknown }
@@ -38,6 +39,7 @@ function InfoBanner({ text }: { text: string }) {
 }
 
 function GameplayRulesCard({ current }: { current: string }) {
+  const { t } = useTranslation()
   const [value, setValue]    = useState(current)
   const [saved, setSaved]    = useState(false)
   const [error, setError]    = useState('')
@@ -58,38 +60,32 @@ function GameplayRulesCard({ current }: { current: string }) {
 
   return (
     <div style={S.card}>
-      <div style={S.label}>Gameplay Rules</div>
-      <div style={S.desc}>
-        Notes and rules displayed to players. Freeform text — use it to document house rules,
-        scoring conventions, or other platform-specific guidance.
-      </div>
+      <div style={S.label}>{t('admin.settings.rulesTitle')}</div>
+      <div style={S.desc}>{t('admin.settings.rulesDesc')}</div>
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         style={S.textarea}
-        placeholder="Enter gameplay rules or notes…"
+        placeholder={t('admin.settings.rulesPlaceholder')}
       />
       {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '8px 0 0' }}>{error}</p>}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 12 }}>
         <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>
-          {pending ? 'Saving…' : 'Save Rules'}
+          {pending ? t('common.saving') : t('admin.settings.saveRules')}
         </button>
-        {saved && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>Saved!</span>}
+        {saved && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>{t('admin.settings.saved')}</span>}
       </div>
     </div>
   )
 }
 
 function EditWindowCard() {
+  const { t } = useTranslation()
   return (
     <div style={S.card}>
-      <div style={S.label}>Edit Window Duration</div>
-      <div style={S.desc}>
-        How long players can edit a confirmed match score (default: 4 hours).
-      </div>
-      <InfoBanner
-        text="This value is hardcoded in the database as a generated column (confirmed_at + interval '4 hours'). Changing it here has no effect on enforcement — it is for display purposes only. To change the actual window, update the schema."
-      />
+      <div style={S.label}>{t('admin.settings.windowTitle')}</div>
+      <div style={S.desc}>{t('admin.settings.windowDesc')}</div>
+      <InfoBanner text={t('admin.settings.windowHint')} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <input
           type="number"
@@ -97,30 +93,27 @@ function EditWindowCard() {
           disabled
           style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, width: 80, opacity: 0.5, cursor: 'not-allowed' }}
         />
-        <span style={{ fontSize: 14, color: '#6b7280' }}>hours (schema-enforced, read-only here)</span>
+        <span style={{ fontSize: 14, color: '#6b7280' }}>{t('admin.settings.windowUnit')}</span>
       </div>
     </div>
   )
 }
 
 function OddsFormatCard() {
+  const { t } = useTranslation()
   return (
     <div style={S.card}>
-      <div style={S.label}>Odds Display Format</div>
-      <div style={S.desc}>
-        Each player chooses their preferred format individually via the odds toggle in the match view.
-        Supported: decimal, fractional, american, percent.
-        There is no global default — each browser remembers the last-used format in localStorage.
-      </div>
+      <div style={S.label}>{t('admin.settings.oddsTitle')}</div>
+      <div style={S.desc}>{t('admin.settings.oddsDesc')}</div>
       <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '12px 16px', fontSize: 13, color: '#6b7280' }}>
-        Per-user preference stored in browser localStorage (<code>odds_format</code>).
-        No global override is available.
+        {t('admin.settings.oddsNote')}
       </div>
     </div>
   )
 }
 
 export function SettingsClient({ settings }: Props) {
+  const { t } = useTranslation()
   const get = (key: string, fallback: string) => {
     const s = settings.find((s) => s.key === key)
     return s ? String(s.value).replace(/^"|"$/g, '') : fallback
@@ -128,8 +121,8 @@ export function SettingsClient({ settings }: Props) {
 
   return (
     <div style={{ padding: '32px 40px', maxWidth: 720 }}>
-      <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: '#111827' }}>Settings</h1>
-      <p style={{ margin: '0 0 28px', fontSize: 13, color: '#6b7280' }}>Platform-wide configuration</p>
+      <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('admin.settings.title')}</h1>
+      <p style={{ margin: '0 0 28px', fontSize: 13, color: '#6b7280' }}>{t('admin.settings.subtitle')}</p>
 
       <GameplayRulesCard current={get('gameplay_rules', '')} />
       <EditWindowCard />

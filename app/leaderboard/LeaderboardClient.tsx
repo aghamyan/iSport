@@ -7,6 +7,7 @@ import type { NamedPlayerStats, RivalryWinner, ChampionshipLeader, LastChampions
 import type { P4PRankedPlayer } from '@/lib/stats/p4p'
 import { BottomNav } from '@/app/components/BottomNav'
 import { fetchH2HAction } from '@/app/players/actions'
+import { useTranslation } from '@/lib/i18n/context'
 
 type Tab = 'overall' | 'scorers' | 'active' | 'rivalry' | 'championships' | 'insights' | 'p4p' | 'compare'
 type SortKey = 'wins' | 'goalDiff' | 'winRate' | 'goalsFor' | 'goalsAgainst' | 'matchesPlayed' | 'avgGoals' | 'avgGoalDiff'
@@ -75,6 +76,12 @@ const ANIMS = `
     100% { background-position: 200% center; }
   }
   .lb-row:hover { background: rgba(59,130,246,0.06) !important; }
+  @media (max-width: 520px) {
+    .lb-table-header, .lb-row {
+      grid-template-columns: 28px 1fr 30px 30px 30px 46px 62px !important;
+    }
+    .lb-cell-d, .lb-cell-viscol2 { display: none !important; }
+  }
   @keyframes cmpSlideLeft {
     from { opacity: 0; transform: translateX(-24px); }
     to   { opacity: 1; transform: translateX(0); }
@@ -161,15 +168,15 @@ function Avatar({
 
 // ─── Win rate bar ──────────────────────────────────────────────────────────────
 
-function WinBar({ rate, width = 90 }: { rate: number; width?: number }) {
+function WinBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100)
   const color = pct >= 60 ? GREEN : pct >= 40 ? GOLD : RED
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, width }}>
-      <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 99, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+      <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 99, overflow: 'hidden', minWidth: 16 }}>
         <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99 }} />
       </div>
-      <span style={{ fontSize: 11, color, fontWeight: 700, minWidth: 28, textAlign: 'right' }}>{pct}%</span>
+      <span style={{ fontSize: 11, color, fontWeight: 700, minWidth: 26, textAlign: 'right' }}>{pct}%</span>
     </div>
   )
 }
@@ -177,6 +184,7 @@ function WinBar({ rate, width = 90 }: { rate: number; width?: number }) {
 // ─── Podium ────────────────────────────────────────────────────────────────────
 
 function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPodiumEntry[]; currentUserId: string }) {
+  const { t } = useTranslation()
   if (entries.length < 2) return null
   // Visual order: 2nd left, 1st center, 3rd right
   const ordered = [entries[1], entries[0], entries[2]] as Array<LastChampionshipPodiumEntry | undefined>
@@ -190,7 +198,7 @@ function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPo
     <div style={{ marginBottom: 28, animation: 'fadeInUp 0.5s ease' }}>
       {championshipName && (
         <div style={{ textAlign: 'center', fontSize: 11, color: MUTED, marginBottom: 12, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-          Last championship · <span style={{ color: GOLD }}>{championshipName}</span>
+          {t('lb.podium.lastChamp')} <span style={{ color: GOLD }}>{championshipName}</span>
         </div>
       )}
       <div style={{
@@ -230,13 +238,13 @@ function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPo
                 marginBottom: 2,
               }}>
                 {entry.playerName}
-                {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: MUTED, fontWeight: 400 }}>you</span>}
+                {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: MUTED, fontWeight: 400 }}>{t('common.youSmall')}</span>}
               </Link>
 
               <div style={{ fontSize: isFirst ? 28 : 20, fontWeight: 900, color: RANK_COLORS[ri], lineHeight: 1 }}>
                 {entry.points}
               </div>
-              <div style={{ fontSize: 10, color: MUTED, marginBottom: 8 }}>pts</div>
+              <div style={{ fontSize: 10, color: MUTED, marginBottom: 8 }}>{t('common.pts')}</div>
 
               <div style={{ display: 'flex', gap: 8, fontSize: 10, color: MUTED, marginBottom: 10 }}>
                 <span style={{ color: GREEN }}>{Math.round(winRate * 100)}%</span>
@@ -271,6 +279,7 @@ function MyStatsCard({ player, rank, total, players }: {
   total: number
   players: NamedPlayerStats[]
 }) {
+  const { t } = useTranslation()
   const active3 = players.filter((p) => p.matchesPlayed >= 3)
   const leagueAvgWR = players.reduce((s, p) => s + p.winRate, 0) / Math.max(players.length, 1)
   const myGPG       = player.matchesPlayed > 0 ? player.goalsFor / player.matchesPlayed : 0
@@ -301,7 +310,7 @@ function MyStatsCard({ player, rank, total, players }: {
             <span style={{ color: rank <= 3 ? RANK_COLORS[rank - 1] : ACCENT, fontWeight: 700 }}>
               #{rank}
             </span>
-            {' '}of {total} players
+            {' '}{t('lb.ofPlayers', { n: total })}
           </div>
         </div>
         <span style={{ display: 'inline-flex' }}>
@@ -316,29 +325,29 @@ function MyStatsCard({ player, rank, total, players }: {
       }}>
         {[
           {
-            label: 'Win Rate',
+            label: t('lb.myStats.winRate'),
             value: `${Math.round(player.winRate * 100)}%`,
             sub: player.winRate > leagueAvgWR
-              ? `+${((player.winRate - leagueAvgWR) * 100).toFixed(1)}% above avg`
-              : `${((leagueAvgWR - player.winRate) * 100).toFixed(1)}% below avg`,
+              ? t('lb.myStats.aboveAvg', { n: ((player.winRate - leagueAvgWR) * 100).toFixed(1) })
+              : t('lb.myStats.belowAvg', { n: ((leagueAvgWR - player.winRate) * 100).toFixed(1) }),
             color: player.winRate >= 0.6 ? GREEN : player.winRate >= 0.4 ? GOLD : RED,
           },
           {
-            label: 'Goals/Game',
+            label: t('lb.myStats.goalsPerGame'),
             value: myGPG.toFixed(2),
-            sub: scorerRank > 0 ? `#${scorerRank} scorer/game` : 'scoring rate',
+            sub: scorerRank > 0 ? t('lb.myStats.scorerRank', { n: scorerRank }) : t('lb.myStats.scoringRate'),
             color: GOLD,
           },
           {
-            label: 'GA/Game',
+            label: t('lb.myStats.gaPerGame'),
             value: myAvgGA.toFixed(2),
-            sub: defRank > 0 ? `#${defRank} defensive` : 'conceding rate',
+            sub: defRank > 0 ? t('lb.myStats.defRank', { n: defRank }) : t('lb.myStats.concedingRate'),
             color: myAvgGA <= 1.5 ? GREEN : myAvgGA <= 2.5 ? GOLD : RED,
           },
           {
-            label: 'Handicap',
+            label: t('lb.myStats.handicap'),
             value: myHCP > 0 ? `+${myHCP.toFixed(2)}` : myHCP.toFixed(2),
-            sub: 'avg GD per game',
+            sub: t('lb.myStats.avgGdPerGame'),
             color: myHCP > 0 ? GREEN : myHCP < 0 ? RED : MUTED,
           },
         ].map(({ label, value, sub, color }) => (
@@ -359,6 +368,7 @@ function MyStatsCard({ player, rank, total, players }: {
 // ─── Insights tab ──────────────────────────────────────────────────────────────
 
 function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; currentUserId: string }) {
+  const { t } = useTranslation()
   const cards = useMemo(() => {
     const active3 = players.filter((p) => p.matchesPlayed >= 3)
     const active5 = players.filter((p) => p.matchesPlayed >= 5)
@@ -381,32 +391,32 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
 
     return [
       {
-        icon: <Award size={22} />, title: 'Golden Boot', sub: 'Most total goals scored',
+        icon: <Award size={22} />, title: t('lb.insights.goldenBoot'), sub: t('lb.insights.goldenBootSub'),
         player: p1, value: p1 ? `${p1.goalsFor} goals` : '-',
         color: GOLD, faint: 'rgba(245,158,11,0.08)',
       },
       {
-        icon: <Target size={22} />, title: 'Sharp Shooter', sub: 'Best goals per game (min 3)',
+        icon: <Target size={22} />, title: t('lb.insights.sharpShooter'), sub: t('lb.insights.sharpShooterSub'),
         player: p2, value: p2 ? `${(p2.goalsFor / p2.matchesPlayed).toFixed(2)}/game` : '-',
         color: '#f97316', faint: 'rgba(249,115,22,0.08)',
       },
       {
-        icon: <Shield size={22} />, title: 'Iron Wall', sub: 'Fewest goals conceded/game (min 3)',
+        icon: <Shield size={22} />, title: t('lb.insights.ironWall'), sub: t('lb.insights.ironWallSub'),
         player: p3, value: p3 ? `${(p3.goalsAgainst / p3.matchesPlayed).toFixed(2)} GA/g` : '-',
         color: ACCENT, faint: 'rgba(59,130,246,0.08)',
       },
       {
-        icon: <Activity size={22} />, title: 'Workhorse', sub: 'Most matches played',
+        icon: <Activity size={22} />, title: t('lb.insights.workhorse'), sub: t('lb.insights.workhorseSub'),
         player: p4, value: p4 ? `${p4.matchesPlayed} games` : '-',
         color: '#ec4899', faint: 'rgba(236,72,153,0.08)',
       },
       {
-        icon: <BarChart3 size={22} />, title: 'Mr. Consistent', sub: 'Best win rate (min 5 games)',
+        icon: <BarChart3 size={22} />, title: t('lb.insights.mrConsistent'), sub: t('lb.insights.mrConsistentSub'),
         player: p5, value: p5 ? `${Math.round(p5.winRate * 100)}%` : '-',
         color: GREEN, faint: 'rgba(34,197,94,0.08)',
       },
       {
-        icon: <Zap size={22} />, title: 'The Dominator', sub: 'Highest avg GD per game (min 3)',
+        icon: <Zap size={22} />, title: t('lb.insights.dominator'), sub: t('lb.insights.dominatorSub'),
         player: p6,
         value: p6
           ? `${p6.goalDiff >= 0 ? '+' : ''}${(p6.goalDiff / p6.matchesPlayed).toFixed(2)}/game`
@@ -414,19 +424,19 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
         color: PURPLE, faint: 'rgba(167,139,250,0.08)',
       },
       {
-        icon: <Sparkles size={22} />, title: 'High Drama', sub: 'Most total goals per game (min 3)',
+        icon: <Sparkles size={22} />, title: t('lb.insights.highDrama'), sub: t('lb.insights.highDramaSub'),
         player: p7,
         value: p7 ? `${((p7.goalsFor + p7.goalsAgainst) / p7.matchesPlayed).toFixed(2)}/game` : '-',
         color: '#f43f5e', faint: 'rgba(244,63,94,0.08)',
       },
       {
-        icon: <Waves size={22} />, title: 'The Underdog', sub: 'Worst avg GD (min 3 games)',
+        icon: <Waves size={22} />, title: t('lb.insights.underdog'), sub: t('lb.insights.underdogSub'),
         player: p8,
         value: p8 ? `${(p8.goalDiff / p8.matchesPlayed).toFixed(2)}/game` : '-',
         color: MUTED, faint: 'rgba(107,114,128,0.08)',
       },
     ]
-  }, [players])
+  }, [players, t])
 
   const totalGoals = useMemo(() => players.reduce((s, p) => s + p.goalsFor, 0), [players])
 
@@ -440,7 +450,7 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
   }, [totalGoals, totalMatches])
 
   if (!players.length) {
-    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>No data yet.</div>
+    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>{t('lb.noData')}</div>
   }
 
   return (
@@ -452,10 +462,10 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
         gap: 10, marginBottom: 22,
       }}>
         {([
-          { icon: <Zap size={24} style={{ color: GOLD }} />,         label: 'Total Goals',      value: totalGoals.toString()      },
-          { icon: <Building2 size={24} style={{ color: ACCENT }} />, label: 'Total Matches',    value: totalMatches.toString()    },
-          { icon: <BarChart3 size={24} style={{ color: GREEN }} />,  label: 'Goals/Match avg',  value: avgGoalsPerMatch           },
-          { icon: <Users size={24} style={{ color: PURPLE }} />,     label: 'Players',          value: players.length.toString()  },
+          { icon: <Zap size={24} style={{ color: GOLD }} />,         label: t('lb.insights.totalGoals'),    value: totalGoals.toString()      },
+          { icon: <Building2 size={24} style={{ color: ACCENT }} />, label: t('lb.insights.totalMatches'),  value: totalMatches.toString()    },
+          { icon: <BarChart3 size={24} style={{ color: GREEN }} />,  label: t('lb.insights.goalsPerMatch'), value: avgGoalsPerMatch           },
+          { icon: <Users size={24} style={{ color: PURPLE }} />,     label: t('lb.insights.players'),       value: players.length.toString()  },
         ] as { icon: ReactNode; label: string; value: string }[]).map(({ icon, label, value }) => (
           <div key={label} style={{
             background: CARD2, border: `1px solid ${BORDER}`,
@@ -495,7 +505,7 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
                   }}>
                     {card.player.name}
                     {card.player.id === currentUserId && (
-                      <span style={{ marginLeft: 4, fontSize: 10, color: ACCENT, fontWeight: 400 }}>you</span>
+                      <span style={{ marginLeft: 4, fontSize: 10, color: ACCENT, fontWeight: 400 }}>{t('common.youSmall')}</span>
                     )}
                   </Link>
                 </div>
@@ -508,7 +518,7 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
                 </div>
               </>
             ) : (
-              <div style={{ fontSize: 12, color: MUTED }}>Not enough data yet</div>
+              <div style={{ fontSize: 12, color: MUTED }}>{t('common.noData')}</div>
             )}
           </div>
         ))}
@@ -552,26 +562,6 @@ function fmtVal(p: NamedPlayerStats, key: SortKey): string {
 
 type TableMode = 'overall' | 'scorers' | 'active'
 
-// Sort buttons per mode
-const SORT_OPTS: Record<TableMode, Array<{ key: SortKey; label: string }>> = {
-  overall: [
-    { key: 'wins',         label: 'Wins'       },
-    { key: 'goalDiff',     label: 'Goal Diff'   },
-    { key: 'winRate',      label: 'Win Rate'    },
-    { key: 'goalsFor',     label: 'Goals'       },
-    { key: 'avgGoals',     label: 'Goals/Game'  },
-  ],
-  scorers: [
-    { key: 'goalsFor',       label: 'Goals'      },
-    { key: 'avgGoals',       label: 'Goals/Game' },
-    { key: 'matchesPlayed',  label: 'Matches'    },
-  ],
-  active: [
-    { key: 'matchesPlayed',  label: 'Matches'    },
-    { key: 'wins',           label: 'Wins'       },
-    { key: 'goalsFor',       label: 'Goals'      },
-  ],
-}
 
 // Two always-visible extra columns per mode (rendered in the table body AND header)
 const VIS_COLS: Record<TableMode, Array<{ key: SortKey; header: string }>> = {
@@ -608,6 +598,7 @@ function SortBtn({ label, active, asc, onClick }: { label: string; active: boole
 function Pagination({ page, total, pageSize, onChange }: {
   page: number; total: number; pageSize: number; onChange: (p: number) => void
 }) {
+  const { t } = useTranslation()
   const pages = Math.ceil(total / pageSize)
   if (pages <= 1) return null
   return (
@@ -616,13 +607,13 @@ function Pagination({ page, total, pageSize, onChange }: {
         padding: '6px 12px', border: `1px solid ${BORDER}`, borderRadius: 6,
         background: CARD2, cursor: page === 0 ? 'default' : 'pointer',
         color: page === 0 ? BORDER : TEXT, fontSize: 12, opacity: page === 0 ? 0.4 : 1,
-      }}>← Prev</button>
-      <span style={{ fontSize: 12, color: MUTED }}>Page {page + 1} / {pages}</span>
+      }}>{t('common.prev')}</button>
+      <span style={{ fontSize: 12, color: MUTED }}>{t('common.page', { n: page + 1, total: pages })}</span>
       <button disabled={page >= pages - 1} onClick={() => onChange(page + 1)} style={{
         padding: '6px 12px', border: `1px solid ${BORDER}`, borderRadius: 6,
         background: CARD2, cursor: page >= pages - 1 ? 'default' : 'pointer',
         color: page >= pages - 1 ? BORDER : TEXT, fontSize: 12, opacity: page >= pages - 1 ? 0.4 : 1,
-      }}>Next →</button>
+      }}>{t('common.next')}</button>
     </div>
   )
 }
@@ -641,8 +632,29 @@ function PlayerTable({
   setSortAsc: (v: boolean) => void
   currentUserId: string
 }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(0)
   const visCols = VIS_COLS[mode]
+
+  const SORT_OPTS: Record<TableMode, Array<{ key: SortKey; label: string }>> = {
+    overall: [
+      { key: 'wins',        label: t('lb.sort.wins')        },
+      { key: 'goalDiff',    label: t('lb.sort.goalDiff')    },
+      { key: 'winRate',     label: t('lb.sort.winRate')     },
+      { key: 'goalsFor',    label: t('lb.sort.goals')       },
+      { key: 'avgGoals',    label: t('lb.sort.goalsPerGame') },
+    ],
+    scorers: [
+      { key: 'goalsFor',      label: t('lb.sort.goals')       },
+      { key: 'avgGoals',      label: t('lb.sort.goalsPerGame') },
+      { key: 'matchesPlayed', label: t('lb.sort.matches')     },
+    ],
+    active: [
+      { key: 'matchesPlayed', label: t('lb.sort.matches')     },
+      { key: 'wins',          label: t('lb.sort.wins')        },
+      { key: 'goalsFor',      label: t('lb.sort.goals')       },
+    ],
+  }
 
   const sorted = useMemo(() => {
     const copy = [...rows]
@@ -661,7 +673,7 @@ function PlayerTable({
   return (
     <div style={{ animation: 'fadeInUp 0.35s ease' }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: MUTED }}>Sort:</span>
+        <span style={{ fontSize: 11, color: MUTED }}>{t('lb.sort.label')}</span>
         {SORT_OPTS[mode].map((opt) => (
           <SortBtn key={opt.key} label={opt.label}
             active={sortKey === opt.key} asc={sortAsc}
@@ -671,7 +683,7 @@ function PlayerTable({
 
       <div style={{ border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
         {/* Header */}
-        <div style={{
+        <div className="lb-table-header" style={{
           display: 'grid', gridTemplateColumns: GRID,
           padding: '9px 14px', background: CARD2,
           borderBottom: `1px solid ${BORDER}`,
@@ -679,15 +691,15 @@ function PlayerTable({
           textTransform: 'uppercase', letterSpacing: '0.07em', gap: 4,
         }}>
           <span>#</span>
-          <span>Player</span>
+          <span>{t('lb.table.player')}</span>
           <span style={{ textAlign: 'center' }}>MP</span>
           <span style={{ textAlign: 'center', color: GREEN }}>W</span>
-          <span style={{ textAlign: 'center' }}>D</span>
+          <span className="lb-cell-d" style={{ textAlign: 'center' }}>D</span>
           <span style={{ textAlign: 'center', color: RED }}>L</span>
-          {visCols.map((c) => (
-            <span key={c.key} style={{ textAlign: 'center' }}>{c.header}</span>
+          {visCols.map((c, idx) => (
+            <span key={c.key} className={idx === 1 ? 'lb-cell-viscol2' : undefined} style={{ textAlign: 'center' }}>{c.header}</span>
           ))}
-          <span>Win %</span>
+          <span>{t('lb.table.winPct')}</span>
         </div>
 
         {paged.map((row, i) => {
@@ -733,18 +745,18 @@ function PlayerTable({
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {row.name}
-                  {isMe && <span style={{ marginLeft: 5, fontSize: 10, color: ACCENT, fontWeight: 400 }}>you</span>}
+                  {isMe && <span style={{ marginLeft: 5, fontSize: 10, color: ACCENT, fontWeight: 400 }}>{t('common.youSmall')}</span>}
                 </Link>
               </div>
 
               {/* MP W D L */}
               <div style={{ textAlign: 'center', color: MUTED, fontSize: 12 }}>{row.matchesPlayed}</div>
               <div style={{ textAlign: 'center', color: GREEN, fontWeight: 700 }}>{row.wins}</div>
-              <div style={{ textAlign: 'center', color: MUTED }}>{row.draws}</div>
+              <div className="lb-cell-d" style={{ textAlign: 'center', color: MUTED }}>{row.draws}</div>
               <div style={{ textAlign: 'center', color: RED }}>{row.losses}</div>
 
               {/* Dynamic visible columns */}
-              {visCols.map((col) => {
+              {visCols.map((col, idx) => {
                 const num = getVal(row, col.key)
                 let color = TEXT
                 if (col.key === 'avgGoals' || col.key === 'goalsFor') color = GOLD
@@ -753,20 +765,20 @@ function PlayerTable({
                   color = num > 0 ? GREEN : num < 0 ? RED : MUTED
                 }
                 return (
-                  <div key={col.key} style={{ textAlign: 'center', fontWeight: 700, color, fontSize: 12 }}>
+                  <div key={col.key} className={idx === 1 ? 'lb-cell-viscol2' : undefined} style={{ textAlign: 'center', fontWeight: 700, color, fontSize: 12 }}>
                     {fmtVal(row, col.key)}
                   </div>
                 )
               })}
 
               {/* Win rate bar */}
-              <WinBar rate={row.winRate} width={90} />
+              <WinBar rate={row.winRate} />
             </div>
           )
         })}
 
         {paged.length === 0 && (
-          <div style={{ padding: 28, textAlign: 'center', color: MUTED, fontSize: 13 }}>No data yet.</div>
+          <div style={{ padding: 28, textAlign: 'center', color: MUTED, fontSize: 13 }}>{t('lb.noData')}</div>
         )}
       </div>
 
@@ -778,11 +790,12 @@ function PlayerTable({
 // ─── Rivalry Winners tab ───────────────────────────────────────────────────────
 
 function RivalryWinnersTab({ winners, currentUserId }: { winners: RivalryWinner[]; currentUserId: string }) {
+  const { t } = useTranslation()
   const [page, setPage] = useState(0)
   const paged = winners.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   if (!winners.length) {
-    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>No rivalry badges yet.</div>
+    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>{t('lb.noRivalryBadges')}</div>
   }
 
   return (
@@ -795,8 +808,8 @@ function RivalryWinnersTab({ winners, currentUserId }: { winners: RivalryWinner[
           fontSize: 10, fontWeight: 700, color: MUTED,
           textTransform: 'uppercase', letterSpacing: '0.07em', gap: 8,
         }}>
-          <span>#</span><span>Player</span>
-          <span style={{ textAlign: 'center' }}>Rivalries Won</span>
+          <span>#</span><span>{t('lb.table.player')}</span>
+          <span style={{ textAlign: 'center' }}>{t('lb.table.rivalriesWon')}</span>
         </div>
 
         {paged.map((w, i) => {
@@ -828,7 +841,7 @@ function RivalryWinnersTab({ winners, currentUserId }: { winners: RivalryWinner[
                   textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                   {w.name}
-                  {isMe && <span style={{ marginLeft: 4, fontSize: 10, color: ACCENT, fontWeight: 400 }}>you</span>}
+                  {isMe && <span style={{ marginLeft: 4, fontSize: 10, color: ACCENT, fontWeight: 400 }}>{t('common.youSmall')}</span>}
                 </Link>
               </div>
               <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -847,8 +860,9 @@ function RivalryWinnersTab({ winners, currentUserId }: { winners: RivalryWinner[
 // ─── Championships tab ─────────────────────────────────────────────────────────
 
 function ChampionshipsTab({ leaders }: { leaders: ChampionshipLeader[] }) {
+  const { t } = useTranslation()
   if (!leaders.length) {
-    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>No championships found.</div>
+    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>{t('lb.noChampionships')}</div>
   }
 
   return (
@@ -873,11 +887,11 @@ function ChampionshipsTab({ leaders }: { leaders: ChampionshipLeader[] }) {
                 color: cl.isActive ? ACCENT : MUTED,
                 border: `1px solid ${cl.isActive ? ACCENT + '44' : BORDER}`,
               }}>
-                {cl.isActive ? 'Active' : 'Completed'}
+                {cl.isActive ? t('common.active') : t('common.completed')}
               </span>
             </div>
             <Link href={`/championships/${cl.championshipId}`} style={{ fontSize: 11, color: ACCENT, textDecoration: 'none' }}>
-              View →
+              {t('lb.champTab.view')}
             </Link>
           </div>
 
@@ -895,7 +909,7 @@ function ChampionshipsTab({ leaders }: { leaders: ChampionshipLeader[] }) {
                 {cl.playerName}
               </Link>
               <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
-                {cl.isActive ? 'Current leader' : 'Champion'}
+                {cl.isActive ? t('lb.champTab.currentLeader') : t('lb.champTab.champion')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 16, flexShrink: 0 }}>
@@ -953,15 +967,6 @@ const P4P_ANIMS = `
 
 type P4PPillarRow = { icon: ReactNode; label: string; value: number; max: number; color: string }
 
-const P4P_PILLARS: P4PPillarRow[] = [
-  { icon: <Zap size={11} />,        label: 'Clutch',     max: 35, color: GOLD,      value: 0 },
-  { icon: <TrendingUp size={11} />, label: 'Form',       max: 20, color: '#22c55e', value: 0 },
-  { icon: <Flame size={11} />,      label: 'Dominance',  max: 20, color: '#ef4444', value: 0 },
-  { icon: <Trophy size={11} />,     label: 'Legacy',     max: 15, color: PURPLE,    value: 0 },
-  { icon: <Target size={11} />,     label: 'Attack',     max: 6,  color: '#f97316', value: 0 },
-  { icon: <Shield size={11} />,     label: 'Resilience', max: 4,  color: ACCENT,    value: 0 },
-]
-
 function P4PScoreDial({ score, rank, size = 68 }: { score: number; rank: number; size?: number }) {
   const pct   = score / 100
   const r     = (size / 2) - 6
@@ -988,13 +993,14 @@ function P4PScoreDial({ score, rank, size = 68 }: { score: number; rank: number;
 }
 
 function P4PPillarBars({ p4p }: { p4p: P4PRankedPlayer['p4p'] }) {
+  const { t } = useTranslation()
   const rows: P4PPillarRow[] = [
-    { ...P4P_PILLARS[0], value: p4p.clutch     },
-    { ...P4P_PILLARS[1], value: p4p.form       },
-    { ...P4P_PILLARS[2], value: p4p.dominance  },
-    { ...P4P_PILLARS[3], value: p4p.legacy     },
-    { ...P4P_PILLARS[4], value: p4p.attack     },
-    { ...P4P_PILLARS[5], value: p4p.resilience },
+    { icon: <Zap size={11} />,        label: t('lb.p4p.pillar.clutch'),     max: 35, color: GOLD,      value: p4p.clutch     },
+    { icon: <TrendingUp size={11} />, label: t('lb.p4p.pillar.form'),       max: 20, color: '#22c55e', value: p4p.form       },
+    { icon: <Flame size={11} />,      label: t('lb.p4p.pillar.dominance'),  max: 20, color: '#ef4444', value: p4p.dominance  },
+    { icon: <Trophy size={11} />,     label: t('lb.p4p.pillar.legacy'),     max: 15, color: PURPLE,    value: p4p.legacy     },
+    { icon: <Target size={11} />,     label: t('lb.p4p.pillar.attack'),     max: 6,  color: '#f97316', value: p4p.attack     },
+    { icon: <Shield size={11} />,     label: t('lb.p4p.pillar.resilience'), max: 4,  color: ACCENT,    value: p4p.resilience },
   ]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
@@ -1028,6 +1034,7 @@ function P4PPillarBars({ p4p }: { p4p: P4PRankedPlayer['p4p'] }) {
 }
 
 function P4PTopCard({ player, rank, currentUserId }: { player: P4PRankedPlayer; rank: number; currentUserId: string }) {
+  const { t } = useTranslation()
   const isMe     = player.id === currentUserId
   const color    = rank === 1 ? GOLD : rank === 2 ? SILVER : BRONZE
   const glowAnim = rank === 1 ? 'p4pGoldGlow 2.5s ease-in-out infinite' : rank === 2 ? 'p4pSilverGlow 3s ease-in-out infinite' : 'p4pBronzeGlow 3s ease-in-out infinite'
@@ -1080,7 +1087,7 @@ function P4PTopCard({ player, rank, currentUserId }: { player: P4PRankedPlayer; 
                 animation: 'p4pShimmer 3s linear infinite',
               } : { color }),
             }}>{player.name}</Link>
-            {isMe && <span style={{ fontSize: 9, color: ACCENT, fontWeight: 600, flexShrink: 0 }}>you</span>}
+            {isMe && <span style={{ fontSize: 9, color: ACCENT, fontWeight: 600, flexShrink: 0 }}>{t('common.youSmall')}</span>}
           </div>
           <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.5 }}>
             {player.wins}W · {player.matchesPlayed}G · {Math.round(player.p4p.confidence * 100)}% conf.
@@ -1102,40 +1109,40 @@ function P4PTopCard({ player, rank, currentUserId }: { player: P4PRankedPlayer; 
   )
 }
 
-const FORMULA_ROWS = [
-  {
-    icon: '⚡', label: 'Clutch', max: 35, color: GOLD,
-    simple: 'Win rate × 35',
-    detail: 'The most important factor. Win 100% of your games and you max this out. Lose half and you score 17.5.',
-  },
-  {
-    icon: '📈', label: 'Form', max: 20, color: '#22c55e',
-    simple: 'Points per game ÷ 3 × 20',
-    detail: 'A win = 3 pts, draw = 1 pt, loss = 0. Divides by 3 (max PPG) to get a 0–20 score. Rewards consistency including draws.',
-  },
-  {
-    icon: '💥', label: 'Dominance', max: 20, color: '#ef4444',
-    simple: 'Avg goal diff per game (capped at ±3)',
-    detail: '+3 GD/game or more = full 20 pts. 0 GD/game = 10 pts. −3 or worse = 0 pts. Punishes and rewards margins.',
-  },
-  {
-    icon: '🏆', label: 'Legacy', max: 15, color: PURPLE,
-    simple: '1st title = 10 pts, each extra +2.5, cap 15',
-    detail: 'Championship belts won. First title is the hardest to earn so it\'s worth the most. Two titles maxes this out.',
-  },
-  {
-    icon: '⚽', label: 'Attack', max: 6, color: '#f97316',
-    simple: 'Goals scored per game ÷ 3 × 6',
-    detail: '3+ goals per game = full 6 pts. Rewards pure offensive output above everything.',
-  },
-  {
-    icon: '🛡', label: 'Resilience', max: 4, color: ACCENT,
-    simple: '(1 − goals conceded per game ÷ 4) × 4',
-    detail: 'Concede 0 = full 4 pts. Concede 4+ per game = 0 pts. Smallest pillar but keeps defense from being ignored.',
-  },
-]
-
 function FormulaPanel() {
+  const { t } = useTranslation()
+  const FORMULA_ROWS = [
+    {
+      icon: <Zap size={14} />, label: t('lb.p4p.pillar.clutch'), max: 35, color: GOLD,
+      simple: t('lb.p4p.formula.clutchSimple'),
+      detail: t('lb.p4p.formula.clutchDetail'),
+    },
+    {
+      icon: <TrendingUp size={14} />, label: t('lb.p4p.pillar.form'), max: 20, color: '#22c55e',
+      simple: t('lb.p4p.formula.formSimple'),
+      detail: t('lb.p4p.formula.formDetail'),
+    },
+    {
+      icon: <Flame size={14} />, label: t('lb.p4p.pillar.dominance'), max: 20, color: '#ef4444',
+      simple: t('lb.p4p.formula.dominanceSimple'),
+      detail: t('lb.p4p.formula.dominanceDetail'),
+    },
+    {
+      icon: <Trophy size={14} />, label: t('lb.p4p.pillar.legacy'), max: 15, color: PURPLE,
+      simple: t('lb.p4p.formula.legacySimple'),
+      detail: t('lb.p4p.formula.legacyDetail'),
+    },
+    {
+      icon: <Target size={14} />, label: t('lb.p4p.pillar.attack'), max: 6, color: '#f97316',
+      simple: t('lb.p4p.formula.attackSimple'),
+      detail: t('lb.p4p.formula.attackDetail'),
+    },
+    {
+      icon: <Shield size={14} />, label: t('lb.p4p.pillar.resilience'), max: 4, color: ACCENT,
+      simple: t('lb.p4p.formula.resilienceSimple'),
+      detail: t('lb.p4p.formula.resilienceDetail'),
+    },
+  ]
   return (
     <div style={{
       marginTop: 12,
@@ -1145,7 +1152,7 @@ function FormulaPanel() {
       animation: 'p4pFadeUp 0.3s ease both',
     }}>
       <div style={{ fontSize: 12, fontWeight: 800, color: GOLD, marginBottom: 14, letterSpacing: '0.04em' }}>
-        How P4P is calculated
+        {t('lb.p4p.formula.title')}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1153,7 +1160,7 @@ function FormulaPanel() {
           <div key={row.label} style={{
             display: 'grid', gridTemplateColumns: '20px 1fr', gap: 8, alignItems: 'start',
           }}>
-            <span style={{ fontSize: 14, marginTop: 1 }}>{row.icon}</span>
+            <span style={{ display: 'inline-flex', color: row.color, marginTop: 1 }}>{row.icon}</span>
             <div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: row.color }}>{row.label}</span>
@@ -1169,17 +1176,16 @@ function FormulaPanel() {
 
         {/* Confidence */}
         <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr', gap: 8, alignItems: 'start' }}>
-          <span style={{ fontSize: 14, marginTop: 1 }}>🎯</span>
+          <span style={{ display: 'inline-flex', color: ACCENT, marginTop: 1 }}><Target size={14} /></span>
           <div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: TEXT }}>Confidence multiplier</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: TEXT }}>{t('lb.p4p.formula.confidence')}</span>
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: TEXT, marginBottom: 2, fontFamily: 'monospace' }}>
-              0.30 + 0.70 × min(1, games ÷ 5)
+              {t('lb.p4p.formula.confidenceSimple')}
             </div>
             <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>
-              1 game = 44% of your score. 5+ games = 100%. Stops a new player from topping the chart on a lucky first result.
-              The full raw score is multiplied by this before display.
+              {t('lb.p4p.formula.confidenceDetail')}
             </div>
           </div>
         </div>
@@ -1190,10 +1196,10 @@ function FormulaPanel() {
         background: 'rgba(245,158,11,0.07)', borderRadius: 8,
         fontSize: 11, color: MUTED, lineHeight: 1.5,
       }}>
-        <span style={{ color: GOLD, fontWeight: 700 }}>Final score = </span>
-        (Clutch + Form + Dominance + Legacy + Attack + Resilience) × Confidence
+        <span style={{ color: GOLD, fontWeight: 700 }}>{t('lb.p4p.formula.finalScore')}</span>
+        {t('lb.p4p.formula.finalScoreFormula')}
         <br />
-        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>Max possible score: 100.0</span>
+        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>{t('lb.p4p.formula.maxScore')}</span>
       </div>
     </div>
   )
@@ -1201,9 +1207,10 @@ function FormulaPanel() {
 
 function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentUserId: string }) {
   const [showFormula, setShowFormula] = useState(false)
+  const { t } = useTranslation()
 
   if (!ranked.length) {
-    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>No players yet.</div>
+    return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>{t('lb.noPlayers')}</div>
   }
 
   const top3   = ranked.slice(0, 3)
@@ -1221,7 +1228,9 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
         borderRadius: 12,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: GOLD }}>⚡ P4P Rankings</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: GOLD, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Zap size={14} />{t('lb.p4p.title')}
+          </div>
           <button
             onClick={() => setShowFormula((v) => !v)}
             style={{
@@ -1231,17 +1240,15 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
               cursor: 'pointer', transition: 'all 0.15s', letterSpacing: '0.03em',
             }}
           >
-            {showFormula ? '✕ Close' : '🧮 How it\'s calculated'}
+            {showFormula ? t('lb.p4p.close') : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calculator size={11} />{t('lb.p4p.howCalculated')}</span>}
           </button>
         </div>
         <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
-          UFC-style Pound-for-Pound rating. Wins matter most, but so does
-          how you win, championship titles you&apos;ve earned, goals scored and conceded.
-          New players start at reduced confidence until they have 5+ games.
+          {t('lb.p4p.description')}
         </div>
         {myRank > 0 && (
           <div style={{ marginTop: 8, fontSize: 12, color: ACCENT, fontWeight: 700 }}>
-            Your rank: #{myRank} · {ranked[myRank - 1]?.p4p.score.toFixed(1)} P4P
+            {t('lb.p4p.yourRank', { n: myRank, score: ranked[myRank - 1]?.p4p.score.toFixed(1) ?? '0.0' })}
           </div>
         )}
         {showFormula && <FormulaPanel />}
@@ -1264,9 +1271,9 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
             textTransform: 'uppercase', letterSpacing: '0.07em', gap: 8,
           }}>
             <span>#</span>
-            <span>Player</span>
-            <span style={{ textAlign: 'center' }}>P4P Score</span>
-            <span>Pillar breakdown</span>
+            <span>{t('common.player')}</span>
+            <span style={{ textAlign: 'center' }}>{t('lb.table.p4pScore')}</span>
+            <span>{t('lb.table.pillarBreakdown')}</span>
           </div>
 
           {rest.map((p, i) => {
@@ -1300,10 +1307,12 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}>
                     {p.name}
-                    {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: ACCENT, fontWeight: 400 }}>you</span>}
+                    {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: ACCENT, fontWeight: 400 }}>{t('common.youSmall')}</span>}
                   </Link>
                   {p.p4p.titles > 0 && (
-                    <span style={{ fontSize: 9, color: PURPLE, fontWeight: 700, flexShrink: 0 }}>🏆{p.p4p.titles}</span>
+                    <span style={{ fontSize: 9, color: PURPLE, fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                      <Trophy size={9} />{p.p4p.titles}
+                    </span>
                   )}
                 </div>
 
@@ -1330,7 +1339,14 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
       <div style={{
         marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center',
       }}>
-        {P4P_PILLARS.map((p) => (
+        {[
+          { label: t('lb.p4p.pillar.clutch'),     color: GOLD,      icon: <Zap size={10} />,       max: 35 },
+          { label: t('lb.p4p.pillar.form'),        color: '#22c55e', icon: <TrendingUp size={10} />, max: 20 },
+          { label: t('lb.p4p.pillar.dominance'),   color: '#ef4444', icon: <Flame size={10} />,      max: 20 },
+          { label: t('lb.p4p.pillar.legacy'),      color: PURPLE,    icon: <Trophy size={10} />,     max: 15 },
+          { label: t('lb.p4p.pillar.attack'),      color: '#f97316', icon: <Target size={10} />,     max: 6  },
+          { label: t('lb.p4p.pillar.resilience'),  color: ACCENT,    icon: <Shield size={10} />,     max: 4  },
+        ].map((p) => (
           <div key={p.label} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             fontSize: 10, color: MUTED,
@@ -1388,6 +1404,7 @@ function PlayerSlot({ player, side, isActive, isMe, onClick }: {
   isMe: boolean
   onClick: () => void
 }) {
+  const { t } = useTranslation()
   const accent = side === 'A' ? CMP_A : CMP_B
   return (
     <button onClick={onClick} style={{
@@ -1434,13 +1451,13 @@ function PlayerSlot({ player, side, isActive, isMe, onClick }: {
             maxWidth: '100%', padding: '0 4px',
           }}>
             {player.name}
-            {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: MUTED, fontWeight: 400 }}>you</span>}
+            {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: MUTED, fontWeight: 400 }}>{t('common.youSmall')}</span>}
           </div>
           <div style={{ fontSize: 10, color: MUTED }}>
             {player.wins}W · {Math.round(player.winRate * 100)}%
           </div>
           <div style={{ fontSize: 9, color: accent + 'aa', fontWeight: 600, letterSpacing: '0.03em' }}>
-            tap to change
+            {t('lb.cmp.tapToChange')}
           </div>
         </>
       ) : (
@@ -1454,7 +1471,7 @@ function PlayerSlot({ player, side, isActive, isMe, onClick }: {
             {side}
           </div>
           <div style={{ fontSize: 11, color: isActive ? accent : MUTED, fontWeight: 600 }}>
-            {isActive ? 'Selecting…' : `Pick Player ${side}`}
+            {isActive ? t('lb.cmp.picking') : t('lb.cmp.pickPlayer', { side })}
           </div>
         </>
       )}
@@ -1469,6 +1486,7 @@ function H2HCompareDisplay({ playerA, playerB, h2h, accentA, accentB }: {
   accentA: string
   accentB: string
 }) {
+  const { t } = useTranslation()
   const { player1Wins: aWins, player2Wins: bWins, draws, totalMatches, player1Goals: aGoals, player2Goals: bGoals } = h2h
   const aPct = totalMatches > 0 ? Math.round((aWins / totalMatches) * 100) : 0
   const bPct = totalMatches > 0 ? Math.round((bWins / totalMatches) * 100) : 0
@@ -1496,9 +1514,9 @@ function H2HCompareDisplay({ playerA, playerB, h2h, accentA, accentB }: {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
         {[
-          { label: playerA.name.split(' ')[0], value: aWins, sub: 'wins', color: accentA },
-          { label: 'Draws', value: draws, sub: 'draws', color: MUTED },
-          { label: playerB.name.split(' ')[0], value: bWins, sub: 'wins', color: accentB },
+          { label: playerA.name.split(' ')[0], value: aWins, sub: t('lb.cmp.wins'), color: accentA },
+          { label: t('lb.cmp.stat.draws'), value: draws, sub: t('lb.cmp.draws'), color: MUTED },
+          { label: playerB.name.split(' ')[0], value: bWins, sub: t('lb.cmp.wins'), color: accentB },
         ].map((item) => (
           <div key={item.label} style={{
             textAlign: 'center', background: 'rgba(255,255,255,0.03)',
@@ -1518,7 +1536,7 @@ function H2HCompareDisplay({ playerA, playerB, h2h, accentA, accentB }: {
         <span style={{ color: accentA, fontWeight: 700 }}>{aGoals}</span>
         <span style={{ color: BORDER, margin: '0 6px' }}>–</span>
         <span style={{ color: accentB, fontWeight: 700 }}>{bGoals}</span>
-        {' '}goals · {totalMatches} match{totalMatches !== 1 ? 'es' : ''}
+        {' '}{t('home.community.goals')} · {totalMatches} {t(totalMatches !== 1 ? 'lb.cmp.match.many' : 'lb.cmp.match.one')}
       </div>
     </div>
   )
@@ -1526,7 +1544,7 @@ function H2HCompareDisplay({ playerA, playerB, h2h, accentA, accentB }: {
 
 type CmpStat = {
   label: string
-  icon: string
+  icon: ReactNode
   valueA: number
   valueB: number
   fmtA: string
@@ -1542,6 +1560,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
   h2hLoading: boolean
   currentUserId: string
 }) {
+  const { t } = useTranslation()
   const gpgA = playerA.matchesPlayed > 0 ? playerA.goalsFor / playerA.matchesPlayed : 0
   const gpgB = playerB.matchesPlayed > 0 ? playerB.goalsFor / playerB.matchesPlayed : 0
   const gapgA = playerA.matchesPlayed > 0 ? playerA.goalsAgainst / playerA.matchesPlayed : 0
@@ -1551,72 +1570,72 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
 
   const stats: CmpStat[] = [
     {
-      label: 'Win Rate', icon: '🏅',
+      label: t('lb.cmp.stat.winRate'), icon: <Award size={13} style={{ color: GOLD }} />,
       valueA: playerA.winRate, valueB: playerB.winRate,
       fmtA: `${Math.round(playerA.winRate * 100)}%`,
       fmtB: `${Math.round(playerB.winRate * 100)}%`,
       higherIsBetter: true, countsForLeads: true,
     },
     {
-      label: 'Wins', icon: '🥇',
+      label: t('lb.cmp.stat.wins'), icon: <Trophy size={13} style={{ color: GOLD }} />,
       valueA: playerA.wins, valueB: playerB.wins,
       fmtA: String(playerA.wins), fmtB: String(playerB.wins),
       higherIsBetter: true, countsForLeads: false,
     },
     {
-      label: 'Draws', icon: '⚖️',
+      label: t('lb.cmp.stat.draws'), icon: <Star size={13} style={{ color: GOLD }} />,
       valueA: playerA.draws, valueB: playerB.draws,
       fmtA: String(playerA.draws), fmtB: String(playerB.draws),
       higherIsBetter: true, countsForLeads: false,
     },
     {
-      label: 'Losses', icon: '📉',
+      label: t('lb.cmp.stat.losses'), icon: <TrendingUp size={13} style={{ color: RED, transform: 'rotate(180deg)' }} />,
       valueA: playerA.losses, valueB: playerB.losses,
       fmtA: String(playerA.losses), fmtB: String(playerB.losses),
       higherIsBetter: false, countsForLeads: false,
     },
     {
-      label: 'Goals Scored', icon: '⚽',
+      label: t('lb.cmp.stat.goalsScored'), icon: <Zap size={13} style={{ color: GOLD }} />,
       valueA: playerA.goalsFor, valueB: playerB.goalsFor,
       fmtA: String(playerA.goalsFor), fmtB: String(playerB.goalsFor),
       higherIsBetter: true, countsForLeads: false,
     },
     {
-      label: 'Goals/Game', icon: '🎯',
+      label: t('lb.cmp.stat.goalsPerGame'), icon: <Target size={13} style={{ color: '#f97316' }} />,
       valueA: gpgA, valueB: gpgB,
       fmtA: playerA.matchesPlayed > 0 ? gpgA.toFixed(2) : '-',
       fmtB: playerB.matchesPlayed > 0 ? gpgB.toFixed(2) : '-',
       higherIsBetter: true, countsForLeads: true,
     },
     {
-      label: 'Conceded', icon: '🚫',
+      label: t('lb.cmp.stat.conceded'), icon: <Shield size={13} style={{ color: RED }} />,
       valueA: playerA.goalsAgainst, valueB: playerB.goalsAgainst,
       fmtA: String(playerA.goalsAgainst), fmtB: String(playerB.goalsAgainst),
       higherIsBetter: false, countsForLeads: false,
     },
     {
-      label: 'GA/Game', icon: '🛡️',
+      label: t('lb.cmp.stat.gaPerGame'), icon: <Shield size={13} style={{ color: ACCENT }} />,
       valueA: gapgA, valueB: gapgB,
       fmtA: playerA.matchesPlayed > 0 ? gapgA.toFixed(2) : '-',
       fmtB: playerB.matchesPlayed > 0 ? gapgB.toFixed(2) : '-',
       higherIsBetter: false, countsForLeads: true,
     },
     {
-      label: 'Goal Diff', icon: '↕️',
+      label: t('lb.cmp.stat.goalDiff'), icon: <Activity size={13} style={{ color: GREEN }} />,
       valueA: playerA.goalDiff, valueB: playerB.goalDiff,
       fmtA: playerA.goalDiff > 0 ? `+${playerA.goalDiff}` : String(playerA.goalDiff),
       fmtB: playerB.goalDiff > 0 ? `+${playerB.goalDiff}` : String(playerB.goalDiff),
       higherIsBetter: true, countsForLeads: false,
     },
     {
-      label: 'GD/Game', icon: '📊',
+      label: t('lb.cmp.stat.gdPerGame'), icon: <BarChart3 size={13} style={{ color: GREEN }} />,
       valueA: gdpgA, valueB: gdpgB,
       fmtA: playerA.matchesPlayed > 0 ? (gdpgA > 0 ? `+${gdpgA.toFixed(2)}` : gdpgA.toFixed(2)) : '-',
       fmtB: playerB.matchesPlayed > 0 ? (gdpgB > 0 ? `+${gdpgB.toFixed(2)}` : gdpgB.toFixed(2)) : '-',
       higherIsBetter: true, countsForLeads: true,
     },
     {
-      label: 'Matches', icon: '🗓️',
+      label: t('lb.cmp.stat.matches'), icon: <Activity size={13} style={{ color: MUTED }} />,
       valueA: playerA.matchesPlayed, valueB: playerB.matchesPlayed,
       fmtA: String(playerA.matchesPlayed), fmtB: String(playerB.matchesPlayed),
       higherIsBetter: true, countsForLeads: false,
@@ -1648,7 +1667,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
           <div style={{ fontSize: 13, fontWeight: 800, color: CMP_A, textAlign: 'center', lineHeight: 1.2 }}>
             {playerA.name}
             {playerA.id === currentUserId && (
-              <span style={{ display: 'block', fontSize: 9, color: MUTED, fontWeight: 400, marginTop: 2 }}>you</span>
+              <span style={{ display: 'block', fontSize: 9, color: MUTED, fontWeight: 400, marginTop: 2 }}>{t('common.youSmall')}</span>
             )}
           </div>
           <div style={{
@@ -1657,7 +1676,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
             border: `1px solid ${aLeads > bLeads ? CMP_A + '44' : BORDER}`,
             borderRadius: 99, padding: '3px 10px',
           }}>
-            {aLeads} leads
+            {t('lb.cmp.leads', { n: aLeads })}
           </div>
         </div>
 
@@ -1679,7 +1698,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
           <div style={{ fontSize: 13, fontWeight: 800, color: CMP_B, textAlign: 'center', lineHeight: 1.2 }}>
             {playerB.name}
             {playerB.id === currentUserId && (
-              <span style={{ display: 'block', fontSize: 9, color: MUTED, fontWeight: 400, marginTop: 2 }}>you</span>
+              <span style={{ display: 'block', fontSize: 9, color: MUTED, fontWeight: 400, marginTop: 2 }}>{t('common.youSmall')}</span>
             )}
           </div>
           <div style={{
@@ -1688,7 +1707,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
             border: `1px solid ${bLeads > aLeads ? CMP_B + '44' : BORDER}`,
             borderRadius: 99, padding: '3px 10px',
           }}>
-            {bLeads} leads
+            {t('lb.cmp.leads', { n: bLeads })}
           </div>
         </div>
       </div>
@@ -1726,7 +1745,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
 
               {/* Center label + bar */}
               <div style={{ textAlign: 'center', minWidth: 0 }}>
-                <div style={{ fontSize: 13, marginBottom: 2, lineHeight: 1 }}>{s.icon}</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 2 }}>{s.icon}</div>
                 <div style={{ fontSize: 8, color: MUTED, marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2, wordBreak: 'break-word' }}>
                   {s.label}
                 </div>
@@ -1776,15 +1795,15 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
           fontSize: 12, fontWeight: 700, color: TEXT, marginBottom: 12,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
-          ⚔️ Head-to-Head Record
+          {t('lb.cmp.h2h')}
         </div>
         {h2hLoading ? (
-          <div style={{ textAlign: 'center', padding: '14px', color: MUTED, fontSize: 13 }}>Loading…</div>
+          <div style={{ textAlign: 'center', padding: '14px', color: MUTED, fontSize: 13 }}>{t('common.loading')}</div>
         ) : h2h && h2h.totalMatches > 0 ? (
           <H2HCompareDisplay playerA={playerA} playerB={playerB} h2h={h2h} accentA={CMP_A} accentB={CMP_B} />
         ) : (
           <div style={{ textAlign: 'center', padding: '14px', color: MUTED, fontSize: 12 }}>
-            No matches between these players yet.
+            {t('lb.cmp.noH2H')}
           </div>
         )}
       </div>
@@ -1793,6 +1812,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
 }
 
 function CompareTab({ players, currentUserId }: { players: NamedPlayerStats[]; currentUserId: string }) {
+  const { t } = useTranslation()
   const [playerA, setPlayerA] = useState<NamedPlayerStats | null>(null)
   const [playerB, setPlayerB] = useState<NamedPlayerStats | null>(null)
   const [pickingFor, setPickingFor] = useState<'A' | 'B' | null>('A')
@@ -1871,12 +1891,12 @@ function CompareTab({ players, currentUserId }: { players: NamedPlayerStats[]; c
               fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
               color: pickingFor === 'A' ? CMP_A : CMP_B, marginBottom: 8,
             }}>
-              Select Player {pickingFor}
+              {t('lb.cmp.selectPlayer', { side: pickingFor })}
             </div>
             <input
               autoFocus
               type="text"
-              placeholder="Search by name…"
+              placeholder={t('lb.cmp.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{
@@ -1912,7 +1932,7 @@ function CompareTab({ players, currentUserId }: { players: NamedPlayerStats[]; c
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
                       {p.name}
-                      {p.id === currentUserId && <span style={{ marginLeft: 5, fontSize: 10, color: ACCENT }}>you</span>}
+                      {p.id === currentUserId && <span style={{ marginLeft: 5, fontSize: 10, color: ACCENT }}>{t('common.youSmall')}</span>}
                     </div>
                     <div style={{ fontSize: 11, color: MUTED }}>
                       {p.wins}W · {p.draws}D · {p.losses}L · {Math.round(p.winRate * 100)}% WR
@@ -1923,7 +1943,7 @@ function CompareTab({ players, currentUserId }: { players: NamedPlayerStats[]; c
               )
             })}
             {filteredPlayers.length === 0 && (
-              <div style={{ padding: 20, textAlign: 'center', color: MUTED, fontSize: 13 }}>No players found.</div>
+              <div style={{ padding: 20, textAlign: 'center', color: MUTED, fontSize: 13 }}>{t('lb.cmp.noPlayersFound')}</div>
             )}
           </div>
         </div>
@@ -1953,20 +1973,20 @@ function SI({ children }: { children: ReactNode }) {
   )
 }
 
-const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
-  { id: 'overall',       label: 'Overall',     icon: <SI><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></SI> },
-  { id: 'compare',       label: 'Compare',     icon: <SI><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><line x1="12" y1="8" x2="12" y2="16"/></SI> },
-  { id: 'p4p',           label: 'P4P',         icon: <SI><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></SI> },
-  { id: 'scorers',       label: 'Scorers',     icon: <SI><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></SI> },
-  { id: 'active',        label: 'Most Active', icon: <SI><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></SI> },
-  { id: 'rivalry',       label: 'Rivalries',   icon: <SI><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="3" y2="21"/></SI> },
-  { id: 'championships', label: 'Seasons',     icon: <SI><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></SI> },
-  { id: 'insights',      label: 'Insights',    icon: <SI><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></SI> },
-]
-
 // ─── Root component ────────────────────────────────────────────────────────────
 
 export function LeaderboardClient({ players, rivalryWinners, championshipLeaders, p4pRanked, lastChampionshipPodium, currentUserId }: Props) {
+  const { t } = useTranslation()
+  const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+    { id: 'overall',       label: t('lb.tab.overall'),     icon: <SI><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></SI> },
+    { id: 'compare',       label: t('lb.tab.compare'),     icon: <SI><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><line x1="12" y1="8" x2="12" y2="16"/></SI> },
+    { id: 'p4p',           label: t('lb.tab.p4p'),         icon: <SI><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></SI> },
+    { id: 'scorers',       label: t('lb.tab.scorers'),     icon: <SI><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></SI> },
+    { id: 'active',        label: t('lb.tab.active'),      icon: <SI><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></SI> },
+    { id: 'rivalry',       label: t('lb.tab.rivalry'),     icon: <SI><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="3" y2="21"/></SI> },
+    { id: 'championships', label: t('lb.tab.championships'), icon: <SI><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></SI> },
+    { id: 'insights',      label: t('lb.tab.insights'),    icon: <SI><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></SI> },
+  ]
   const [tab, setTab] = useState<Tab>('overall')
 
   const [overallSort, setOverallSort] = useState<SortKey>('wins')
@@ -2001,16 +2021,19 @@ export function LeaderboardClient({ players, rivalryWinners, championshipLeaders
           </div>
           <h1 style={{
             margin: '0 0 6px', fontSize: 36, fontWeight: 900, letterSpacing: '-0.02em',
-            background: `linear-gradient(90deg, ${GOLD}, #f97316, ${GOLD})`,
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: 'shimmerBg 3s linear infinite',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           }}>
-            🏆 Leaderboard
+            <Trophy size={30} style={{ color: GOLD, filter: `drop-shadow(0 0 10px ${GOLD}88)` }} />
+            <span style={{
+              background: `linear-gradient(90deg, ${GOLD}, #f97316, ${GOLD})`,
+              backgroundSize: '200% auto',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              animation: 'shimmerBg 3s linear infinite',
+            }}>{t('lb.title')}</span>
           </h1>
           <div style={{ fontSize: 13, color: MUTED }}>
-            {players.length} player{players.length !== 1 ? 's' : ''} · all-time stats
+            {t('lb.subtitle', { n: players.length, players: t(players.length !== 1 ? 'lb.subtitlePlayers.many' : 'lb.subtitlePlayers.one') })}
           </div>
         </div>
 
@@ -2029,17 +2052,17 @@ export function LeaderboardClient({ players, rivalryWinners, championshipLeaders
           display: 'flex', gap: 2, marginBottom: 22,
           borderBottom: `1px solid ${BORDER}`, overflowX: 'auto',
         }}>
-          {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
+          {TABS.map((tabItem) => (
+            <button key={tabItem.id} onClick={() => setTab(tabItem.id)} style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '9px 14px', background: 'none', border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 600,
-              color: tab === t.id ? ACCENT : MUTED,
-              borderBottom: `2px solid ${tab === t.id ? ACCENT : 'transparent'}`,
+              color: tab === tabItem.id ? ACCENT : MUTED,
+              borderBottom: `2px solid ${tab === tabItem.id ? ACCENT : 'transparent'}`,
               marginBottom: -1, flexShrink: 0, whiteSpace: 'nowrap',
               transition: 'color 0.15s',
             }}>
-              {t.icon}{t.label}
+              {tabItem.icon}{tabItem.label}
             </button>
           ))}
         </div>

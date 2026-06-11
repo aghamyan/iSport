@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Trophy } from 'lucide-react'
 import { CreateRivalryModal, type PlayerOption } from './CreateRivalryModal'
 import { BottomNav } from '@/app/components/BottomNav'
+import { useTranslation } from '@/lib/i18n/context'
 
 type RivalryItem = {
   id: string
@@ -32,6 +34,7 @@ type Props = {
 type Filter = 'all' | 'active' | 'completed'
 
 export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin }: Props) {
+  const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -48,9 +51,9 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#111827' }}>Rivalries</h1>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#111827' }}>{t('rivalry.title')}</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
-            {rivalries.length} rivalry{rivalries.length !== 1 ? 's' : ''}
+            {t(rivalries.length !== 1 ? 'rivalry.count.many' : 'rivalry.count.one', { n: rivalries.length })}
           </p>
         </div>
         <button
@@ -60,7 +63,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
             border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600,
           }}
         >
-          + Start Rivalry
+          {t('rivalry.start')}
         </button>
       </div>
 
@@ -75,10 +78,9 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
               fontSize: 13, fontWeight: 600,
               background: filter === f ? '#111827' : '#f3f4f6',
               color: filter === f ? '#fff' : '#6b7280',
-              textTransform: 'capitalize',
             }}
           >
-            {f}
+            {t(`rivalry.filter.${f}` as 'rivalry.filter.all' | 'rivalry.filter.active' | 'rivalry.filter.completed')}
           </button>
         ))}
       </div>
@@ -86,12 +88,12 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
       {/* List */}
       {filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '60px 0', color: '#9ca3af', fontSize: 15 }}>
-          No rivalries yet.{' '}
+          {t('rivalry.noRivalriesYet')}{' '}
           <button
             onClick={() => setShowCreate(true)}
             style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 15, padding: 0 }}
           >
-            Start the first one.
+            {t('rivalry.startFirst')}
           </button>
         </div>
       ) : (
@@ -121,7 +123,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                         }}
                       >
                         {r.player1Name}
-                        {r.winnerId === r.player1Id && ' 🏆'}
+                        {r.winnerId === r.player1Id && <Trophy size={13} style={{ color: '#d97706', marginLeft: 4, verticalAlign: 'middle' }} />}
                       </span>
                     </div>
 
@@ -149,7 +151,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                           ...(r.winnerId === r.player2Id ? { color: '#d97706' } : {}),
                         }}
                       >
-                        {r.winnerId === r.player2Id && '🏆 '}
+                        {r.winnerId === r.player2Id && <Trophy size={13} style={{ color: '#d97706', marginRight: 4, verticalAlign: 'middle' }} />}
                         {r.player2Name}
                       </span>
                     </div>
@@ -162,7 +164,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                       fontSize: 12, color: '#6b7280',
                     }}
                   >
-                    <span>Score to win: {r.bestOf} · {totalMatches} day{totalMatches !== 1 ? 's' : ''} played</span>
+                    <span>{t('rivalry.scoreMeta', { target: r.bestOf, played: totalMatches })}</span>
                     <span
                       style={{
                         padding: '2px 9px', borderRadius: 20, fontWeight: 700, fontSize: 11,
@@ -170,7 +172,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                         background: '#dcfce7', color: '#16a34a',
                       }}
                     >
-                      Active
+                      {t('rivalry.activeBadge')}
                     </span>
                   </div>
                 </div>

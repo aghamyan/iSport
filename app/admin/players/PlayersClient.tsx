@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { ConfirmDialog } from '@/app/components/ConfirmDialog'
+import { useTranslation } from '@/lib/i18n/context'
 import {
   createPlayerAction,
   updatePlayerNameAction,
@@ -57,6 +58,7 @@ const S = {
 }
 
 function AccessCodeCell({ playerId }: { playerId: string }) {
+  const { t } = useTranslation()
   const [shownCode, setShownCode] = useState<string | null>(null)
   const [editing, setEditing]     = useState(false)
   const [value, setValue]         = useState('')
@@ -100,8 +102,8 @@ function AccessCodeCell({ playerId }: { playerId: string }) {
             spellCheck={false}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') { setEditing(false); setError('') } }}
           />
-          <button onClick={handleSaveEdit} disabled={pending} style={S.btn('#fff', '#2563eb')}>Save</button>
-          <button onClick={() => { setEditing(false); setError('') }} style={S.btn('#374151', '#f3f4f6')}>Cancel</button>
+          <button onClick={handleSaveEdit} disabled={pending} style={S.btn('#fff', '#2563eb')}>{t('common.save')}</button>
+          <button onClick={() => { setEditing(false); setError('') }} style={S.btn('#374151', '#f3f4f6')}>{t('common.cancel')}</button>
         </div>
         {error && <span style={{ fontSize: 11, color: '#dc2626' }}>{error}</span>}
       </div>
@@ -119,17 +121,17 @@ function AccessCodeCell({ playerId }: { playerId: string }) {
           <span style={{ fontFamily: 'monospace', fontSize: 13, color: '#9ca3af' }}>••••-••••</span>
         )}
         <button onClick={() => { setEditing(true); setValue('') }} disabled={pending} style={S.btn('#374151', '#f3f4f6')}>
-          Edit
+          {t('common.edit')}
         </button>
         <button onClick={() => setConfirmRotate(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>
-          Rotate
+          {t('common.rotate')}
         </button>
       </div>
       {confirmRotate && (
         <ConfirmDialog
-          title="Rotate access code?"
-          message="A new random code will be generated. The old code will stop working immediately."
-          confirmLabel="Rotate"
+          title={t('admin.players.rotateTitle')}
+          message={t('admin.players.rotateMsg')}
+          confirmLabel={t('common.rotate')}
           danger
           onConfirm={handleRotate}
           onCancel={() => setConfirmRotate(false)}
@@ -140,6 +142,7 @@ function AccessCodeCell({ playerId }: { playerId: string }) {
 }
 
 function EditNameInline({ player }: { player: Player }) {
+  const { t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [value, setValue]     = useState(player.name)
   const [error, setError]     = useState('')
@@ -162,7 +165,7 @@ function EditNameInline({ player }: { player: Player }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontWeight: 600, color: '#111827' }}>{player.name}</span>
-        <button onClick={() => setEditing(true)} style={S.btn('#374151', '#f3f4f6')}>Edit</button>
+        <button onClick={() => setEditing(true)} style={S.btn('#374151', '#f3f4f6')}>{t('common.edit')}</button>
       </div>
     )
   }
@@ -176,8 +179,8 @@ function EditNameInline({ player }: { player: Player }) {
         onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false) }}
         autoFocus
       />
-      <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>Save</button>
-      <button onClick={() => setEditing(false)} style={S.btn('#374151', '#f3f4f6')}>Cancel</button>
+      <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>{t('common.save')}</button>
+      <button onClick={() => setEditing(false)} style={S.btn('#374151', '#f3f4f6')}>{t('common.cancel')}</button>
       {error && <span style={{ fontSize: 12, color: '#dc2626' }}>{error}</span>}
     </div>
   )
@@ -262,6 +265,7 @@ function AvatarCell({ player }: { player: Player }) {
 }
 
 function PlayerRow({ player }: { player: Player }) {
+  const { t } = useTranslation()
   const [pending, start] = useTransition()
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [confirmDelete, setConfirmDelete]         = useState(false)
@@ -318,24 +322,24 @@ function PlayerRow({ player }: { player: Player }) {
             player.isActive ? '#16a34a' : '#6b7280',
             player.isActive ? '#dcfce7' : '#f3f4f6',
           )}>
-            {player.isActive ? 'Active' : 'Inactive'}
+            {player.isActive ? t('common.active') : t('common.inactive')}
           </span>
         </td>
         <td style={{ padding: '14px 16px' }}>
           {player.isAdmin && (
-            <span style={S.badge('#9333ea', '#f3e8ff')}>Admin</span>
+            <span style={S.badge('#9333ea', '#f3e8ff')}>{t('admin.players.adminBadge')}</span>
           )}
         </td>
         <td style={{ padding: '14px 16px' }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button onClick={toggleActive} disabled={pending} style={S.btn('#fff', player.isActive ? '#dc2626' : '#16a34a')}>
-              {player.isActive ? 'Deactivate' : 'Activate'}
+              {player.isActive ? t('common.deactivate') : t('common.activate')}
             </button>
             <button onClick={toggleAdmin} disabled={pending} style={S.btn('#374151', '#f3f4f6')}>
-              {player.isAdmin ? 'Revoke Admin' : 'Make Admin'}
+              {player.isAdmin ? t('admin.players.revokeAdmin') : t('admin.players.makeAdmin')}
             </button>
             <button onClick={() => { setDeleteError(''); setConfirmDelete(true) }} disabled={pending} style={S.btn('#fff', '#7f1d1d')}>
-              Delete
+              {t('common.delete')}
             </button>
           </div>
           {deleteError && <p style={{ fontSize: 11, color: '#dc2626', margin: '6px 0 0' }}>{deleteError}</p>}
@@ -343,9 +347,9 @@ function PlayerRow({ player }: { player: Player }) {
       </tr>
       {confirmDeactivate && (
         <ConfirmDialog
-          title="Deactivate player?"
-          message={`${player.name} will be signed out and unable to log in until reactivated.`}
-          confirmLabel="Deactivate"
+          title={t('admin.players.deactivateTitle')}
+          message={t('admin.players.deactivateMsg', { name: player.name })}
+          confirmLabel={t('common.deactivate')}
           danger
           onConfirm={doDeactivate}
           onCancel={() => setConfirmDeactivate(false)}
@@ -353,9 +357,9 @@ function PlayerRow({ player }: { player: Player }) {
       )}
       {confirmDelete && (
         <ConfirmDialog
-          title={`Delete ${player.name}?`}
-          message="This permanently removes the player and their account. Players with match history cannot be deleted — deactivate them instead."
-          confirmLabel="Delete permanently"
+          title={t('admin.players.deleteTitle', { name: player.name })}
+          message={t('admin.players.deleteMsg')}
+          confirmLabel={t('admin.players.deletePermanently')}
           danger
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(false)}
@@ -366,6 +370,7 @@ function PlayerRow({ player }: { player: Player }) {
 }
 
 function CreatePlayerModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
   const [pending, start] = useTransition()
   const [created, setCreated] = useState<{ name: string; code: string } | null>(null)
   const [error, setError] = useState('')
@@ -387,15 +392,15 @@ function CreatePlayerModal({ onClose }: { onClose: () => void }) {
     return (
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
         <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 380, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-          <h2 style={{ margin: '0 0 12px', fontSize: 17, fontWeight: 700 }}>Player Created</h2>
+          <h2 style={{ margin: '0 0 12px', fontSize: 17, fontWeight: 700 }}>{t('admin.players.created')}</h2>
           <p style={{ margin: '0 0 8px', fontSize: 14, color: '#4b5563' }}>
-            <strong>{created.name}</strong> has been added with access code:
+            {t('admin.players.createdMsg', { name: created.name })}
           </p>
           <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 800, color: '#059669', background: '#d1fae5', padding: '12px 16px', borderRadius: 8, textAlign: 'center', letterSpacing: '0.1em', marginBottom: 20 }}>
             {created.code}
           </div>
           <button onClick={onClose} style={{ ...S.btn('#fff', '#2563eb'), padding: '10px 20px', fontSize: 14 }}>
-            Done
+            {t('common.done')}
           </button>
         </div>
       </div>
@@ -406,17 +411,17 @@ function CreatePlayerModal({ onClose }: { onClose: () => void }) {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
       <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 400, maxWidth: '90vw', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Add Player</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>{t('admin.players.addPlayer')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6b7280' }}>×</button>
         </div>
         <form action={submit}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Name
+            {t('admin.players.nameLabel')}
           </label>
           <input name="name" required style={{ ...S.input, marginBottom: 16 }} placeholder="Player name" />
 
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Access Code
+            {t('admin.players.codeLabel')}
           </label>
           <input
             name="accessCode"
@@ -427,18 +432,18 @@ function CreatePlayerModal({ onClose }: { onClose: () => void }) {
             autoComplete="off"
           />
           <p style={{ fontSize: 11, color: '#9ca3af', margin: '0 0 16px' }}>
-            Min 4 characters · letters, numbers, and dashes only · stored uppercase
+            {t('admin.players.codeHint')}
           </p>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, color: '#374151', marginBottom: 20, cursor: 'pointer' }}>
             <input type="checkbox" name="isAdmin" value="true" />
-            Grant admin access
+            {t('admin.players.grantAdmin')}
           </label>
 
           {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '0 0 12px' }}>{error}</p>}
 
           <button type="submit" disabled={pending} style={{ ...S.btn('#fff', '#2563eb'), padding: '10px 20px', fontSize: 14, width: '100%' }}>
-            {pending ? 'Creating…' : 'Create Player'}
+            {pending ? t('admin.players.creating') : t('admin.players.createBtn')}
           </button>
         </form>
       </div>
@@ -447,17 +452,20 @@ function CreatePlayerModal({ onClose }: { onClose: () => void }) {
 }
 
 export function PlayersClient({ players }: Props) {
+  const { t } = useTranslation()
   const [showCreate, setShowCreate] = useState(false)
 
   return (
     <div style={{ padding: '32px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>Players</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>{players.length} player{players.length !== 1 ? 's' : ''}</p>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#111827' }}>{t('admin.card.players')}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+            {t(players.length !== 1 ? 'admin.players.count.many' : 'admin.players.count.one', { n: players.length })}
+          </p>
         </div>
         <button onClick={() => setShowCreate(true)} style={{ ...S.btn('#fff', '#2563eb'), padding: '9px 18px', fontSize: 14 }}>
-          + Add Player
+          {t('admin.players.addBtn')}
         </button>
       </div>
 
@@ -465,7 +473,14 @@ export function PlayersClient({ players }: Props) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-              {['Avatar', 'Name', 'Access Code', 'Status', 'Role', 'Actions'].map((h) => (
+              {([
+                t('admin.players.col.avatar'),
+                t('admin.players.col.name'),
+                t('admin.players.col.code'),
+                t('admin.players.col.status'),
+                t('admin.players.col.role'),
+                t('admin.players.col.actions'),
+              ]).map((h) => (
                 <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                   {h}
                 </th>
@@ -478,7 +493,7 @@ export function PlayersClient({ players }: Props) {
         </table>
         {players.length === 0 && (
           <div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-            No players yet.
+            {t('admin.players.noPlayers')}
           </div>
         )}
       </div>

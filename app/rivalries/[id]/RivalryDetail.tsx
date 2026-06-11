@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import Link from 'next/link'
+import { Trophy } from 'lucide-react'
 import supabase from '@/lib/supabase/client'
 import { BottomNav } from '@/app/components/BottomNav'
-import { deleteRivalryAction, setRivalryScoreAction } from '../actions'
+import { deleteRivalryAction, setRivalryScoreAction, setRivalryHistoryAction } from '../actions'
 import { RecordMatchModal } from '../RecordMatchModal'
+import { useTranslation } from '@/lib/i18n/context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,7 @@ type Props = {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId, isAdmin, badgeEarnedAt }: Props) {
+  const { t } = useTranslation()
   const [rivalry, setRivalry] = useState<Rivalry>(initial)
   const [matches, setMatches] = useState<MatchRecord[]>(initialMatches)
   const [showRecord, setShowRecord] = useState(false)
@@ -58,6 +61,13 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
   const [editDraws, setEditDraws] = useState(rivalry.draws)
   const [editScoreError, setEditScoreError] = useState<string | null>(null)
   const [isSavingScore, startSaveScoreTransition] = useTransition()
+
+  const [showSetHistory, setShowSetHistory] = useState(false)
+  const [histP1Wins, setHistP1Wins] = useState(rivalry.player1Wins)
+  const [histP2Wins, setHistP2Wins] = useState(rivalry.player2Wins)
+  const [histDraws, setHistDraws] = useState(rivalry.draws)
+  const [histError, setHistError] = useState<string | null>(null)
+  const [isSavingHistory, startSaveHistoryTransition] = useTransition()
 
   const isParticipant = rivalry.player1Id === currentUserId || rivalry.player2Id === currentUserId
   const canRecord = isParticipant || isAdmin
@@ -109,7 +119,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
       {/* Breadcrumb */}
       <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
         <Link href="/rivalries" style={{ color: '#6b7280', textDecoration: 'none' }}>
-          Rivalries
+          {t('rivalry.title')}
         </Link>
         {' /'}
       </div>
@@ -124,14 +134,14 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
             display: 'flex', alignItems: 'center', gap: 12,
           }}
         >
-          <span style={{ fontSize: 28 }}>🏆</span>
+          <Trophy size={28} style={{ color: '#d97706', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: '#92400e' }}>
-              {winnerName} won the series!
+              {t('rivalry.wonSeries', { name: winnerName })}
             </div>
             {badgeEarnedAt && (
               <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
-                Rivalry Champion badge earned on {new Date(badgeEarnedAt).toLocaleDateString()}
+                {t('rivalry.badgeEarned', { date: new Date(badgeEarnedAt).toLocaleDateString() })}
               </div>
             )}
           </div>
@@ -144,7 +154,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
               borderRadius: 6,
             }}
           >
-            View profile →
+            {t('rivalry.viewProfile')}
           </Link>
         </div>
       )}
@@ -168,7 +178,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
               }}
             >
               {p1}
-              {rivalry.winnerId === rivalry.player1Id && ' 🏆'}
+              {rivalry.winnerId === rivalry.player1Id && <Trophy size={13} style={{ color: '#d97706', marginLeft: 4, verticalAlign: 'middle' }} />}
             </div>
           </div>
 
@@ -189,7 +199,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                 ...(rivalry.winnerId === rivalry.player2Id ? { color: '#d97706' } : {}),
               }}
             >
-              {rivalry.winnerId === rivalry.player2Id && '🏆 '}
+              {rivalry.winnerId === rivalry.player2Id && <Trophy size={13} style={{ color: '#d97706', marginRight: 4, verticalAlign: 'middle' }} />}
               {p2}
             </div>
           </div>
@@ -202,14 +212,16 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
           }}
         >
           <span>
-            Score to win: {rivalry.bestOf} · {totalMatches} day{totalMatches !== 1 ? 's' : ''} played
+            {t('rivalry.scoreMeta', { target: rivalry.bestOf, played: totalMatches })}
             {recordedMatches < totalMatches && (
-              <span style={{ color: '#9ca3af' }}> ({recordedMatches} recorded)</span>
+              <span style={{ color: '#9ca3af' }}> {t('rivalry.recorded', { n: recordedMatches })}</span>
             )}
           </span>
           {rivalry.draws > 0 && (
             <span style={{ fontSize: 12, color: '#9ca3af' }}>
-              {rivalry.draws} draw{rivalry.draws !== 1 ? 's' : ''}
+              {rivalry.draws === 1
+                ? `${rivalry.draws} ${t('rivalry.draw.one')}`
+                : t('rivalry.draws', { n: rivalry.draws })}
             </span>
           )}
         </div>
@@ -218,9 +230,27 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
       {/* Action row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Match History
+          {t('rivalry.matchHistory')}
         </h2>
         <div style={{ display: 'flex', gap: 8 }}>
+          {isParticipant && matches.length === 0 && rivalry.status !== 'completed' && (
+            <button
+              onClick={() => {
+                setHistP1Wins(rivalry.player1Wins)
+                setHistP2Wins(rivalry.player2Wins)
+                setHistDraws(rivalry.draws)
+                setHistError(null)
+                setShowSetHistory(true)
+              }}
+              style={{
+                padding: '7px 14px', border: '1px solid #d1d5db',
+                borderRadius: 7, background: '#fff', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, color: '#374151',
+              }}
+            >
+              {t('rivalry.setPriorRecord')}
+            </button>
+          )}
           {canRecord && (
             <button
               onClick={() => setShowRecord(true)}
@@ -229,7 +259,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                 border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}
             >
-              + Record Match
+              {t('rivalry.recordSession')}
             </button>
           )}
           {isAdmin && (
@@ -247,7 +277,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                 fontSize: 13, fontWeight: 600, color: '#374151',
               }}
             >
-              Edit Score
+              {t('rivalry.editScore')}
             </button>
           )}
           {isAdmin && (
@@ -259,7 +289,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                 fontSize: 13, fontWeight: 600, color: '#dc2626',
               }}
             >
-              Delete
+              {t('common.delete')}
             </button>
           )}
         </div>
@@ -268,18 +298,17 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
       {/* Match history */}
       {matches.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: 14 }}>
-          No matches recorded yet.
+          {t('rivalry.noMatchesYet')}
           {canRecord && (
             <> <button
               onClick={() => setShowRecord(true)}
               style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 14, padding: 0 }}
-            >Record the first one.</button></>
+            >{t('rivalry.recordFirstOne')}</button></>
           )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[...matches].reverse().map((m, idx) => {
-            // In our convention, home = player1, away = player2
             const p1Score = m.homePlayerId === rivalry.player1Id ? m.homeScore : m.awayScore
             const p2Score = m.awayPlayerId === rivalry.player2Id ? m.awayScore : m.homeScore
             const isDraw = p1Score === p2Score
@@ -339,7 +368,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                     color: isDraw ? '#6b7280' : '#15803d',
                   }}
                 >
-                  {isDraw ? 'Draw' : (p1Won ? `${p1} wins` : `${p2} wins`)}
+                  {isDraw ? t('rivalry.drawLabel') : (p1Won ? t('rivalry.playerWins', { name: p1 }) : t('rivalry.playerWins', { name: p2 }))}
                 </span>
 
                 <span style={{ fontSize: 11, color: '#d1d5db', flexShrink: 0 }}>
@@ -357,7 +386,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
           rivalryId={rivalry.id}
           player1Name={p1}
           player2Name={p2}
-          targetScore={rivalry.bestOf}
+          defaultTarget={rivalry.bestOf}
           onClose={() => setShowRecord(false)}
           onSuccess={(matchId, p1Score, p2Score) => {
             setShowRecord(false)
@@ -393,10 +422,10 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
             }}
           >
             <h2 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#111827' }}>
-              Edit Score
+              {t('rivalry.editScore')}
             </h2>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>
-              Set the current series score directly.
+              {t('rivalry.editScoreDesc')}
             </p>
 
             {/* Score inputs */}
@@ -424,7 +453,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
               {/* Draws */}
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
-                  Draws
+                  {t('rivalry.drawsLabel')}
                 </div>
                 <input
                   type="number"
@@ -470,7 +499,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                 disabled={isSavingScore}
                 style={{ padding: '8px 18px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 14 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 disabled={isSavingScore}
@@ -493,7 +522,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                   fontWeight: 600, fontSize: 14,
                 }}
               >
-                {isSavingScore ? 'Saving…' : 'Save Score'}
+                {isSavingScore ? t('common.saving') : t('rivalry.saveScore')}
               </button>
             </div>
           </div>
@@ -517,11 +546,10 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
             }}
           >
             <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#111827' }}>
-              Delete Rivalry?
+              {t('rivalry.deleteTitle')}
             </h2>
             <p style={{ margin: '0 0 20px', fontSize: 14, color: '#6b7280' }}>
-              This will permanently delete the rivalry between <strong>{p1}</strong> and{' '}
-              <strong>{p2}</strong>, including all match history. This cannot be undone.
+              {t('rivalry.deleteDesc', { p1, p2 })}
             </p>
             {deleteError && (
               <p style={{ color: '#dc2626', fontSize: 13, margin: '0 0 12px' }}>{deleteError}</p>
@@ -532,7 +560,7 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                 disabled={isDeleting}
                 style={{ padding: '8px 18px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 14 }}
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDelete}
@@ -545,12 +573,127 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
                   fontWeight: 600, fontSize: 14,
                 }}
               >
-                {isDeleting ? 'Deleting…' : 'Delete'}
+                {isDeleting ? t('common.deleting') : t('common.delete')}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Set Prior Record modal (participants only, before first match) */}
+      {showSetHistory && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60,
+          }}
+          onClick={(e) => e.target === e.currentTarget && setShowSetHistory(false)}
+        >
+          <div
+            style={{
+              background: '#fff', borderRadius: 12, padding: 28,
+              width: 360, maxWidth: '95vw',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            }}
+          >
+            <h2 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#111827' }}>
+              {t('rivalry.setPriorRecord')}
+            </h2>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#6b7280' }}>
+              {t('rivalry.setPriorRecordDesc')}
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>{p1}</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={histP1Wins}
+                  onChange={(e) => setHistP1Wins(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: 68, padding: '10px 6px', borderRadius: 8,
+                    border: '2px solid #2563eb', fontSize: 22, fontWeight: 800,
+                    color: '#111827', textAlign: 'center', outline: 'none',
+                  }}
+                />
+              </div>
+
+              <span style={{ color: '#9ca3af', fontSize: 20, fontWeight: 700, marginTop: 20 }}>–</span>
+
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>{t('rivalry.drawsLabel')}</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={histDraws}
+                  onChange={(e) => setHistDraws(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: 58, padding: '10px 6px', borderRadius: 8,
+                    border: '1px solid #d1d5db', fontSize: 18, fontWeight: 700,
+                    color: '#6b7280', textAlign: 'center', outline: 'none',
+                  }}
+                />
+              </div>
+
+              <span style={{ color: '#9ca3af', fontSize: 20, fontWeight: 700, marginTop: 20 }}>–</span>
+
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>{p2}</div>
+                <input
+                  type="number"
+                  min={0}
+                  value={histP2Wins}
+                  onChange={(e) => setHistP2Wins(Math.max(0, Number(e.target.value)))}
+                  style={{
+                    width: 68, padding: '10px 6px', borderRadius: 8,
+                    border: '2px solid #7c3aed', fontSize: 22, fontWeight: 800,
+                    color: '#111827', textAlign: 'center', outline: 'none',
+                  }}
+                />
+              </div>
+            </div>
+
+            {histError && (
+              <p style={{ color: '#dc2626', fontSize: 13, margin: '0 0 12px' }}>{histError}</p>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setShowSetHistory(false)}
+                disabled={isSavingHistory}
+                style={{ padding: '8px 18px', border: '1px solid #d1d5db', borderRadius: 7, background: '#fff', cursor: 'pointer', fontSize: 14 }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                disabled={isSavingHistory}
+                onClick={() => {
+                  setHistError(null)
+                  startSaveHistoryTransition(async () => {
+                    try {
+                      await setRivalryHistoryAction(rivalry.id, histP1Wins, histP2Wins, histDraws)
+                      setShowSetHistory(false)
+                    } catch (e) {
+                      setHistError(e instanceof Error ? e.message : 'Failed to save.')
+                    }
+                  })
+                }}
+                style={{
+                  padding: '8px 20px',
+                  background: isSavingHistory ? '#93c5fd' : '#2563eb',
+                  color: '#fff', border: 'none', borderRadius: 7,
+                  cursor: isSavingHistory ? 'not-allowed' : 'pointer',
+                  fontWeight: 600, fontSize: 14,
+                }}
+              >
+                {isSavingHistory ? t('common.saving') : t('rivalry.saveRecord')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <BottomNav userId={currentUserId} />
     </div>
   )
