@@ -32,6 +32,8 @@ import {
   updateChampionshipDateAction,
 } from '../actions'
 import { ScoreModal } from '../ScoreModal'
+import { MatchPreviewModal } from '../MatchPreviewModal'
+import { ChampionshipWinnerOdds } from '../ChampionshipWinnerOdds'
 import { AddMatchModal } from '../AddMatchModal'
 import { BottomNav } from '@/app/components/BottomNav'
 import { useTranslation } from '@/lib/i18n/context'
@@ -312,6 +314,7 @@ function MatchCard({
   currentUserId,
   isAdmin,
   championshipId,
+  championshipIsActive,
   badge,
 }: {
   match: ChampionshipMatch
@@ -320,13 +323,11 @@ function MatchCard({
   currentUserId: string
   isAdmin: boolean
   championshipId: string
+  championshipIsActive: boolean
   badge?: React.ReactNode
 }) {
   const [showScore, setShowScore] = useState(false)
-  const [showOdds, setShowOdds] = useState(false)
-  const [odds, setOdds] = useState<OddsData | null>(null)
-  const [oddsLoading, setOddsLoading] = useState(false)
-  const [oddsError, setOddsError] = useState<string | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
 
   const { t } = useTranslation()
   const homeName = playerMap.get(match.homePlayerId) ?? '?'
@@ -338,28 +339,11 @@ function MatchCard({
     match.homePlayerId === currentUserId || match.awayPlayerId === currentUserId
   const canRecord = match.status === 'pending' && (isParticipant || isAdmin)
   const canEdit =
-    match.status === 'confirmed' && (isParticipant || isAdmin)
+    championshipIsActive && match.status === 'confirmed' && (isParticipant || isAdmin)
   const hasScore = match.homeScore !== null && match.awayScore !== null
 
   const homeWon = hasScore && match.homeScore! > match.awayScore!
   const awayWon = hasScore && match.awayScore! > match.homeScore!
-
-  async function handleToggleOdds() {
-    if (showOdds) { setShowOdds(false); return }
-    if (!odds) {
-      setOddsLoading(true)
-      setOddsError(null)
-      try {
-        const result = await getMatchOddsAction(match.homePlayerId, match.awayPlayerId)
-        setOdds(result)
-      } catch (e) {
-        setOddsError(e instanceof Error ? e.message : 'Failed to load odds')
-      } finally {
-        setOddsLoading(false)
-      }
-    }
-    setShowOdds(true)
-  }
 
   return (
     <>
@@ -373,14 +357,16 @@ function MatchCard({
           transition: 'box-shadow 0.15s',
         }}
       >
-        {/* Main match row */}
+        {/* Main match row — click the player/score area to open preview */}
         <div
+          onClick={() => setShowPreview(true)}
           style={{
             display: 'flex',
             alignItems: 'center',
             padding: '10px 14px',
             gap: 8,
             background: match.status === 'pending' ? '#0a1220' : '#0c1422',
+            cursor: 'pointer',
           }}
         >
           {badge && <div style={{ flexShrink: 0 }}>{badge}</div>}
@@ -496,8 +482,11 @@ function MatchCard({
             </span>
           </div>
 
-          {/* Actions */}
-          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+          {/* Actions — stopPropagation so they don't trigger the preview */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}
+          >
             {canRecord && (
               <button
                 onClick={() => setShowScore(true)}
@@ -585,6 +574,18 @@ function MatchCard({
           editDeadline={match.status === 'confirmed' ? match.editDeadline : null}
           isAdmin={isAdmin}
           onClose={() => setShowScore(false)}
+        />
+      )}
+
+      {showPreview && (
+        <MatchPreviewModal
+          homePlayerId={match.homePlayerId}
+          awayPlayerId={match.awayPlayerId}
+          homeName={homeName}
+          awayName={awayName}
+          homeAvatarUrl={homeAvatar}
+          awayAvatarUrl={awayAvatar}
+          onClose={() => setShowPreview(false)}
         />
       )}
     </>
@@ -753,6 +754,7 @@ function KnockoutSection({
   currentUserId,
   isAdmin,
   championshipId,
+  championshipIsActive,
   groupStageDone,
   onGenerateSemis,
   onGenerateFinal,
@@ -765,6 +767,7 @@ function KnockoutSection({
   currentUserId: string
   isAdmin: boolean
   championshipId: string
+  championshipIsActive: boolean
   groupStageDone: boolean
   onGenerateSemis: () => void
   onGenerateFinal: () => void
@@ -1214,6 +1217,7 @@ function PlayoffKnockoutSection({
   currentUserId,
   isAdmin,
   championshipId,
+  championshipIsActive,
   groupStageDone,
   onGenerateSemis,
   onGenerateFinal,
@@ -1226,6 +1230,7 @@ function PlayoffKnockoutSection({
   currentUserId: string
   isAdmin: boolean
   championshipId: string
+  championshipIsActive: boolean
   groupStageDone: boolean
   onGenerateSemis: () => void
   onGenerateFinal: () => void
@@ -2307,6 +2312,13 @@ export function ChampionshipDetail({
             <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
               {t('champ.greenAdvancesPlay')}
             </div>
+            <ChampionshipWinnerOdds
+              championshipId={championship.id}
+              playerIds={playerIds}
+              playerMap={playerMap}
+              avatarMap={avatarMap}
+              completedMatchCount={matches.filter((m) => m.homeScore !== null && m.awayScore !== null).length}
+            />
           </div>
         </div>
 
@@ -2349,6 +2361,9 @@ export function ChampionshipDetail({
   const curCycle = currentCycleNumber(matches, totalCycles)
   const completedCycles = completedCyclesCount(matches, totalCycles)
   const remainingCycles = totalCycles - completedCycles
+  const completedMatchCount = matches.filter(
+    (m) => m.homeScore !== null && m.awayScore !== null
+  ).length
   const maxGeneratedCycle = matches.length > 0 ? Math.max(...matches.map((m) => m.cycle)) : 0
   const nextCycleNum = maxGeneratedCycle + 1
   const canGenerateNextCycle = isAdmin && nextCycleNum <= totalCycles
@@ -2575,6 +2590,15 @@ export function ChampionshipDetail({
               </div>
             </div>
           )}
+
+          {/* Championship winner forecast */}
+          <ChampionshipWinnerOdds
+            championshipId={championship.id}
+            playerIds={playerIds}
+            playerMap={playerMap}
+            avatarMap={avatarMap}
+            completedMatchCount={completedMatchCount}
+          />
         </div>
       </div>
 

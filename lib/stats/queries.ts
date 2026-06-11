@@ -7,6 +7,7 @@ import type {
   CurrentChampion,
   FormEntry,
   FormResult,
+  H2HMatchEntry,
   H2HRecord,
   LastChampionshipPodiumEntry,
   NamedPlayerStats,
@@ -170,6 +171,87 @@ export const getH2HStats = unstable_cache(
     }
   },
   ['h2h-stats'],
+  { tags: [STATS_CACHE_TAG], revalidate: 60 }
+)
+
+// ─── Individual match history between two players ─────────────────────────────
+//
+// Mirrors get_player_form's filter (confirmed/final, home_score not null) so the
+// match count agrees with H2HRecord.totalMatches. Championship matches are dated
+// by coalesce(played_at, created_at) on the championship — same as get_player_form.
+
+type FriendlyRow = {
+  id: string
+  home_player_id: string
+  away_player_id: string
+  home_score: number
+  away_score: number
+  confirmed_at: string
+}
+
+type ChampMatchRow = {
+  id: string
+  home_player_id: string
+  away_player_id: string
+  home_score: number
+  away_score: number
+  championships: { name: string; played_at: string | null; created_at: string } | null
+}
+
+export const getH2HMatches = unstable_cache(
+  async (player1Id: string, player2Id: string): Promise<H2HMatchEntry[]> => {
+    const supabase = createServiceClient()
+
+    const [friendlyRes, champRes] = await Promise.all([
+      supabase
+        .from('friendly_matches')
+        .select('id, home_player_id, away_player_id, home_score, away_score, confirmed_at')
+        .or(
+          `and(home_player_id.eq.${player1Id},away_player_id.eq.${player2Id}),` +
+          `and(home_player_id.eq.${player2Id},away_player_id.eq.${player1Id})`
+        )
+        .in('status', ['confirmed', 'final'])
+        .not('home_score', 'is', null),
+      supabase
+        .from('championship_matches')
+        .select('id, home_player_id, away_player_id, home_score, away_score, championships(name, played_at, created_at)')
+        .or(
+          `and(home_player_id.eq.${player1Id},away_player_id.eq.${player2Id}),` +
+          `and(home_player_id.eq.${player2Id},away_player_id.eq.${player1Id})`
+        )
+        .in('status', ['confirmed', 'final'])
+        .not('home_score', 'is', null),
+    ])
+
+    const friendly: H2HMatchEntry[] = (friendlyRes.data as FriendlyRow[] ?? []).map((m) => {
+      const p1Home = m.home_player_id === player1Id
+      return {
+        matchId:   m.id,
+        date:      m.confirmed_at,
+        p1Score:   p1Home ? m.home_score : m.away_score,
+        p2Score:   p1Home ? m.away_score : m.home_score,
+        matchType: 'friendly',
+      }
+    })
+
+    const champ: H2HMatchEntry[] = (champRes.data as unknown as ChampMatchRow[] ?? []).map((m) => {
+      const p1Home = m.home_player_id === player1Id
+      const c      = m.championships
+      return {
+        matchId:          m.id,
+        date:             c ? (c.played_at ?? c.created_at) : new Date(0).toISOString(),
+        p1Score:          p1Home ? m.home_score : m.away_score,
+        p2Score:          p1Home ? m.away_score : m.home_score,
+        matchType:        'championship',
+        championshipName: c?.name,
+      }
+    })
+
+    return [...friendly, ...champ].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+  },
+  ['h2h-matches'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
 )
 

@@ -95,8 +95,8 @@ async function insertMatchesWithOdds(
 ) {
   if (slots.length === 0) return []
 
-  // If championship has a historical date, stamp it on the matches so
-  // get_player_form orders them correctly (it uses coalesce(played_at, confirmed_at)).
+  // If championship has a historical date, stamp it on the matches as a fallback.
+  // get_player_form orders by coalesce(confirmed_at, played_at) so confirmed_at takes priority.
   const matchPlayedAt = playedAt ? new Date(playedAt + 'T12:00:00Z').toISOString() : undefined
 
   const { data: createdMatches, error: matchesErr } = await supabase
@@ -762,6 +762,216 @@ export async function getMatchOddsAction(
   const h2h       = toH2H(h2hResult.data as H2HRpcRow[] | null, true)
 
   return calculateOdds(homeStats, awayStats, { homeForm, awayForm, h2h, matchType: 'championship' })
+}
+
+// ─── Championship winner odds action ─────────────────────────────────────────
+
+export type ChampionshipWinnerEntry = {
+  playerId: string
+  currentPoints: number
+  expectedFinalPoints: number
+  winProbability: number      // 0–1
+  impliedOdds: number         // decimal odds e.g. 2.50
+  completedMatches: number
+  pendingMatches: number
+}
+
+export async function getChampionshipWinnerOddsAction(
+  championshipId: string,
+  playerIds: string[]
+): Promise<ChampionshipWinnerEntry[]> {
+  const session = await getSession()
+  if (!session) throw new Error('Not authenticated')
+  if (playerIds.length < 2) return []
+
+  const supabase = createServiceClient()
+
+  const [matchesResult, statsResult] = await Promise.all([
+    supabase
+      .from('championship_matches')
+      .select('id, home_player_id, away_player_id, home_score, away_score, status')
+      .eq('championship_id', championshipId),
+    supabase
+      .from('players')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .in('id', playerIds),
+  ])
+
+  const allMatches = (matchesResult.data ?? []) as Array<{
+    id: string
+    home_player_id: string
+    away_player_id: string
+    home_score: number | null
+    away_score: number | null
+    status: string
+  }>
+
+  const statsMap: Record<string, PlayerStats> = {}
+  for (const p of (statsResult.data ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
+
+  // Current standings from completed matches
+  const currentPoints: Record<string, number> = {}
+  const completedCount: Record<string, number> = {}
+  const pendingCount: Record<string, number> = {}
+  for (const pid of playerIds) {
+    currentPoints[pid] = 0
+    completedCount[pid] = 0
+    pendingCount[pid] = 0
+  }
+
+  for (const m of allMatches) {
+    if (m.home_score !== null && m.away_score !== null) {
+      if (m.home_score > m.away_score) {
+        currentPoints[m.home_player_id] = (currentPoints[m.home_player_id] ?? 0) + 3
+      } else if (m.home_score < m.away_score) {
+        currentPoints[m.away_player_id] = (currentPoints[m.away_player_id] ?? 0) + 3
+      } else {
+        currentPoints[m.home_player_id] = (currentPoints[m.home_player_id] ?? 0) + 1
+        currentPoints[m.away_player_id] = (currentPoints[m.away_player_id] ?? 0) + 1
+      }
+      completedCount[m.home_player_id] = (completedCount[m.home_player_id] ?? 0) + 1
+      completedCount[m.away_player_id] = (completedCount[m.away_player_id] ?? 0) + 1
+    } else {
+      pendingCount[m.home_player_id] = (pendingCount[m.home_player_id] ?? 0) + 1
+      pendingCount[m.away_player_id] = (pendingCount[m.away_player_id] ?? 0) + 1
+    }
+  }
+
+  // If no matches completed yet, return equal probabilities
+  const totalCompleted = Object.values(completedCount).reduce((a, b) => a + b, 0)
+  const expectedFinal: Record<string, number> = { ...currentPoints }
+
+  if (totalCompleted > 0) {
+    // Add expected points from pending matches using odds engine
+    for (const m of allMatches) {
+      if (m.home_score !== null && m.away_score !== null) continue
+      const homeStats = statsMap[m.home_player_id] ?? defaultStats
+      const awayStats = statsMap[m.away_player_id] ?? defaultStats
+      const odds = calculateOdds(homeStats, awayStats, { matchType: 'championship' })
+      // Expected points: win=3pts, draw=1pt, loss=0pts
+      const homeExpected = (odds.homeWinPct / 100) * 3 + (odds.drawPct / 100) * 1
+      const awayExpected = (odds.awayWinPct / 100) * 3 + (odds.drawPct / 100) * 1
+      expectedFinal[m.home_player_id] = (expectedFinal[m.home_player_id] ?? 0) + homeExpected
+      expectedFinal[m.away_player_id] = (expectedFinal[m.away_player_id] ?? 0) + awayExpected
+    }
+  }
+
+  // Convert expected final points → win probabilities
+  // Use power-3 softmax: amplifies the leader's advantage realistically
+  const vals = playerIds.map((pid) => Math.max(expectedFinal[pid] ?? 0, 0))
+  const powered = vals.map((v) => Math.pow(v + 0.01, 3))
+  const total = powered.reduce((a, b) => a + b, 0)
+  const probs = powered.map((p) => (total > 0 ? p / total : 1 / playerIds.length))
+
+  return playerIds
+    .map((pid, i) => ({
+      playerId: pid,
+      currentPoints: currentPoints[pid] ?? 0,
+      expectedFinalPoints: Math.round((expectedFinal[pid] ?? 0) * 10) / 10,
+      winProbability: probs[i],
+      impliedOdds: probs[i] > 0 ? Math.round((1 / probs[i]) * 100) / 100 : 99,
+      completedMatches: completedCount[pid] ?? 0,
+      pendingMatches: pendingCount[pid] ?? 0,
+    }))
+    .sort((a, b) => b.winProbability - a.winProbability)
+}
+
+// ─── Match preview action ─────────────────────────────────────────────────────
+
+export type MatchPreviewData = {
+  homeStats: { wins: number; losses: number; draws: number; matchesPlayed: number; goalsFor: number; goalsAgainst: number; goalDiff: number; winRate: number } | null
+  awayStats: { wins: number; losses: number; draws: number; matchesPlayed: number; goalsFor: number; goalsAgainst: number; goalDiff: number; winRate: number } | null
+  homeForm: Array<{ result: 'W' | 'L' | 'D'; goalsFor: number; goalsAgainst: number; opponentName: string }>
+  awayForm: Array<{ result: 'W' | 'L' | 'D'; goalsFor: number; goalsAgainst: number; opponentName: string }>
+  h2h: { homeWins: number; awayWins: number; draws: number; homeGoals: number; awayGoals: number; totalMatches: number } | null
+  odds: {
+    homeWinOdds: number; drawOdds: number; awayWinOdds: number
+    homeWinPct: number; drawPct: number; awayWinPct: number
+    homeHandicap: number; awayHandicap: number
+    expectedHomeGoals: number; expectedAwayGoals: number
+    homeFactors: { label: string; description: string; impact: string; ratingDelta: number }[]
+    awayFactors: { label: string; description: string; impact: string; ratingDelta: number }[]
+  }
+}
+
+export async function getMatchPreviewAction(
+  homePlayerId: string,
+  awayPlayerId: string
+): Promise<MatchPreviewData> {
+  const session = await getSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const supabase = createServiceClient()
+
+  const [statsResult, homeFormResult, awayFormResult, h2hResult] = await Promise.all([
+    supabase
+      .from('players')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
+      .in('id', [homePlayerId, awayPlayerId]),
+    supabase.rpc('get_player_form', { p_player_id: homePlayerId, p_limit: 5 }),
+    supabase.rpc('get_player_form', { p_player_id: awayPlayerId, p_limit: 5 }),
+    supabase.rpc('get_h2h_stats', { p_player1_id: homePlayerId, p_player2_id: awayPlayerId }),
+  ])
+
+  type RawPlayerFull = RawPlayer & { goals_against?: number }
+  const rawPlayers = (statsResult.data ?? []) as RawPlayerFull[]
+  const rawMap: Record<string, RawPlayerFull> = {}
+  for (const p of rawPlayers) rawMap[p.id] = p
+
+  const toPreviewStats = (p: RawPlayerFull | undefined) => {
+    if (!p) return null
+    const mp = p.matches_played ?? 0
+    return {
+      wins: p.wins, losses: p.losses, draws: p.draws, matchesPlayed: mp,
+      goalsFor: p.goals_for, goalsAgainst: p.goals_against ?? 0,
+      goalDiff: p.goal_diff, winRate: mp > 0 ? p.wins / mp : 0,
+    }
+  }
+
+  type FullFormRow = FormRpcRow & { opponent_name?: string }
+  const parseDisplayForm = (rows: FullFormRow[] | null) => {
+    if (!rows) return []
+    return rows.map((r) => ({
+      result: r.result as 'W' | 'L' | 'D',
+      goalsFor: r.goals_for,
+      goalsAgainst: r.goals_against,
+      opponentName: (r.opponent_name as string | undefined) ?? '?',
+    }))
+  }
+
+  const parseH2H = (rows: H2HRpcRow[] | null) => {
+    if (!rows || rows.length === 0) return null
+    const row = rows[0]
+    const total = Number(row.total_matches)
+    if (total === 0) return null
+    return {
+      homeWins: Number(row.player1_wins),
+      awayWins: Number(row.player2_wins),
+      draws: Number(row.draws),
+      homeGoals: Number((row as Record<string, unknown>).player1_goals ?? 0),
+      awayGoals: Number((row as Record<string, unknown>).player2_goals ?? 0),
+      totalMatches: total,
+    }
+  }
+
+  const homeRaw = rawMap[homePlayerId]
+  const awayRaw = rawMap[awayPlayerId]
+  const homeOddsStats = homeRaw ? toStats(homeRaw) : defaultStats
+  const awayOddsStats = awayRaw ? toStats(awayRaw) : defaultStats
+  const homeOddsForm = toOddsForm(homeFormResult.data as FormRpcRow[] | null)
+  const awayOddsForm = toOddsForm(awayFormResult.data as FormRpcRow[] | null)
+  const h2hForOdds = toH2H(h2hResult.data as H2HRpcRow[] | null, true)
+
+  const odds = calculateOdds(homeOddsStats, awayOddsStats, { homeForm: homeOddsForm, awayForm: awayOddsForm, h2h: h2hForOdds, matchType: 'championship' })
+
+  return {
+    homeStats: toPreviewStats(homeRaw),
+    awayStats: toPreviewStats(awayRaw),
+    homeForm: parseDisplayForm(homeFormResult.data as FullFormRow[] | null),
+    awayForm: parseDisplayForm(awayFormResult.data as FullFormRow[] | null),
+    h2h: parseH2H(h2hResult.data as H2HRpcRow[] | null),
+    odds,
+  }
 }
 
 export async function updateChampionshipDateAction(

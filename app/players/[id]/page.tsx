@@ -16,7 +16,7 @@ export default async function PlayerProfilePage({
 
   const supabase = createServiceClient()
 
-  const [userResult, playerResult, badgesResult, rivalriesResult, formResult, placementsResult] =
+  const [userResult, playerResult, badgesResult, rivalriesResult, formResult, placementsResult, allUsersResult] =
     await Promise.all([
       supabase.from('users').select('id, name, avatar_url, intro_video_url, is_active').eq('id', id).single(),
       supabase
@@ -34,8 +34,9 @@ export default async function PlayerProfilePage({
         .select('id, best_of, player1_id, player2_id, player1_wins, player2_wins, winner_id, status')
         .or(`player1_id.eq.${id},player2_id.eq.${id}`)
         .order('status', { ascending: true }),
-      getPlayerForm(id, 10),
+      getPlayerForm(id, 5),
       getPlayerChampionshipPlacements(id),
+      supabase.from('users').select('id, name').eq('is_active', true).neq('id', id).order('name'),
     ])
 
   if (userResult.error || !userResult.data) notFound()
@@ -90,6 +91,8 @@ export default async function PlayerProfilePage({
     }
   })
 
+  const allPlayers = (allUsersResult.data ?? []).map((u) => ({ id: u.id, name: u.name }))
+
   return (
     <PlayerProfile
       player={{
@@ -110,6 +113,7 @@ export default async function PlayerProfilePage({
       rivalries={rivalries}
       recentMatches={formResult}
       championshipPlacements={placementsResult}
+      allPlayers={allPlayers}
       isOwnProfile={session.sub === id}
       isAdmin={session.isAdmin}
       viewerId={session.sub}

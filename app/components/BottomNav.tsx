@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import type { ReactNode } from 'react'
+import { useTransition, type ReactNode } from 'react'
+import { LogOut } from 'lucide-react'
+import { logoutAction } from '@/lib/auth/actions'
 import { useTranslation } from '@/lib/i18n/context'
 
 const BORDER = '#1a2840'
@@ -21,6 +23,7 @@ function NI({ children }: { children: ReactNode }) {
 export function BottomNav({ userId }: { userId: string }) {
   const pathname = usePathname()
   const { t } = useTranslation()
+  const [pending, startTransition] = useTransition()
 
   const NAV_ITEMS: { label: string; href: string | null; icon: ReactNode }[] = [
     { label: t('nav.home'),    href: '/',              icon: <NI><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21V12h6v9"/></NI> },
@@ -31,36 +34,57 @@ export function BottomNav({ userId }: { userId: string }) {
   ]
 
   return (
-    <nav style={{
-      position: 'fixed', bottom: 0, left: 0, right: 0,
-      background: 'rgba(12,20,34,0.96)', backdropFilter: 'blur(16px)',
-      borderTop: `1px solid ${BORDER}`,
-      display: 'flex', zIndex: 50,
-      paddingBottom: 'env(safe-area-inset-bottom)',
-    }}>
-      {NAV_ITEMS.map((item) => {
-        const href = item.href ?? `/players/${userId}`
-        const isActive = item.href === '/'
-          ? pathname === '/'
-          : pathname.startsWith(item.href ?? `/players/${userId}`)
-        return (
-          <Link key={item.label} href={href} style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            padding: '10px 4px 8px', textDecoration: 'none', gap: 2,
-            borderTop: `2px solid ${isActive ? ACCENT : 'transparent'}`,
-            color: isActive ? ACCENT : MUTED,
-          }}>
-            {item.icon}
-            <span style={{
-              fontSize: 9, fontWeight: 700,
+    <>
+      <button
+        onClick={() => startTransition(() => logoutAction())}
+        disabled={pending}
+        title={t('common.signOut')}
+        style={{
+          position: 'fixed', top: 12, right: 12, zIndex: 51,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 32, height: 32, borderRadius: '50%',
+          background: 'rgba(12,20,34,0.85)', backdropFilter: 'blur(10px)',
+          border: `1px solid ${BORDER}`,
+          color: pending ? '#2a3a52' : MUTED,
+          opacity: pending ? 0.5 : 1,
+          cursor: pending ? 'default' : 'pointer',
+          transition: 'color 0.15s, opacity 0.15s',
+        }}
+      >
+        <LogOut size={15} strokeWidth={1.75} />
+      </button>
+
+      <nav style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        background: 'rgba(12,20,34,0.96)', backdropFilter: 'blur(16px)',
+        borderTop: `1px solid ${BORDER}`,
+        display: 'flex', zIndex: 50,
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}>
+        {NAV_ITEMS.map((item) => {
+          const href = item.href ?? `/players/${userId}`
+          const isActive = item.href === '/'
+            ? pathname === '/'
+            : pathname.startsWith(item.href ?? `/players/${userId}`)
+          return (
+            <Link key={item.label} href={href} style={{
+              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              padding: '10px 4px 8px', textDecoration: 'none', gap: 2,
+              borderTop: `2px solid ${isActive ? ACCENT : 'transparent'}`,
               color: isActive ? ACCENT : MUTED,
-              textTransform: 'uppercase', letterSpacing: '0.04em',
             }}>
-              {item.label}
-            </span>
-          </Link>
-        )
-      })}
-    </nav>
+              {item.icon}
+              <span style={{
+                fontSize: 9, fontWeight: 700,
+                color: isActive ? ACCENT : MUTED,
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+              }}>
+                {item.label}
+              </span>
+            </Link>
+          )
+        })}
+      </nav>
+    </>
   )
 }

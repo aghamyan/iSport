@@ -255,9 +255,6 @@ export function HomeLoggedIn({
               {t('common.admin')}
             </button>
           )}
-          <Link href={`/players/${userId}`} style={{ fontSize: 13, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>
-            {t('common.profile')}
-          </Link>
           <form action={logoutAction}>
             <button type="submit" style={{
               fontSize: 11, color: MUTED, background: 'none',
@@ -552,7 +549,11 @@ export function HomeLoggedIn({
 
         {/* ── Recent form ───────────────────────────────────────── */}
         {recentForm.length > 0 && (
-          <Section title={t('home.section.recentForm')} icon={<TrendingUp size={13} style={{ color: '#22c55e' }} />}>
+          <Section
+            title={t('home.section.recentForm')}
+            icon={<TrendingUp size={13} style={{ color: '#22c55e' }} />}
+            action={<Link href={`/players/${userId}`} style={{ fontSize: 12, color: ACCENT, textDecoration: 'none', fontWeight: 600 }}>{t('common.viewAll')}</Link>}
+          >
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
               {recentForm.slice(0, 7).map((entry) => (
                 <ResultPill key={entry.matchId} entry={entry} />

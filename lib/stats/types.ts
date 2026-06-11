@@ -23,6 +23,16 @@ export type H2HRecord = {
   totalMatches: number
 }
 
+// One match in the H2H history between two players
+export type H2HMatchEntry = {
+  matchId: string
+  date: string
+  p1Score: number
+  p2Score: number
+  matchType: 'friendly' | 'championship'
+  championshipName?: string
+}
+
 // A player's stats within one championship (season)
 export type SeasonStats = {
   championshipId: string

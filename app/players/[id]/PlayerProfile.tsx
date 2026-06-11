@@ -1,11 +1,12 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useRef, useState, useTransition, useEffect } from 'react'
+import { useRef, useState, useTransition, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Trophy, Flame, Star, Award } from 'lucide-react'
 import type { FormEntry, ChampionshipResult } from '@/lib/stats/types'
 import { H2HSection } from './H2HSection'
+import { fetchMoreMatchesAction } from '../actions'
 import { logoutAction } from '@/lib/auth/actions'
 import { uploadAvatarAction } from '@/lib/auth/avatarAction'
 import { uploadIntroVideoAction, removeIntroVideoAction } from '@/lib/auth/introVideoAction'
@@ -54,6 +55,7 @@ type Props = {
   rivalries: RivalryData[]
   recentMatches: FormEntry[]
   championshipPlacements: ChampionshipResult[]
+  allPlayers: { id: string; name: string }[]
   isOwnProfile: boolean
   isAdmin: boolean
   viewerId: string
@@ -495,6 +497,7 @@ export function PlayerProfile({
   rivalries,
   recentMatches,
   championshipPlacements,
+  allPlayers,
   isOwnProfile,
   isAdmin,
   viewerId,
@@ -509,16 +512,32 @@ export function PlayerProfile({
 
   const [isPending, startTransition]        = useTransition()
   const [isVideoPending, startVideoTrans]   = useTransition()
+  const [isMorePending, startMoreTrans]     = useTransition()
+
+  const [displayedMatches, setDisplayedMatches] = useState<FormEntry[]>(recentMatches)
+  const [allMatchesLoaded, setAllMatchesLoaded] = useState(false)
 
   const fileInputRef  = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
+
+  const handleShowMore = useCallback(() => {
+    startMoreTrans(async () => {
+      const more = await fetchMoreMatchesAction(player.id, 50)
+      setDisplayedMatches(more)
+      setAllMatchesLoaded(true)
+    })
+  }, [player.id])
+
+  function handleShowLess() {
+    setDisplayedMatches(recentMatches)
+    setAllMatchesLoaded(false)
+  }
 
   const winRate = player.matchesPlayed > 0
     ? Math.round((player.wins / player.matchesPlayed) * 100)
     : 0
   const wonRivalries    = rivalries.filter((r) => r.winnerId === player.id)
   const activeRivalries = rivalries.filter((r) => r.status === 'active')
-  const h2hOpponents    = rivalries.map((r) => ({ id: r.opponentId, name: r.opponentName }))
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -785,14 +804,14 @@ export function PlayerProfile({
         </div>
 
         {/* ── Recent matches ── */}
-        {recentMatches.length > 0 && (
+        {displayedMatches.length > 0 && (
           <section style={{ marginBottom: 20 }}>
             <SectionHeader>{t('player.recentMatches')}</SectionHeader>
             <div style={{ display: 'flex', gap: 4, marginBottom: 10, flexWrap: 'wrap' }}>
-              {recentMatches.map((m) => <FormPip key={m.matchId} result={m.result} />)}
+              {displayedMatches.map((m) => <FormPip key={m.matchId} result={m.result} />)}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {recentMatches.map((m) => (
+              {displayedMatches.map((m) => (
                 <div
                   key={m.matchId}
                   style={{
@@ -824,14 +843,44 @@ export function PlayerProfile({
                 </div>
               ))}
             </div>
+            {/* Show more / show less */}
+            {!allMatchesLoaded ? (
+              <button
+                onClick={handleShowMore}
+                disabled={isMorePending}
+                style={{
+                  marginTop: 10, width: '100%',
+                  padding: '9px 0', borderRadius: 10,
+                  border: '1px solid #e5e7eb', background: '#f9fafb',
+                  fontSize: 13, fontWeight: 600, color: '#374151',
+                  cursor: isMorePending ? 'default' : 'pointer',
+                  opacity: isMorePending ? 0.6 : 1,
+                }}
+              >
+                {isMorePending ? t('common.loading') : t('player.showMore')}
+              </button>
+            ) : (
+              <button
+                onClick={handleShowLess}
+                style={{
+                  marginTop: 10, width: '100%',
+                  padding: '9px 0', borderRadius: 10,
+                  border: '1px solid #e5e7eb', background: '#f9fafb',
+                  fontSize: 13, fontWeight: 600, color: '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('player.showLess')}
+              </button>
+            )}
           </section>
         )}
 
         {/* ── Head-to-head ── */}
-        {h2hOpponents.length > 0 && (
+        {allPlayers.length > 0 && (
           <section style={{ marginBottom: 20 }}>
             <SectionHeader>{t('player.h2h')}</SectionHeader>
-            <H2HSection playerId={player.id} opponents={h2hOpponents} />
+            <H2HSection playerId={player.id} allPlayers={allPlayers} playerName={player.name} />
           </section>
         )}
 
