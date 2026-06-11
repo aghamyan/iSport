@@ -5,6 +5,7 @@ export type Dict = typeof en
 export const en = {
   // ── Navigation ──────────────────────────────────────────────────────────────
   'nav.home': 'Home',
+  'nav.bet': 'Bet',
   'nav.stats': 'Stats',
   'nav.champs': 'Champs',
   'nav.rivals': 'Rivals',
@@ -747,6 +748,7 @@ export const en = {
 export const ru: Dict = {
   // ── Navigation ──────────────────────────────────────────────────────────────
   'nav.home': 'Главная',
+  'nav.bet': 'Ставки',
   'nav.stats': 'Статистика',
   'nav.champs': 'Чемпионаты',
   'nav.rivals': 'Противостояния',

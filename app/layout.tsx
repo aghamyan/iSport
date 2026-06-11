@@ -5,6 +5,8 @@ import { getSession } from '@/lib/auth/session'
 import { AuthProvider } from '@/lib/auth/use-auth'
 import { I18nProvider } from '@/lib/i18n/context'
 import { LanguageSwitcher } from '@/app/components/LanguageSwitcher'
+import { BetSlipProvider } from '@/lib/betting/BetSlipContext'
+import { BetSlip } from '@/app/betting/BetSlip'
 import type { Locale } from '@/lib/i18n/translations'
 
 export const viewport = {
@@ -30,8 +32,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <I18nProvider initialLocale={locale}>
           <LanguageSwitcher />
-          {/* AuthProvider bridges server-read session to client components */}
-          <AuthProvider user={user}>{children}</AuthProvider>
+          <BetSlipProvider>
+            {/* AuthProvider bridges server-read session to client components */}
+            <AuthProvider user={user}>{children}</AuthProvider>
+            {/* Global bet slip — renders as sticky bottom sheet for logged-in non-admin players */}
+            {user && !user.isAdmin && <BetSlip userId={user.userId} />}
+          </BetSlipProvider>
         </I18nProvider>
       </body>
     </html>

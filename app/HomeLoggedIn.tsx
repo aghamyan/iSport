@@ -13,6 +13,7 @@ import { BottomNav } from '@/app/components/BottomNav'
 import { logoutAction } from '@/lib/auth/actions'
 import { confirmMatchAction, deleteMatchAction } from '@/app/matches/actions'
 import { useTranslation } from '@/lib/i18n/context'
+import { OddsMarketModal } from '@/app/betting/OddsMarketModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -838,6 +839,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
   const [isPending, startTransition] = useTransition()
   const [isDeleting, startDeleteTransition] = useTransition()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showBetModal, setShowBetModal] = useState(false)
 
   function handleDelete() {
     startDeleteTransition(async () => {
@@ -933,7 +935,7 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
         ))}
       </div>
 
-      {/* Footer: Set Score + Delete buttons */}
+      {/* Footer: Set Score + Bet + Delete buttons */}
       {!showForm && !showDeleteConfirm && (
         <div style={{ padding: '0 14px 12px', display: 'flex', gap: 8 }}>
           <button
@@ -949,6 +951,18 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
             {t('home.setScore')}
           </button>
           <button
+            onClick={() => setShowBetModal(true)}
+            style={{
+              padding: '9px 14px',
+              background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.35)',
+              borderRadius: 9, color: '#60a5fa',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              flexShrink: 0,
+            }}
+          >
+            Bet
+          </button>
+          <button
             onClick={() => setShowDeleteConfirm(true)}
             style={{
               padding: '9px 14px',
@@ -961,6 +975,16 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
             {t('common.delete')}
           </button>
         </div>
+      )}
+
+      {showBetModal && (
+        <OddsMarketModal
+          matchId={match.id}
+          matchType="friendly"
+          homeName={match.homePlayerName}
+          awayName={match.awayPlayerName}
+          onClose={() => setShowBetModal(false)}
+        />
       )}
 
       {/* Inline delete confirmation */}

@@ -314,3 +314,415 @@ export const FORMAT_LABELS: Record<OddsFormat, string> = {
   american:   '+150',
   percent:    '%',
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POISSON-BASED MARKET EXTENSIONS
+// All functions below are pure/side-effect-free and fully unit-testable.
+//
+// The core insight: once we have expected goals (λ₁, λ₂) from calculateOdds(),
+// a Poisson model gives us probability distributions over all scorelines,
+// from which we derive O/U, BTTS, exact scores, and handicap odds.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Poisson helpers ──────────────────────────────────────────────────────────
+
+/** P(X = k) for X ~ Poisson(λ). Safe for k up to ~30. */
+export function poissonPMF(k: number, lambda: number): number {
+  if (lambda <= 0) return k === 0 ? 1 : 0
+  if (k < 0)       return 0
+  // Use log-sum to avoid overflow: e^(-λ) * λ^k / k!
+  let logP = -lambda + k * Math.log(lambda)
+  for (let i = 1; i <= k; i++) logP -= Math.log(i)
+  return Math.exp(logP)
+}
+
+/** P(X >= threshold) for X ~ Poisson(λ). */
+function poissonCDF(upToExclusive: number, lambda: number): number {
+  let acc = 0
+  for (let k = 0; k < upToExclusive; k++) acc += poissonPMF(k, lambda)
+  return acc
+}
+
+/**
+ * Given fair probabilities (summing to 1.0), apply an overround margin
+ * and return decimal odds. margin = 0.05 means 5 % bookmaker edge.
+ */
+export function applyMargin(probs: number[], margin: number): number[] {
+  return probs.map(p => r2(1 / (p * (1 + margin))))
+}
+
+// ─── Additional output types ──────────────────────────────────────────────────
+
+export type OverUnderMarket = {
+  line:          number   // e.g. 2.5
+  expectedTotal: number   // λ₁ + λ₂
+  overProb:      number   // true probability (no margin)
+  underProb:     number
+  overOdds:      number   // decimal with margin
+  underOdds:     number
+}
+
+export type BTTSMarket = {
+  yesProb:  number
+  noProb:   number
+  yesOdds:  number
+  noOdds:   number
+}
+
+export type ExactScoreEntry = {
+  home:     number
+  away:     number
+  prob:     number
+  odds:     number
+  label:    string   // "2-1"
+}
+
+export type HandicapMarket = {
+  line:          number   // e.g. -1.5 (negative = home gives goals)
+  homeOdds:      number   // home team wins after applying line
+  awayOdds:      number
+  homeProb:      number
+  awayProb:      number
+  expectedDiff:  number   // λ₁ - λ₂
+}
+
+export type ConfidenceResult = {
+  score:       number   // 0–100
+  label:       'low' | 'medium' | 'high'
+  dataQuality: 'insufficient' | 'limited' | 'good' | 'excellent'
+  factors:     { name: string; value: number; max: number; note: string }[]
+}
+
+export type CustomPropSuggestion = {
+  numOptions:    2 | 3
+  suggestedOdds: number[]   // one per option, with margin
+  notes:         string
+}
+
+/** Complete odds package for all bet market types. */
+export type FullMarketOdds = {
+  // From the Elo engine
+  match1x2:    OddsResult
+  // Poisson extensions
+  overUnder:   OverUnderMarket
+  btts:        BTTSMarket
+  exactScores: ExactScoreEntry[]
+  handicap:    HandicapMarket
+  // Meta
+  confidence:  ConfidenceResult
+  leagueAvgGoals: number
+  calculatedAt:   string
+}
+
+// ─── Over / Under ─────────────────────────────────────────────────────────────
+
+/**
+ * Calculates Over/Under odds for a given goal line.
+ * Default line is 2.5 (most common for FC/football games averaging 2–3 goals).
+ */
+export function calculateOverUnder(
+  lambda1: number,
+  lambda2: number,
+  line = 2.5,
+  margin = 0.055
+): OverUnderMarket {
+  const expectedTotal = r2(lambda1 + lambda2)
+  const threshold     = Math.ceil(line)   // line=2.5 → threshold=3
+
+  // P(total < threshold) = sum over all (a,b) where a+b < threshold
+  let underProb = 0
+  for (let a = 0; a < threshold; a++) {
+    for (let b = 0; b < threshold - a; b++) {
+      underProb += poissonPMF(a, lambda1) * poissonPMF(b, lambda2)
+    }
+  }
+  underProb = Math.min(Math.max(underProb, 0.02), 0.98)
+  const overProb = 1 - underProb
+
+  const [overOdds, underOdds] = applyMargin([overProb, underProb], margin)
+
+  return { line, expectedTotal, overProb: r2(overProb), underProb: r2(underProb), overOdds, underOdds }
+}
+
+// ─── BTTS ─────────────────────────────────────────────────────────────────────
+
+/** P(both teams score ≥ 1 goal) derived from Poisson lambdas. */
+export function calculateBTTS(
+  lambda1: number,
+  lambda2: number,
+  margin = 0.055
+): BTTSMarket {
+  const pHome0  = poissonPMF(0, lambda1)   // P(home scores 0)
+  const pAway0  = poissonPMF(0, lambda2)   // P(away scores 0)
+  const pHome1p = 1 - pHome0               // P(home scores ≥ 1)
+  const pAway1p = 1 - pAway0               // P(away scores ≥ 1)
+
+  const yesProb = Math.min(Math.max(pHome1p * pAway1p, 0.02), 0.98)
+  const noProb  = 1 - yesProb
+
+  const [yesOdds, noOdds] = applyMargin([yesProb, noProb], margin)
+
+  return { yesProb: r2(yesProb), noProb: r2(noProb), yesOdds, noOdds }
+}
+
+// ─── Exact Scores ─────────────────────────────────────────────────────────────
+
+/**
+ * Returns the top `topN` most-probable exact scorelines with Poisson odds.
+ * Higher margin applied (exact score is a long-tail market).
+ */
+export function calculateExactScores(
+  lambda1: number,
+  lambda2: number,
+  topN   = 8,
+  margin = 0.15
+): ExactScoreEntry[] {
+  const MAX_GOALS = 7
+  const entries: ExactScoreEntry[] = []
+
+  for (let h = 0; h <= MAX_GOALS; h++) {
+    for (let a = 0; a <= MAX_GOALS; a++) {
+      const prob = poissonPMF(h, lambda1) * poissonPMF(a, lambda2)
+      entries.push({
+        home:  h,
+        away:  a,
+        prob:  r2(prob),
+        odds:  r2(1 / (prob * (1 + margin))),
+        label: `${h}-${a}`,
+      })
+    }
+  }
+
+  return entries
+    .sort((x, y) => y.prob - x.prob)
+    .slice(0, topN)
+}
+
+// ─── Handicap (Poisson version) ───────────────────────────────────────────────
+
+/**
+ * Calculates Asian-style handicap odds for a specific line.
+ * Uses the Poisson distribution instead of the Elo approximation.
+ * line > 0 = home team needs to win by more than `line` goals.
+ */
+export function calculateHandicapOdds(
+  lambda1:      number,
+  lambda2:      number,
+  line:         number,   // e.g. 1.5 means home -1.5 (must win by 2+)
+  margin = 0.055
+): HandicapMarket {
+  const expectedDiff = r2(lambda1 - lambda2)
+
+  // Home covers: homeGoals - awayGoals > line
+  // Away covers: awayGoals - homeGoals >= -line (i.e. diff <= line - epsilon)
+  let homeProb = 0
+  let awayProb = 0
+  const MAX = 15
+
+  for (let h = 0; h <= MAX; h++) {
+    for (let a = 0; a <= MAX; a++) {
+      const p   = poissonPMF(h, lambda1) * poissonPMF(a, lambda2)
+      const diff = h - a
+      if (diff > line)  homeProb += p
+      if (diff < -line + 0.001) awayProb += p
+      // Pushes (diff == ±line exactly) split 50/50 — only possible for whole-number lines
+    }
+  }
+
+  // Normalise (push probability handled by not adding it to either)
+  const totalCovered = homeProb + awayProb
+  if (totalCovered > 0) {
+    homeProb /= totalCovered
+    awayProb /= totalCovered
+  } else {
+    homeProb = 0.5
+    awayProb = 0.5
+  }
+
+  homeProb = Math.min(Math.max(homeProb, 0.02), 0.98)
+  awayProb = 1 - homeProb
+
+  const [homeOdds, awayOdds] = applyMargin([homeProb, awayProb], margin)
+
+  return {
+    line,
+    homeOdds,
+    awayOdds,
+    homeProb:     r2(homeProb),
+    awayProb:     r2(awayProb),
+    expectedDiff,
+  }
+}
+
+/**
+ * Picks the most book-balanced handicap line (closest to 50/50 odds).
+ * Tries common lines [0.5, 1.0, 1.5, 2.0, 2.5] and picks the one where
+ * |homeProb - 0.5| is minimised.
+ */
+export function suggestHandicapLine(lambda1: number, lambda2: number): number {
+  const lines = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+  const diff  = lambda1 - lambda2
+  if (Math.abs(diff) < 0.3) return 0.5  // very balanced match
+
+  let bestLine = 1.5
+  let bestDist = Infinity
+  for (const line of lines) {
+    const { homeProb } = calculateHandicapOdds(lambda1, lambda2, line * Math.sign(diff))
+    const dist = Math.abs(homeProb - 0.5)
+    if (dist < bestDist) { bestDist = dist; bestLine = line }
+  }
+  return bestLine * Math.sign(diff) || 0.5
+}
+
+// ─── Confidence Score ─────────────────────────────────────────────────────────
+
+/**
+ * Produces a 0–100 confidence score and qualitative label reflecting how
+ * much statistical evidence exists to back the calculated odds.
+ */
+export function calculateConfidence(
+  home:      PlayerStats,
+  away:      PlayerStats,
+  homeForm?: OddsFormEntry[],
+  awayForm?: OddsFormEntry[],
+  h2h?:      H2HInput
+): ConfidenceResult {
+  const factors: ConfidenceResult['factors'] = []
+
+  // ── Factor 1: career data volume (max 40 pts)
+  const minMatches = Math.min(home.matchesPlayed, away.matchesPlayed)
+  const dataScore  = Math.min(minMatches / 20, 1) * 40
+  factors.push({
+    name:  'Career data',
+    value: r2(dataScore),
+    max:   40,
+    note:  `${minMatches} matches (weakest player)`,
+  })
+
+  // ── Factor 2: recent form (max 25 pts)
+  const homeFormLen = (homeForm ?? []).length
+  const awayFormLen = (awayForm ?? []).length
+  const formScore   = Math.min((homeFormLen + awayFormLen) / 10, 1) * 25
+  factors.push({
+    name:  'Recent form data',
+    value: r2(formScore),
+    max:   25,
+    note:  `${homeFormLen + awayFormLen} form entries`,
+  })
+
+  // ── Factor 3: H2H history (max 20 pts)
+  const h2hMatches = h2h?.totalMatches ?? 0
+  const h2hScore   = Math.min(h2hMatches / 5, 1) * 20
+  factors.push({
+    name:  'Head-to-head history',
+    value: r2(h2hScore),
+    max:   20,
+    note:  `${h2hMatches} direct meetings`,
+  })
+
+  // ── Factor 4: result consistency — low variance = more predictable (max 15 pts)
+  const allForm  = [...(homeForm ?? []), ...(awayForm ?? [])]
+  let consScore  = 7.5   // neutral when no data
+  if (allForm.length >= 4) {
+    const wins   = allForm.filter(f => f.result === 'W').length / allForm.length
+    const losses = allForm.filter(f => f.result === 'L').length / allForm.length
+    // Consistency = how strongly one outcome dominates (deviation from 0.33 each)
+    consScore = Math.min(Math.max(wins, losses) / 0.8, 1) * 15
+  }
+  factors.push({
+    name:  'Form consistency',
+    value: r2(consScore),
+    max:   15,
+    note:  allForm.length >= 4 ? 'Computed from form data' : 'Default (insufficient form data)',
+  })
+
+  const total = factors.reduce((s, f) => s + f.value, 0)
+  const score = r2(Math.min(total, 100))
+
+  return {
+    score,
+    label:       score >= 70 ? 'high' : score >= 40 ? 'medium' : 'low',
+    dataQuality: score >= 80 ? 'excellent' : score >= 60 ? 'good' : score >= 35 ? 'limited' : 'insufficient',
+    factors,
+  }
+}
+
+// ─── Custom Prop Suggestions ──────────────────────────────────────────────────
+
+/**
+ * Suggests balanced starting odds for admin-created custom props.
+ * For 2-option props: slightly less than evens (1.85) to embed margin.
+ * For 3-option props: symmetric odds near 2.75 each.
+ * Admin is expected to adjust manually from this baseline.
+ */
+export function suggestCustomPropOdds(numOptions: 2 | 3): CustomPropSuggestion {
+  if (numOptions === 2) {
+    return {
+      numOptions:    2,
+      suggestedOdds: [1.85, 1.85],
+      notes:         'Balanced 2-way market at ~8% margin. Adjust if one outcome is clearly more likely.',
+    }
+  }
+  return {
+    numOptions:    3,
+    suggestedOdds: [2.75, 2.75, 2.75],
+    notes:         'Balanced 3-way market at ~9% margin. Adjust individual options to reflect true probabilities.',
+  }
+}
+
+// ─── Full Markets (entry point) ───────────────────────────────────────────────
+
+/**
+ * Master function: computes every market type in a single call.
+ * Pass leagueAvgGoals from your DB query (or leave undefined to default to 2.5).
+ */
+export function calculateFullMarkets(
+  home: PlayerStats,
+  away: PlayerStats,
+  options?: {
+    homeForm?:      OddsFormEntry[]
+    awayForm?:      OddsFormEntry[]
+    h2h?:           H2HInput
+    matchType?:     'friendly' | 'championship'
+    leagueAvgGoals?: number
+  }
+): FullMarketOdds {
+  const { homeForm = [], awayForm = [], h2h, matchType = 'friendly', leagueAvgGoals = 2.5 } = options ?? {}
+
+  // ── 1X2 via Elo engine (existing algorithm)
+  const match1x2 = calculateOdds(home, away, { homeForm, awayForm, h2h, matchType })
+
+  const λ1 = Math.max(match1x2.expectedHomeGoals, 0.3)
+  const λ2 = Math.max(match1x2.expectedAwayGoals, 0.3)
+
+  // ── Choose the best O/U line based on expected total goals
+  const expectedTotal = λ1 + λ2
+  const ouLine = expectedTotal <= 2.0 ? 1.5
+               : expectedTotal <= 3.5 ? 2.5
+               : 3.5
+
+  // ── Compute all Poisson markets
+  const overUnder = calculateOverUnder(λ1, λ2, ouLine)
+
+  const btts = calculateBTTS(λ1, λ2)
+
+  const exactScores = calculateExactScores(λ1, λ2, 8)
+
+  // ── Handicap: auto-suggest line, then compute odds
+  const hcapLine = suggestHandicapLine(λ1, λ2)
+  const handicap = calculateHandicapOdds(λ1, λ2, hcapLine)
+
+  // ── Confidence
+  const confidence = calculateConfidence(home, away, homeForm, awayForm, h2h)
+
+  return {
+    match1x2,
+    overUnder,
+    btts,
+    exactScores,
+    handicap,
+    confidence,
+    leagueAvgGoals,
+    calculatedAt: new Date().toISOString(),
+  }
+}

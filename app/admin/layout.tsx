@@ -17,6 +17,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/badges',        label: t('admin.card.badges')        },
     { href: '/admin/settings',      label: t('admin.card.settings')      },
     { href: '/admin/activity',      label: t('admin.card.activity')      },
+    { href: '/admin/betting',       label: 'Betting Markets'             },
+    { href: '/admin/bets',          label: 'Bet Management'              },
+    { href: '/admin/balances',      label: 'Balances'                    },
+    { href: '/admin/reports',       label: 'Reports'                     },
+    { href: '/admin/rules',         label: 'Betting Rules'               },
   ]
 
   return (

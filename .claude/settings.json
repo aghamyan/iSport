@@ -51,14 +51,18 @@
       "Bash(npx --yes playwright@1.60.0 --version)",
       "Bash(curl -s http://localhost:3000/players/ab8f0b60-0fd6-4a0e-af5f-33eb8e03e1c1 -L --max-redirs 2 -o /tmp/playerpage.html)",
       "Bash(cat > *)",
-      "Bash(git diff *)"
+      "Bash(git diff *)",
+      "Bash(grep -E '\\\\.\\(ts|tsx|sql\\)$')",
+      "Bash(next build *)"
     ],
     "additionalDirectories": [
       "/Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports",
       "/Users/arthuraghamyan/Desktop/Esports/app/championships",
       "/Users/arthuraghamyan/Desktop/Esports",
       "/Users/arthuraghamyan/Desktop/esports",
-      "/tmp"
+      "/tmp",
+      "/Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-esports/memory",
+      "/Users/arthuraghamyan/.claude/projects/-Users-arthuraghamyan-Desktop-Esports/memory"
     ]
   }
 }

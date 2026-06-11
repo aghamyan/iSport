@@ -26,7 +26,6 @@ import {
   generateFinalAction,
   generatePenaltyDeciderAction,
   generateFinalPenaltyDeciderAction,
-  getMatchOddsAction,
   regenerateMatchesAction,
   generateNextCycleAction,
   updateChampionshipDateAction,
@@ -70,21 +69,6 @@ export type ChampionshipMatch = {
   groupLabel: string | null
   round: string | null
   leg: number | null
-}
-
-type OddsData = {
-  homeWinOdds: number
-  drawOdds: number
-  awayWinOdds: number
-  homeWinPct: number
-  drawPct: number
-  awayWinPct: number
-  homeHandicap: number
-  awayHandicap: number
-  expectedHomeGoals: number
-  expectedAwayGoals: number
-  homeFactors: { label: string; description: string; impact: string; ratingDelta: number }[]
-  awayFactors: { label: string; description: string; impact: string; ratingDelta: number }[]
 }
 
 type Props = {
@@ -192,115 +176,6 @@ function Avatar({
       }}
     >
       {initials}
-    </div>
-  )
-}
-
-// ─── OddsPanel ────────────────────────────────────────────────────────────────
-
-function OddsBar({ pct, color }: { pct: number; color: string }) {
-  return (
-    <div style={{ height: 4, background: '#1a2840', borderRadius: 2, overflow: 'hidden', marginTop: 4 }}>
-      <div
-        style={{
-          height: '100%',
-          width: `${Math.min(100, pct)}%`,
-          background: color,
-          borderRadius: 2,
-          transition: 'width 0.5s ease',
-        }}
-      />
-    </div>
-  )
-}
-
-function OddsPanel({
-  odds,
-  homeName,
-  awayName,
-}: {
-  odds: OddsData
-  homeName: string
-  awayName: string
-}) {
-  const { t } = useTranslation()
-  const cells = [
-    { label: homeName, odds: odds.homeWinOdds, pct: odds.homeWinPct, color: '#22c55e' },
-    { label: t('champ.draw'), odds: odds.drawOdds, pct: odds.drawPct, color: '#f59e0b' },
-    { label: awayName, odds: odds.awayWinOdds, pct: odds.awayWinPct, color: '#3b82f6' },
-  ]
-
-  return (
-    <div
-      style={{
-        padding: '14px 16px 12px',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        borderTop: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: '0 0 10px 10px',
-      }}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-        {cells.map(({ label, odds: o, pct, color }) => (
-          <div key={label} style={{ textAlign: 'center' }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                color: '#94a3b8',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                marginBottom: 4,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {label}
-            </div>
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color,
-                lineHeight: 1,
-                marginBottom: 2,
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              {o.toFixed(2)}
-            </div>
-            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{pct}%</div>
-            <OddsBar pct={pct} color={color} />
-          </div>
-        ))}
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: 8,
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          fontSize: 11,
-          color: '#475569',
-        }}
-      >
-        <span>
-          xG: <span style={{ color: '#94a3b8', fontWeight: 600 }}>{odds.expectedHomeGoals}</span>
-          {' — '}
-          <span style={{ color: '#94a3b8', fontWeight: 600 }}>{odds.expectedAwayGoals}</span>
-        </span>
-        {(odds.homeHandicap !== 0 || odds.awayHandicap !== 0) && (
-          <span>
-            AH:{' '}
-            <span style={{ color: '#94a3b8', fontWeight: 600 }}>
-              {odds.homeHandicap > 0 ? '+' : ''}{odds.homeHandicap}
-            </span>
-          </span>
-        )}
-        <span style={{ color: '#334155' }}>{t('champ.liveOdds')}</span>
-      </div>
     </div>
   )
 }
@@ -522,47 +397,8 @@ function MatchCard({
                 {t('champ.editBtn')}
               </button>
             )}
-            {/* Odds toggle */}
-            <button
-              onClick={handleToggleOdds}
-              disabled={oddsLoading}
-              style={{
-                padding: '4px 9px',
-                background: showOdds ? '#0f172a' : '#0f1a2e',
-                color: showOdds ? '#38bdf8' : '#64748b',
-                border: showOdds ? '1px solid #1e3a5f' : '1px solid #1a2840',
-                borderRadius: 6,
-                cursor: oddsLoading ? 'wait' : 'pointer',
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.02em',
-                transition: 'all 0.15s',
-              }}
-            >
-              {oddsLoading ? '…' : showOdds ? t('champ.oddsBtnShow') : t('champ.oddsBtnHide')}
-            </button>
           </div>
         </div>
-
-        {/* Odds error */}
-        {oddsError && (
-          <div
-            style={{
-              padding: '6px 14px',
-              background: 'rgba(239,68,68,0.1)',
-              color: '#f87171',
-              fontSize: 12,
-              borderTop: '1px solid rgba(239,68,68,0.25)',
-            }}
-          >
-            {oddsError}
-          </div>
-        )}
-
-        {/* Odds panel */}
-        {showOdds && odds && (
-          <OddsPanel odds={odds} homeName={homeName} awayName={awayName} />
-        )}
       </div>
 
       {showScore && (
