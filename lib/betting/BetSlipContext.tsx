@@ -29,8 +29,9 @@ type BetSlipContextType = {
   toggleOpen:  () => void
 
   // Queries
-  isInSlip:    (marketId: string) => boolean
-  getLeg:      (marketId: string) => SlipLeg | undefined
+  isInSlip:       (marketId: string) => boolean
+  getLeg:         (marketId: string) => SlipLeg | undefined
+  hasMatchInSlip: (matchId: string)  => boolean
 
   // Computed (derived from legs + betAmount)
   summary:     SlipSummary | null
@@ -86,8 +87,9 @@ export function BetSlipProvider({ children }: { children: ReactNode }) {
   // ── Actions
   const addLeg = useCallback((leg: SlipLeg) => {
     setLegs(prev => {
-      if (prev.some(l => l.marketId === leg.marketId)) return prev   // duplicate market
-      if (prev.length >= MAX_LEGS) return prev                        // cap
+      if (prev.some(l => l.marketId === leg.marketId)) return prev                         // duplicate market
+      if (prev.some(l => l.matchId === leg.matchId))   return prev                         // same match, different market
+      if (prev.length >= MAX_LEGS) return prev                                              // cap
       return [...prev, leg]
     })
     setIsOpen(true)
@@ -112,8 +114,9 @@ export function BetSlipProvider({ children }: { children: ReactNode }) {
   const toggleOpen = useCallback(() => setIsOpen(v => !v), [])
 
   // ── Queries
-  const isInSlip  = useCallback((marketId: string) => legs.some(l => l.marketId === marketId), [legs])
-  const getLeg    = useCallback((marketId: string) => legs.find(l => l.marketId === marketId), [legs])
+  const isInSlip      = useCallback((marketId: string) => legs.some(l => l.marketId === marketId), [legs])
+  const getLeg        = useCallback((marketId: string) => legs.find(l => l.marketId === marketId), [legs])
+  const hasMatchInSlip = useCallback((matchId: string) => legs.some(l => l.matchId === matchId), [legs])
 
   // ── Computed values
   const amount     = parseFloat(betAmount) || 0
@@ -125,7 +128,7 @@ export function BetSlipProvider({ children }: { children: ReactNode }) {
       legs, betAmount, isOpen,
       addLeg, removeLeg, clearSlip, setBetAmount,
       setOpen, toggleOpen,
-      isInSlip, getLeg,
+      isInSlip, getLeg, hasMatchInSlip,
       summary, validation, balance, setBalance,
       lastPlacedBetId, setLastPlacedBetId,
     }}>

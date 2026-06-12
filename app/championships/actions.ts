@@ -24,6 +24,7 @@ import {
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
 import { calculateOdds, type PlayerStats, type OddsFormEntry, type H2HInput } from '@/lib/odds'
 import { logAdminAction } from '@/lib/admin/activityLog'
+import { generateMatchMarkets, fetchLeagueAvgGoals } from '@/lib/odds/markets'
 
 function requireAdmin(session: Awaited<ReturnType<typeof getSession>>) {
   if (!session?.isAdmin) throw new Error('Unauthorized')
@@ -39,6 +40,7 @@ type RawPlayer = {
   matches_played: number
   goal_diff: number
   goals_for: number
+  goals_against: number
 }
 
 function toStats(p: RawPlayer): PlayerStats {
@@ -49,15 +51,24 @@ function toStats(p: RawPlayer): PlayerStats {
     matchesPlayed: p.matches_played,
     goalDiff:      p.goal_diff,
     goalsFor:      p.goals_for,
+    goalsAgainst:  p.goals_against,
   }
 }
 
 const defaultStats: PlayerStats = {
-  wins: 0, losses: 0, draws: 0, matchesPlayed: 0, goalDiff: 0, goalsFor: 0,
+  wins: 0, losses: 0, draws: 0, matchesPlayed: 0, goalDiff: 0, goalsFor: 0, goalsAgainst: 0,
 }
 
 type FormRpcRow = { result: string; goals_for: number; goals_against: number; [k: string]: unknown }
-type H2HRpcRow  = { player1_wins: number|string; player2_wins: number|string; draws: number|string; total_matches: number|string; [k: string]: unknown }
+type H2HRpcRow  = {
+  player1_wins:  number|string
+  player2_wins:  number|string
+  draws:         number|string
+  total_matches: number|string
+  player1_goals: number|string
+  player2_goals: number|string
+  [k: string]: unknown
+}
 
 function toOddsForm(rows: FormRpcRow[] | null): OddsFormEntry[] {
   if (!rows) return []
@@ -72,13 +83,27 @@ function toH2H(rows: H2HRpcRow[] | null, homeIsP1: boolean): H2HInput | undefine
   if (!rows || rows.length === 0) return undefined
   const row = rows[0]
   const total = Number(row.total_matches)
-  if (total < 3) return undefined
+  if (total < 2) return undefined
   return homeIsP1
-    ? { homeWins: Number(row.player1_wins), awayWins: Number(row.player2_wins), draws: Number(row.draws), totalMatches: total }
-    : { homeWins: Number(row.player2_wins), awayWins: Number(row.player1_wins), draws: Number(row.draws), totalMatches: total }
+    ? {
+        homeWins:     Number(row.player1_wins),
+        awayWins:     Number(row.player2_wins),
+        draws:        Number(row.draws),
+        totalMatches: total,
+        homeGoals:    Number(row.player1_goals),
+        awayGoals:    Number(row.player2_goals),
+      }
+    : {
+        homeWins:     Number(row.player2_wins),
+        awayWins:     Number(row.player1_wins),
+        draws:        Number(row.draws),
+        totalMatches: total,
+        homeGoals:    Number(row.player2_goals),
+        awayGoals:    Number(row.player1_goals),
+      }
 }
 
-/** Inserts match rows and attaches odds. Returns the created match IDs. */
+/** Inserts match rows, attaches display odds to match_odds, and auto-generates bet_markets. */
 async function insertMatchesWithOdds(
   supabase: ReturnType<typeof createServiceClient>,
   championshipId: string,
@@ -91,7 +116,8 @@ async function insertMatchesWithOdds(
     leg?: number | null
   }>,
   statsMap: Record<string, PlayerStats>,
-  playedAt?: string | null
+  playedAt?: string | null,
+  adminId?: string
 ) {
   if (slots.length === 0) return []
 
@@ -140,6 +166,34 @@ async function insertMatchesWithOdds(
       }
     })
     await supabase.from('match_odds').insert(oddsRows)
+
+    // Auto-generate bet_markets with 10% house edge so matches appear on the betting page.
+    // Compute leagueAvgGoals once for the batch; process in chunks of 5 to avoid DB overload.
+    if (adminId) {
+      const allPlayerIds = [...new Set(createdMatches.flatMap(m => [m.home_player_id, m.away_player_id]))]
+      const [namesRes, leagueAvg] = await Promise.all([
+        supabase.from('players').select('id, display_name').in('id', allPlayerIds),
+        fetchLeagueAvgGoals(),
+      ])
+      const namesMap = new Map((namesRes.data ?? []).map((p: { id: string; display_name: string | null }) => [p.id, p.display_name ?? p.id]))
+
+      const CHUNK = 5
+      for (let i = 0; i < createdMatches.length; i += CHUNK) {
+        const chunk = createdMatches.slice(i, i + CHUNK)
+        await Promise.allSettled(
+          chunk.map(m =>
+            generateMatchMarkets(
+              m.id, 'championship',
+              m.home_player_id, m.away_player_id,
+              namesMap.get(m.home_player_id) ?? 'Home',
+              namesMap.get(m.away_player_id) ?? 'Away',
+              adminId,
+              leagueAvg
+            )
+          )
+        )
+      }
+    }
   }
 
   return createdMatches ?? []
@@ -172,7 +226,7 @@ export async function createChampionshipAction(
 
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', playerIds)
 
   const statsMap: Record<string, PlayerStats> = {}
@@ -212,7 +266,7 @@ export async function createChampionshipAction(
     slots = generateRoundRobinCycle(playerIds, 1)
   }
 
-  await insertMatchesWithOdds(supabase, champ.id, slots, statsMap, playedAt)
+  await insertMatchesWithOdds(supabase, champ.id, slots, statsMap, playedAt, session!.sub)
 
   await logAdminAction('create_championship', 'championship', champ.id, {
     name, numberOfCycles, playerCount: playerIds.length, format,
@@ -299,13 +353,13 @@ export async function generateSemiFinalsAction(championshipId: string): Promise<
   // Fetch stats for qualifier players
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', qualifierPlayerIds)
 
   const statsMap: Record<string, PlayerStats> = {}
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
 
-  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at)
+  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at, session!.sub)
   revalidatePath(`/championships/${championshipId}`)
 }
 
@@ -396,14 +450,14 @@ export async function generateFinalAction(championshipId: string): Promise<void>
   // Fetch stats for finalists
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', finalists)
 
   const statsMap: Record<string, PlayerStats> = {}
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
 
   const finalSlot = generateFinalSlot(finalists[0], finalists[1])
-  await insertMatchesWithOdds(supabase, championshipId, [finalSlot], statsMap, champ?.played_at)
+  await insertMatchesWithOdds(supabase, championshipId, [finalSlot], statsMap, champ?.played_at, session!.sub)
 
   await logAdminAction('generate_final', 'championship', championshipId, { finalists })
   revalidatePath(`/championships/${championshipId}`)
@@ -468,14 +522,14 @@ export async function generatePenaltyDeciderAction(
 
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', [p1, p2])
 
   const statsMap: Record<string, PlayerStats> = {}
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
 
   const slot = generatePenaltySlot(p1, p2)
-  await insertMatchesWithOdds(supabase, championshipId, [slot], statsMap, champ?.played_at)
+  await insertMatchesWithOdds(supabase, championshipId, [slot], statsMap, champ?.played_at, session!.sub)
 
   revalidatePath(`/championships/${championshipId}`)
 }
@@ -514,14 +568,14 @@ export async function generateFinalPenaltyDeciderAction(championshipId: string):
 
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', [p1, p2])
 
   const statsMap: Record<string, PlayerStats> = {}
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
 
   const slot = generateFinalPenaltySlot(p1, p2)
-  await insertMatchesWithOdds(supabase, championshipId, [slot], statsMap, champResult.data?.played_at)
+  await insertMatchesWithOdds(supabase, championshipId, [slot], statsMap, champResult.data?.played_at, session!.sub)
 
   revalidatePath(`/championships/${championshipId}`)
 }
@@ -566,7 +620,7 @@ export async function addExtraMatchAction(
   const [statsResult, homeFormResult, awayFormResult, h2hResult] = await Promise.all([
     supabase
       .from('players')
-      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
       .in('id', [homePlayerId, awayPlayerId]),
     supabase.rpc('get_player_form', { p_player_id: homePlayerId, p_limit: 5 }),
     supabase.rpc('get_player_form', { p_player_id: awayPlayerId, p_limit: 5 }),
@@ -597,6 +651,19 @@ export async function addExtraMatchAction(
       away_stats_snapshot: { stats: awayStats, form: awayForm, factors: o.awayFactors, impliedProb: o.awayWinPct, overround: o.overround },
     })
   }
+
+  // Auto-generate bet_markets for the new match
+  const [homeNameRes, awayNameRes] = await Promise.all([
+    supabase.from('players').select('display_name').eq('id', homePlayerId).single(),
+    supabase.from('players').select('display_name').eq('id', awayPlayerId).single(),
+  ])
+  await generateMatchMarkets(
+    match.id, 'championship',
+    homePlayerId, awayPlayerId,
+    homeNameRes.data?.display_name ?? 'Home',
+    awayNameRes.data?.display_name ?? 'Away',
+    session!.sub
+  ).catch(() => {/* non-blocking: market generation failure doesn't fail match creation */})
 
   revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
@@ -640,7 +707,7 @@ export async function regenerateMatchesAction(championshipId: string): Promise<v
 
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', playerIds)
   const statsMap: Record<string, PlayerStats> = {}
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
@@ -656,7 +723,7 @@ export async function regenerateMatchesAction(championshipId: string): Promise<v
     slots = generateRoundRobinCycle(playerIds, 1)
   }
 
-  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at)
+  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at, session!.sub)
   revalidatePath(`/championships/${championshipId}`)
 }
 
@@ -703,13 +770,13 @@ export async function generateNextCycleAction(championshipId: string): Promise<{
 
   const { data: playersData } = await supabase
     .from('players')
-    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
     .in('id', playerIds)
   const statsMap: Record<string, PlayerStats> = {}
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
 
   const slots = generateRoundRobinCycle(playerIds, nextCycle)
-  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at)
+  await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at, session!.sub)
 
   await logAdminAction('generate_cycle', 'championship', championshipId, { cycle: nextCycle })
   revalidatePath(`/championships/${championshipId}`)
@@ -745,7 +812,7 @@ export async function getMatchOddsAction(
   const [statsResult, homeFormResult, awayFormResult, h2hResult] = await Promise.all([
     supabase
       .from('players')
-      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
       .in('id', [homePlayerId, awayPlayerId]),
     supabase.rpc('get_player_form', { p_player_id: homePlayerId, p_limit: 5 }),
     supabase.rpc('get_player_form', { p_player_id: awayPlayerId, p_limit: 5 }),
@@ -793,7 +860,7 @@ export async function getChampionshipWinnerOddsAction(
       .eq('championship_id', championshipId),
     supabase
       .from('players')
-      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
       .in('id', playerIds),
   ])
 
@@ -1040,8 +1107,21 @@ export async function recordChampionshipScoreAction(
     .eq('status', 'pending')
 
   if (error) throw new Error(error.message)
+
+  // Skip the 4-hour wait: service client transitions to final immediately,
+  // firing trg_championship_betting_on_final which auto-settles all open bets.
+  const serviceSupabase = createServiceClient()
+  const { error: finalizeError } = await serviceSupabase
+    .from('championship_matches')
+    .update({ status: 'final' })
+    .eq('id', matchId)
+    .eq('status', 'confirmed')
+
+  if (finalizeError) throw new Error(finalizeError.message)
+
   revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
+  revalidatePath('/betting')
 }
 
 /**
@@ -1063,6 +1143,7 @@ export async function updateChampionshipMatchAction(
     .from('championship_matches')
     .update({ home_score: homeScore, away_score: awayScore })
     .eq('id', matchId)
+    .eq('status', 'confirmed')
 
   if (error) throw new Error(error.message)
   revalidateTag(STATS_CACHE_TAG, 'max')

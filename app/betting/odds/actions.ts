@@ -7,13 +7,26 @@ import { logAdminAction } from '@/lib/admin/activityLog'
 import {
   getSettlementReport,
   getSettlementReportByPlayer,
+  getSettlementAuditReport,
+  getSettlementErrorReport,
   getBetOverrideAudit,
+  settleMatchBets,
+  cancelMatchBets,
+  finalizeDueMatches,
+  retryFailedSettlements,
   type SettlementSummary,
   type SettlementPlayerRow,
+  type SettlementAuditRow,
+  type SettlementErrorRow,
+  type MatchSettlementResult,
+  type MatchCancellationResult,
+  type DueFinalizationResult,
+  type RetrySettlementResult,
   type OverrideAuditRow,
 } from '@/lib/betting/settlement'
 import {
   generateMatchMarkets,
+  fetchLeagueAvgGoals,
   applyAdminOddsOverride,
   revertToAiOdds,
   createCustomPropMarket,
@@ -42,14 +55,14 @@ export async function generateMatchMarketsAction(
   const session = await getSession()
   requireAdmin(session)
 
-  // Fetch player names for readable market labels
+  // Fetch player display names for readable market labels
   const supabase = createServiceClient()
-  const { data: players } = await supabase
-    .from('users')
-    .select('id, name')
+  const { data: playerRows } = await supabase
+    .from('players')
+    .select('id, display_name')
     .in('id', [homePlayerId, awayPlayerId])
 
-  const nameMap  = new Map((players ?? []).map(p => [p.id, p.name]))
+  const nameMap  = new Map((playerRows ?? []).map(p => [p.id, p.display_name as string | null]))
   const homeName = nameMap.get(homePlayerId) ?? 'Home'
   const awayName = nameMap.get(awayPlayerId) ?? 'Away'
 
@@ -65,6 +78,8 @@ export async function generateMatchMarketsAction(
     confidence:     result.fullOdds.confidence.score,
   })
 
+  revalidatePath('/betting')
+  revalidatePath('/admin/betting')
   revalidatePath(`/admin/matches`)
   revalidatePath(`/${matchType === 'championship' ? 'championships' : 'matches'}/${matchId}`)
 
@@ -97,12 +112,12 @@ export async function refreshMatchMarketsAction(
     .eq('status',     'OPEN')
     .eq('admin_override', false)
 
-  const { data: players } = await supabase
-    .from('users')
-    .select('id, name')
+  const { data: playerRows } = await supabase
+    .from('players')
+    .select('id, display_name')
     .in('id', [homePlayerId, awayPlayerId])
 
-  const nameMap  = new Map((players ?? []).map(p => [p.id, p.name]))
+  const nameMap  = new Map((playerRows ?? []).map(p => [p.id, p.display_name as string | null]))
   const homeName = nameMap.get(homePlayerId) ?? 'Home'
   const awayName = nameMap.get(awayPlayerId) ?? 'Away'
 
@@ -118,6 +133,8 @@ export async function refreshMatchMarketsAction(
 
   await logAdminAction('refresh_markets', 'match', matchId, { succeeded, failed })
 
+  revalidatePath('/betting')
+  revalidatePath('/admin/betting')
   revalidatePath(`/${matchType === 'championship' ? 'championships' : 'matches'}/${matchId}`)
 
   return { refreshed: succeeded, skipped: failed }
@@ -228,7 +245,7 @@ export async function getMatchMarketsAction(
 
 export async function settleMarketAction(
   marketId:      string,
-  winningOption: 'option1' | 'option2' | 'option3',
+  winningOption: string,
   matchId:       string,
   matchType:     'friendly' | 'championship'
 ): Promise<{ betsSettled: number }> {
@@ -329,20 +346,116 @@ export async function adminOverrideBetAction(
   revalidatePath('/admin/balances')
 }
 
+// ─── Settle a full match from its final score ────────────────────────────────
+
+export async function settleMatchBetsAction(
+  matchId:   string,
+  matchType: 'friendly' | 'championship'
+): Promise<MatchSettlementResult> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const result = await settleMatchBets(matchId, matchType, session!.sub)
+
+  await logAdminAction('settle_match_bets', 'match', matchId, {
+    matchType,
+    betsAffected: result.betsAffected,
+    failedCount: result.failedCount,
+  })
+
+  revalidatePath('/admin/betting')
+  revalidatePath('/admin/reports')
+  revalidatePath('/admin/balances')
+  revalidatePath(`/${matchType === 'championship' ? 'championships' : 'matches'}/${matchId}`)
+
+  return result
+}
+
+// ─── Cancel every market on a match and refund pending bets ──────────────────
+
+export async function cancelMatchBetsAction(
+  matchId:   string,
+  matchType: 'friendly' | 'championship',
+  reason:    string
+): Promise<MatchCancellationResult> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  if (!reason.trim()) throw new Error('Cancellation reason is required')
+
+  const result = await cancelMatchBets(matchId, matchType, session!.sub, reason.trim())
+
+  await logAdminAction('cancel_match_bets', 'match', matchId, {
+    matchType,
+    reason,
+    betsRefunded: result.betsRefunded,
+    failedCount: result.failedCount,
+  })
+
+  revalidatePath('/admin/betting')
+  revalidatePath('/admin/reports')
+  revalidatePath('/admin/balances')
+  revalidatePath(`/${matchType === 'championship' ? 'championships' : 'matches'}/${matchId}`)
+
+  return result
+}
+
+// ─── Finalize confirmed matches whose 4-hour window has elapsed ─────────────
+
+export async function finalizeDueMatchesAction(): Promise<DueFinalizationResult> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const result = await finalizeDueMatches(session!.sub)
+
+  await logAdminAction('finalize_due_matches', 'match', undefined, result)
+
+  revalidatePath('/admin/matches')
+  revalidatePath('/admin/championships')
+  revalidatePath('/admin/betting')
+  revalidatePath('/admin/reports')
+  revalidatePath('/admin/balances')
+
+  return result
+}
+
+// ─── Retry failed settlement jobs ────────────────────────────────────────────
+
+export async function retryFailedSettlementsAction(limit = 20): Promise<RetrySettlementResult> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const result = await retryFailedSettlements(session!.sub, limit)
+
+  await logAdminAction('retry_failed_settlements', 'match', undefined, result)
+
+  revalidatePath('/admin/reports')
+  revalidatePath('/admin/balances')
+
+  return result
+}
+
 // ─── Settlement report ─────────────────────────────────────────────────────────
 
 export async function getSettlementReportAction(
   from?: Date,
   to?:   Date
-): Promise<{ summary: SettlementSummary | null; players: SettlementPlayerRow[] }> {
+): Promise<{
+  summary: SettlementSummary | null
+  players: SettlementPlayerRow[]
+  audits:  SettlementAuditRow[]
+  errors:  SettlementErrorRow[]
+}> {
   const session = await getSession()
   requireAdmin(session)
 
-  const [summary, players] = await Promise.all([
+  const [summary, players, audits, errors] = await Promise.all([
     getSettlementReport(from, to),
     getSettlementReportByPlayer(from, to),
+    getSettlementAuditReport(from, to),
+    getSettlementErrorReport(100),
   ])
-  return { summary, players }
+  return { summary, players, audits, errors }
 }
 
 // ─── Override audit log ────────────────────────────────────────────────────────
@@ -352,4 +465,99 @@ export async function getBetOverrideAuditAction(limit = 50): Promise<OverrideAud
   requireAdmin(session)
 
   return getBetOverrideAudit(limit)
+}
+
+// ─── Backfill markets for existing pending championship matches ───────────────
+
+export type BackfillResult = {
+  total:     number
+  generated: number
+  skipped:   number
+  failed:    number
+}
+
+/**
+ * Generates bet_markets for all pending/confirmed championship matches that
+ * currently have no markets. Idempotent — safe to run multiple times.
+ */
+export async function backfillChampionshipMarketsAction(): Promise<BackfillResult> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+
+  // Fetch all pending/confirmed championship matches
+  const { data: matches, error } = await supabase
+    .from('championship_matches')
+    .select(`
+      id, home_player_id, away_player_id,
+      home:players!home_player_id(display_name),
+      away:players!away_player_id(display_name)
+    `)
+    .in('status', ['pending', 'confirmed'])
+
+  if (error) throw new Error(error.message)
+  if (!matches || matches.length === 0) return { total: 0, generated: 0, skipped: 0, failed: 0 }
+
+  // Find matches that already have at least one market
+  const allIds = matches.map(m => m.id)
+  const { data: existingMarkets } = await supabase
+    .from('bet_markets')
+    .select('match_id')
+    .in('match_id', allIds)
+    .neq('status', 'CANCELLED')
+
+  const alreadyHasMarkets = new Set((existingMarkets ?? []).map(m => m.match_id))
+  const toGenerate = matches.filter(m => !alreadyHasMarkets.has(m.id))
+
+  if (toGenerate.length === 0) {
+    return { total: matches.length, generated: 0, skipped: matches.length, failed: 0 }
+  }
+
+  // Compute league average once for the whole batch
+  const leagueAvg = await fetchLeagueAvgGoals()
+
+  function extractName(val: unknown): string {
+    if (!val) return '?'
+    if (Array.isArray(val)) return (val[0] as { display_name?: string })?.display_name ?? '?'
+    return (val as { display_name?: string }).display_name ?? '?'
+  }
+
+  let generated = 0
+  let failed    = 0
+
+  const CHUNK = 5
+  for (let i = 0; i < toGenerate.length; i += CHUNK) {
+    const chunk = toGenerate.slice(i, i + CHUNK)
+    const results = await Promise.allSettled(
+      chunk.map(m =>
+        generateMatchMarkets(
+          m.id, 'championship',
+          m.home_player_id, m.away_player_id,
+          extractName(m.home),
+          extractName(m.away),
+          session!.sub,
+          leagueAvg
+        )
+      )
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled') generated++
+      else failed++
+    }
+  }
+
+  await logAdminAction('backfill_championship_markets', 'match', undefined, {
+    total: toGenerate.length, generated, failed,
+  })
+
+  revalidatePath('/betting')
+  revalidatePath('/admin/betting')
+
+  return {
+    total:     matches.length,
+    generated,
+    skipped:   alreadyHasMarkets.size,
+    failed,
+  }
 }

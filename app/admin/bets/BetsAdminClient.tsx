@@ -4,7 +4,7 @@ import { useState, useCallback, useTransition } from 'react'
 import type { AdminBetRow, BetStatusFilter } from './actions'
 import { getAdminAllBetsAction, adminCancelPendingBetAction } from './actions'
 import { adminOverrideBetAction } from '@/app/betting/odds/actions'
-import { MARKET_LABELS } from '@/lib/betting/validation'
+import { getMarketLabel } from '@/lib/betting/validation'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -341,7 +341,7 @@ function BetRow({
         </div>
         {bet.selectionLabel && (
           <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>
-            {MARKET_LABELS[bet.marketType] ?? bet.marketType}: {bet.selectionLabel}
+            {getMarketLabel(bet.marketType)}: {bet.selectionLabel}
           </div>
         )}
         {bet.betType === 'PARLAY' && (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import { useBetSlip } from '@/lib/betting/BetSlipContext'
-import { fmtAMD, MARKET_SHORT } from '@/lib/betting/validation'
+import { fmtAMD, getMarketShort } from '@/lib/betting/validation'
 import { placeBetAction, type PlaceBetResult } from '@/app/betting/bets/actions'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -21,33 +21,40 @@ const GOLD   = '#f59e0b'
 
 export function PlacedBetToast({ result, onDone }: { result: PlaceBetResult; onDone: () => void }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 4000)
+    const t = setTimeout(onDone, 4200)
     return () => clearTimeout(t)
   }, [onDone])
+
   return (
     <div style={{
-      position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+      position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
       background: CARD, border: `1px solid ${WIN}`, borderRadius: 14,
       padding: '14px 20px', zIndex: 500,
       boxShadow: `0 8px 32px ${WIN}33`,
-      minWidth: 260, maxWidth: 340,
+      minWidth: 268, maxWidth: 340,
       animation: 'slip-in 0.3s ease',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <span style={{ fontSize: 22 }}>🎲</span>
-        <div style={{ fontWeight: 800, fontSize: 15, color: WIN }}>Bet placed!</div>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
+          background: `${WIN}20`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16,
+        }}>
+          ✓
+        </div>
+        <div style={{ fontWeight: 800, fontSize: 15, color: WIN }}>Bet Placed!</div>
       </div>
-      <div style={{ fontSize: 12, color: TEXT2, marginBottom: 4 }}>
+      <div style={{ fontSize: 12, color: TEXT2, marginBottom: 6 }}>
         {result.betType === 'PARLAY' ? 'Parlay' : 'Single'} · {result.combinedOdds.toFixed(2)}×
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: GOLD }}>
-        Potential: {fmtAMD(result.actualWinnings)}
-        <span style={{ fontSize: 10, color: MUTED, fontWeight: 400, marginLeft: 4 }}>
-          (after {fmtAMD(result.rake)} rake)
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: 12, color: TEXT2 }}>Potential win</span>
+        <span style={{ fontSize: 16, fontWeight: 900, color: GOLD }}>
+          {fmtAMD(result.actualWinnings)}
         </span>
       </div>
-      <div style={{ fontSize: 11, color: TEXT2, marginTop: 4 }}>
-        New balance: {fmtAMD(result.newBalance)}
+      <div style={{ fontSize: 11, color: MUTED, marginTop: 4 }}>
+        Rake: {fmtAMD(result.rake)} · New balance: {fmtAMD(result.newBalance)}
       </div>
     </div>
   )
@@ -66,38 +73,40 @@ function ConfirmDialog({
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 400,
-      background: 'rgba(5,9,17,0.9)', backdropFilter: 'blur(4px)',
+      background: 'rgba(5,9,17,0.92)', backdropFilter: 'blur(6px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '0 16px',
     }}>
       <div style={{
         background: CARD, border: `1px solid ${BORDER}`, borderRadius: 20,
-        padding: 24, maxWidth: 360, width: '90%',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+        padding: 24, maxWidth: 360, width: '100%',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.7)',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>🎲</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: TEXT }}>Confirm Bet</div>
-          <div style={{ fontSize: 12, color: TEXT2, marginTop: 4 }}>
-            {summary.betType} · {summary.legs} selection{summary.legs > 1 ? 's' : ''} · {summary.combinedOdds.toFixed(2)}×
+          <div style={{ fontSize: 13, color: TEXT2, marginBottom: 4 }}>
+            {summary.betType === 'PARLAY' ? 'Parlay' : 'Single'} · {summary.legs} {summary.legs === 1 ? 'selection' : 'selections'} · {summary.combinedOdds.toFixed(2)}×
           </div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: TEXT }}>Confirm Bet</div>
         </div>
 
-        {[
-          { label: 'Stake',              value: fmtAMD(summary.stake),             color: TEXT  },
-          { label: 'Potential winnings', value: fmtAMD(summary.potentialWinnings), color: TEXT  },
-          { label: '10% rake',           value: `− ${fmtAMD(summary.rake)}`,        color: MUTED },
-          { label: 'Actual winnings',    value: fmtAMD(summary.actualWinnings),    color: GOLD  },
-        ].map(row => (
-          <div key={row.label} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '7px 0', borderBottom: `1px solid ${BORDER}`,
-          }}>
-            <span style={{ fontSize: 13, color: TEXT2 }}>{row.label}</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: row.color }}>{row.value}</span>
-          </div>
-        ))}
+        <div style={{ marginBottom: 20 }}>
+          {[
+            { label: 'Stake',         value: fmtAMD(summary.stake),             color: TEXT  },
+            { label: 'Potential Win', value: fmtAMD(summary.potentialWinnings), color: TEXT  },
+            { label: '10% Rake',      value: `− ${fmtAMD(summary.rake)}`,        color: MUTED },
+            { label: 'Net Win',       value: fmtAMD(summary.actualWinnings),    color: GOLD  },
+          ].map(row => (
+            <div key={row.label} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '8px 0', borderBottom: `1px solid ${BORDER}`,
+            }}>
+              <span style={{ fontSize: 13, color: TEXT2 }}>{row.label}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: row.color }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onCancel} disabled={pending} style={{
             flex: 1, padding: '12px 0', borderRadius: 10,
             border: `1px solid ${BORDER}`, background: 'transparent',
@@ -112,7 +121,7 @@ function ConfirmDialog({
             cursor: pending ? 'not-allowed' : 'pointer',
             opacity: pending ? 0.6 : 1,
           }}>
-            {pending ? 'Placing…' : `Confirm — ${fmtAMD(summary.stake)}`}
+            {pending ? 'Placing...' : `Confirm — ${fmtAMD(summary.stake)}`}
           </button>
         </div>
       </div>
@@ -121,16 +130,10 @@ function ConfirmDialog({
 }
 
 // ─── BetSlipContents ──────────────────────────────────────────────────────────
-//
-// Shared inner content used by both:
-//   • BetSlip — mobile bottom-sheet wrapper (onBetPlaced bubbles toast up)
-//   • BettingPageClient — desktop sidebar panel (showToast=true renders inline)
 
 export type BetSlipContentsProps = {
   onClose?:     () => void
   compact?:     boolean
-  // Desktop panel: true (panel stays mounted so toast renders here)
-  // Mobile sheet: false (sheet unmounts on clear; BetSlip renders toast itself)
   showToast?:   boolean
   onBetPlaced?: (result: PlaceBetResult) => void
 }
@@ -154,6 +157,16 @@ export function BetSlipContents({
   const [pending, start]                = useTransition()
 
   const amount = parseFloat(betAmount) || 0
+
+  // Detect same-match conflicts for visual highlight
+  const matchIdCounts = new Map<string, number>()
+  for (const leg of legs) {
+    matchIdCounts.set(leg.matchId, (matchIdCounts.get(leg.matchId) ?? 0) + 1)
+  }
+  const conflictingMatchIds = new Set<string>(
+    [...matchIdCounts.entries()].filter(([, c]) => c > 1).map(([id]) => id)
+  )
+  const hasConflicts = conflictingMatchIds.size > 0
 
   function handlePlace() {
     if (!summary || !validation.valid) return
@@ -181,19 +194,21 @@ export function BetSlipContents({
     })
   }
 
+  const px = compact ? 14 : 20
+
   return (
     <>
       {/* ── Header ── */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: compact ? '10px 14px 8px' : '10px 20px 12px',
+        padding: `12px ${px}px 10px`,
         borderBottom: `1px solid ${BORDER}`,
       }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>
-          Bet Slip
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: TEXT }}>Bet Slip</span>
           {legs.length > 0 && (
             <span style={{
-              marginLeft: 8, fontSize: 11, background: ACCENT, color: '#fff',
+              fontSize: 11, background: ACCENT, color: '#fff',
               borderRadius: 10, padding: '2px 8px', fontWeight: 700,
             }}>
               {legs.length}
@@ -223,41 +238,73 @@ export function BetSlipContents({
 
       {/* ── Parlay badge ── */}
       {legs.length > 1 && (
-        <div style={{ padding: compact ? '8px 14px 0' : '8px 20px 0' }}>
+        <div style={{ padding: `8px ${px}px 0` }}>
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '3px 10px',
-            borderRadius: 10, background: `${GOLD}22`, color: GOLD,
+            borderRadius: 10, background: `${GOLD}20`, color: GOLD,
+            border: `1px solid ${GOLD}30`,
           }}>
-            PARLAY · {legs.length} LEGS
+            PARLAY · {legs.length} SELECTIONS
+          </span>
+        </div>
+      )}
+
+      {/* ── Same-event conflict warning ── */}
+      {hasConflicts && (
+        <div style={{
+          margin: `6px ${px}px 0`,
+          padding: '9px 12px',
+          background: `${LOSS}16`,
+          border: `1px solid ${LOSS}55`,
+          borderRadius: 8,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 15, color: LOSS, flexShrink: 0, lineHeight: 1 }}>⚠</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: LOSS }}>
+            Highlighted events cannot be combined
           </span>
         </div>
       )}
 
       {/* ── Empty state ── */}
       {legs.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '32px 20px', color: MUTED }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
-          <div style={{ fontWeight: 700, color: TEXT2, fontSize: 13, marginBottom: 4 }}>
-            Slip is empty
+        <div style={{ textAlign: 'center', padding: '36px 20px', color: MUTED }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 12,
+            background: CARD2, border: `1px solid ${BORDER}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, margin: '0 auto 12px',
+          }}>
+            🎯
           </div>
-          <div style={{ fontSize: 12 }}>Click any odds to add a selection</div>
+          <div style={{ fontWeight: 800, color: TEXT2, fontSize: 14, marginBottom: 6 }}>
+            Your Betslip is Empty
+          </div>
+          <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+            Click on any odds to add a selection
+          </div>
         </div>
       )}
 
-      {/* ── Legs list ── */}
+      {/* ── Legs ── */}
       {legs.length > 0 && (
         <div style={{
-          padding: `8px ${compact ? '12px' : '16px'} 0`,
+          padding: `8px ${compact ? 12 : 16}px 0`,
           overflowY: 'auto',
           maxHeight: compact ? 240 : 300,
         }}>
-          {legs.map((leg, i) => (
+          {legs.map((leg, i) => {
+            const isConflict = conflictingMatchIds.has(leg.matchId)
+            return (
             <div
               key={leg.marketId}
               style={{
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
                 padding: '9px 12px', marginBottom: 6,
-                background: CARD, border: `1px solid ${BORDER}`, borderRadius: 10,
+                background: isConflict ? `${LOSS}0c` : CARD,
+                border: `1px solid ${isConflict ? LOSS + '55' : BORDER}`,
+                borderLeft: `3px solid ${isConflict ? LOSS : BORDER}`,
+                borderRadius: 10,
                 animation: 'slip-in 0.2s ease',
               }}
             >
@@ -271,7 +318,7 @@ export function BetSlipContents({
                   fontSize: 9, fontWeight: 700, color: ACCENT,
                   textTransform: 'uppercase', letterSpacing: '0.05em',
                 }}>
-                  {MARKET_SHORT[leg.marketType] ?? leg.marketType}
+                  {getMarketShort(leg.marketType)}
                 </span>
                 <div style={{
                   fontSize: 13, fontWeight: 700, color: TEXT, marginTop: 2,
@@ -293,21 +340,21 @@ export function BetSlipContents({
                 </button>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
 
-      {/* ── Bottom controls (only when legs exist) ── */}
+      {/* ── Bottom controls ── */}
       {legs.length > 0 && (
         <div style={{
-          padding: `12px ${compact ? '12px' : '16px'} ${compact ? '16px' : '24px'}`,
+          padding: `12px ${compact ? 12 : 16}px ${compact ? 16 : 24}px`,
           borderTop: `1px solid ${BORDER}`,
           marginTop: 8,
         }}>
           {/* Validation errors */}
           {validation.errors.length > 0 && (
             <div style={{
-              background: `${LOSS}18`, border: `1px solid ${LOSS}44`,
+              background: `${LOSS}14`, border: `1px solid ${LOSS}40`,
               borderRadius: 8, padding: '8px 12px', marginBottom: 10,
             }}>
               {validation.errors.map((e, i) => (
@@ -319,7 +366,7 @@ export function BetSlipContents({
           {/* Warnings */}
           {validation.warnings.length > 0 && (
             <div style={{
-              background: `${GOLD}18`, border: `1px solid ${GOLD}44`,
+              background: `${GOLD}14`, border: `1px solid ${GOLD}40`,
               borderRadius: 8, padding: '8px 12px', marginBottom: 10,
             }}>
               {validation.warnings.map((w, i) => (
@@ -331,7 +378,7 @@ export function BetSlipContents({
           {/* API error */}
           {error && (
             <div style={{
-              background: `${LOSS}18`, border: `1px solid ${LOSS}`,
+              background: `${LOSS}14`, border: `1px solid ${LOSS}`,
               borderRadius: 8, padding: '8px 12px', marginBottom: 10,
               fontSize: 12, color: LOSS,
             }}>
@@ -339,13 +386,13 @@ export function BetSlipContents({
             </div>
           )}
 
-          {/* Amount input */}
-          <div style={{ marginBottom: 10 }}>
+          {/* Stake input */}
+          <div style={{ marginBottom: 12 }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               marginBottom: 6,
             }}>
-              <label style={{ fontSize: 12, color: TEXT2, fontWeight: 600 }}>Bet amount</label>
+              <label style={{ fontSize: 12, color: TEXT2, fontWeight: 700 }}>Stake Amount</label>
               <span style={{ fontSize: 11, color: MUTED }}>
                 Balance: <span style={{ color: GOLD, fontWeight: 700 }}>{fmtAMD(balance)}</span>
               </span>
@@ -355,7 +402,7 @@ export function BetSlipContents({
                 type="number"
                 value={betAmount}
                 onChange={e => setBetAmount(e.target.value)}
-                placeholder="e.g. 1000"
+                placeholder="e.g. 500"
                 min={100}
                 step={100}
                 style={{
@@ -374,7 +421,7 @@ export function BetSlipContents({
             </div>
 
             {/* Quick-amount chips */}
-            <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <div style={{ display: 'flex', gap: 5, marginTop: 8 }}>
               {[500, 1000, 2000, 5000].map(v => (
                 <button
                   key={v}
@@ -382,12 +429,12 @@ export function BetSlipContents({
                   style={{
                     flex: 1, padding: '5px 0', borderRadius: 8,
                     border: `1px solid ${betAmount === String(v) ? ACCENT : BORDER}`,
-                    background: betAmount === String(v) ? `${ACCENT}22` : 'transparent',
+                    background: betAmount === String(v) ? `${ACCENT}20` : 'transparent',
                     color: betAmount === String(v) ? ACCENT : TEXT2,
                     fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   }}
                 >
-                  {v.toLocaleString()}
+                  {v >= 1000 ? `${v / 1000}k` : v}
                 </button>
               ))}
             </div>
@@ -399,20 +446,20 @@ export function BetSlipContents({
               background: CARD2, borderRadius: 10, padding: '10px 14px',
               marginBottom: 12, border: `1px solid ${BORDER}`,
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: TEXT2 }}>
-                  {summary.betType} · {summary.combinedOdds.toFixed(2)}×
+                  {summary.betType === 'PARLAY' ? 'Parlay' : 'Single'} · {summary.combinedOdds.toFixed(2)}×
                 </span>
-                <span style={{ fontSize: 11, color: MUTED }}>rake 10%</span>
+                <span style={{ fontSize: 11, color: MUTED }}>10% rake</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span style={{ fontSize: 12, color: TEXT2 }}>Potential winnings</span>
-                <span style={{ fontSize: 18, fontWeight: 900, color: GOLD }}>
+                <span style={{ fontSize: 12, color: TEXT2 }}>Potential Win</span>
+                <span style={{ fontSize: 20, fontWeight: 900, color: GOLD }}>
                   {fmtAMD(summary.actualWinnings)}
                 </span>
               </div>
               {summary.rake > 0 && (
-                <div style={{ fontSize: 10, color: MUTED, textAlign: 'right', marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: MUTED, textAlign: 'right', marginTop: 3 }}>
                   gross {fmtAMD(summary.potentialWinnings)} − rake {fmtAMD(summary.rake)}
                 </div>
               )}
@@ -430,18 +477,20 @@ export function BetSlipContents({
               color: '#fff', fontSize: 15, fontWeight: 800,
               cursor: validation.valid && summary ? 'pointer' : 'not-allowed',
               opacity: pending ? 0.6 : 1,
-              transition: 'background 0.2s',
+              transition: 'background 0.18s',
             }}
           >
-            {pending ? 'Placing…' : validation.valid && summary
-              ? `Place Bet — ${fmtAMD(amount)}`
-              : 'Enter a valid bet amount'
+            {pending
+              ? 'Placing...'
+              : validation.valid && summary
+                ? `Place Bet — ${fmtAMD(amount)}`
+                : 'Enter a valid amount'
             }
           </button>
 
           {legs.length > 1 && (
             <div style={{ fontSize: 10, color: MUTED, textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
-              Same match, different markets — correlations flagged as warnings.
+              Multiple selections from the same match are not allowed in parlays.
             </div>
           )}
         </div>
@@ -457,7 +506,7 @@ export function BetSlipContents({
         />
       )}
 
-      {/* ── Toast (only when showToast=true — i.e. desktop panel stays mounted) ── */}
+      {/* ── Toast ── */}
       {showToast && placedResult && (
         <PlacedBetToast
           result={placedResult}

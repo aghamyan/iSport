@@ -1,10 +1,11 @@
 'use server'
 
 import { revalidatePath, revalidateTag } from 'next/cache'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthedClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/session'
 import { logAdminAction } from '@/lib/admin/activityLog'
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
+import { cancelMatchBets } from '@/lib/betting/settlement'
 
 function requireAdmin(session: Awaited<ReturnType<typeof getSession>>) {
   if (!session?.isAdmin) throw new Error('Unauthorized')
@@ -19,15 +20,26 @@ export async function adminDeleteChampionshipAction(championshipId: string): Pro
   // Capture all players who had confirmed/final matches — their career stats need recomputing
   const { data: confirmedMatches } = await supabase
     .from('championship_matches')
-    .select('home_player_id, away_player_id')
+    .select('id, home_player_id, away_player_id')
     .eq('championship_id', championshipId)
     .in('status', ['confirmed', 'final'])
+
+  const { data: allMatches } = await supabase
+    .from('championship_matches')
+    .select('id')
+    .eq('championship_id', championshipId)
 
   const affectedPlayerIds = [
     ...new Set(
       (confirmedMatches ?? []).flatMap((m) => [m.home_player_id, m.away_player_id])
     ),
   ]
+
+  await Promise.all(
+    (allMatches ?? []).map((match) =>
+      cancelMatchBets(match.id, 'championship', session!.sub, 'Championship deleted by admin')
+    )
+  )
 
   const { error } = await supabase
     .from('championships')
@@ -91,6 +103,8 @@ export async function adminUpdateChampionshipMatchAction(
   requireAdmin(session)
 
   const supabase = createServiceClient()
+  const authed = await getAuthedClient()
+  if (!authed) throw new Error('Session expired')
 
   const { data: current } = await supabase
     .from('championship_matches')
@@ -103,7 +117,7 @@ export async function adminUpdateChampionshipMatchAction(
     payload.confirmed_at = new Date().toISOString()
   }
 
-  const { error } = await supabase
+  const { error } = await authed
     .from('championship_matches')
     .update(payload)
     .eq('id', matchId)
@@ -130,6 +144,8 @@ export async function adminDeleteChampionshipMatchAction(
     .select('home_player_id, away_player_id, status')
     .eq('id', matchId)
     .single()
+
+  await cancelMatchBets(matchId, 'championship', session!.sub, 'Championship match deleted by admin')
 
   const { error } = await supabase
     .from('championship_matches')

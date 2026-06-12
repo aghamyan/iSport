@@ -10,6 +10,7 @@ import { CreateMatchModal } from '@/app/matches/CreateMatchModal'
 import type { ActivePlayer } from '@/app/matches/CreateMatchModal'
 import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader, CurrentChampion } from '@/lib/stats/types'
 import { BottomNav } from '@/app/components/BottomNav'
+import { BetNotificationCenter } from '@/app/components/BetNotificationCenter'
 import { logoutAction } from '@/lib/auth/actions'
 import { confirmMatchAction, deleteMatchAction } from '@/app/matches/actions'
 import { useTranslation } from '@/lib/i18n/context'
@@ -40,6 +41,8 @@ export type GlobalStats = {
 
 export type HomeMatchItem = {
   id: string
+  status: string
+  createdAt: string
   homePlayerId: string
   homePlayerName: string
   homePlayerAvatarUrl: string | null
@@ -245,6 +248,7 @@ export function HomeLoggedIn({
           }}>Sport</span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <BetNotificationCenter />
           {isAdmin && (
             <button
               onClick={() => setShowAdminPrompt(true)}
@@ -983,6 +987,8 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
           matchType="friendly"
           homeName={match.homePlayerName}
           awayName={match.awayPlayerName}
+          matchDateTime={match.createdAt}
+          matchStatus={match.status}
           onClose={() => setShowBetModal(false)}
         />
       )}

@@ -337,7 +337,7 @@ $$;
 -- ──────────────────────────────────────────────────────────────
 create or replace function settle_market(
   p_market_id      uuid,
-  p_winning_option text,   -- 'option1' | 'option2' | 'option3'
+  p_winning_option text,   -- option1, option2, option3...
   p_admin_id       uuid
 )
 returns int
@@ -349,8 +349,17 @@ declare
   v_outcome text;
   v_count   int := 0;
 begin
-  if p_winning_option not in ('option1','option2','option3') then
+  if p_winning_option is null or p_winning_option !~ '^option[0-9]+$' then
     raise exception 'Invalid winning option "%".', p_winning_option;
+  end if;
+
+  if not exists (
+    select 1
+    from bet_markets
+    where market_id = p_market_id
+      and options ? p_winning_option
+  ) then
+    raise exception 'Option "%" does not exist for market %.', p_winning_option, p_market_id;
   end if;
 
   -- Mark market settled and record the winning option

@@ -20,8 +20,57 @@ export type AdminMatchData = {
 
 function extractName(val: unknown): string {
   if (!val) return '?'
-  if (Array.isArray(val)) return (val[0] as { name: string })?.name ?? '?'
-  return (val as { name: string }).name ?? '?'
+  if (Array.isArray(val)) {
+    const item = val[0] as { name?: string; display_name?: string } | undefined
+    return item?.display_name ?? item?.name ?? '?'
+  }
+  const item = val as { name?: string; display_name?: string }
+  return item.display_name ?? item.name ?? '?'
+}
+
+type RawMatch = {
+  id: string
+  home_player_id: string
+  away_player_id: string
+  home: unknown
+  away: unknown
+}
+
+const PAGE_SIZE = 1000
+
+async function fetchAllChampionshipMatches(
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<RawMatch[]> {
+  // Only show matches from active (non-completed) championships
+  const { data: activeChamps } = await supabase
+    .from('championships')
+    .select('id')
+    .eq('is_active', true)
+
+  const activeIds = (activeChamps ?? []).map((c: { id: string }) => c.id)
+  if (activeIds.length === 0) return []
+
+  const rows: RawMatch[] = []
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from('championship_matches')
+      .select(`
+        id, home_player_id, away_player_id,
+        home:players!home_player_id(display_name),
+        away:players!away_player_id(display_name)
+      `)
+      .in('championship_id', activeIds)
+      .in('status', ['pending', 'confirmed'])
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1)
+
+    if (error) throw new Error(error.message)
+    rows.push(...((data ?? []) as RawMatch[]))
+    if (!data || data.length < PAGE_SIZE) break
+  }
+
+  return rows
 }
 
 export default async function AdminBettingPage() {
@@ -32,30 +81,15 @@ export default async function AdminBettingPage() {
       .from('friendly_matches')
       .select(`
         id, home_player_id, away_player_id,
-        home:users!friendly_matches_home_player_id_fkey(name),
-        away:users!friendly_matches_away_player_id_fkey(name)
+        home:players!home_player_id(display_name),
+        away:players!away_player_id(display_name)
       `)
       .eq('status', 'pending'),
-    supabase
-      .from('championship_matches')
-      .select(`
-        id, home_player_id, away_player_id,
-        home:users!championship_matches_home_player_id_fkey(name),
-        away:users!championship_matches_away_player_id_fkey(name)
-      `)
-      .in('status', ['pending', 'playing']),
+    fetchAllChampionshipMatches(supabase),
   ])
 
-  type RawMatch = {
-    id: string
-    home_player_id: string
-    away_player_id: string
-    home: unknown
-    away: unknown
-  }
-
   const allFriendly = (fmRes.data ?? []) as RawMatch[]
-  const allChamp    = (cmRes.data ?? []) as RawMatch[]
+  const allChamp    = cmRes
   const allIds      = [...allFriendly, ...allChamp].map(m => m.id)
 
   const [marketsRes, logsRes] = await Promise.all([
@@ -123,7 +157,7 @@ export default async function AdminBettingPage() {
         Betting Markets
       </h1>
       <p style={{ margin: '0 0 32px', fontSize: 14, color: '#6b7280' }}>
-        Generate, lock, override, and settle bet markets for pending matches.
+        Generate, lock, override, and settle bet markets for non-final matches.
       </p>
       <BettingAdminClient friendly={friendly} championship={championship} />
     </div>

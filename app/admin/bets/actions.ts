@@ -221,18 +221,22 @@ async function resolveMatchTitles(
   const [fmRes, cmRes] = await Promise.all([
     supabase
       .from('friendly_matches')
-      .select('id, home:users!friendly_matches_home_player_id_fkey(name), away:users!friendly_matches_away_player_id_fkey(name)')
+      .select('id, home:players!home_player_id(display_name), away:players!away_player_id(display_name)')
       .in('id', matchIds),
     supabase
       .from('championship_matches')
-      .select('id, home:users!championship_matches_home_player_id_fkey(name), away:users!championship_matches_away_player_id_fkey(name)')
+      .select('id, home:players!home_player_id(display_name), away:players!away_player_id(display_name)')
       .in('id', matchIds),
   ])
 
   const result = new Map<string, string>()
   const getName = (v: unknown): string => {
-    if (Array.isArray(v)) return (v[0] as { name: string })?.name ?? '?'
-    return (v as { name?: string })?.name ?? '?'
+    if (Array.isArray(v)) {
+      const item = v[0] as { name?: string; display_name?: string } | undefined
+      return item?.display_name ?? item?.name ?? '?'
+    }
+    const item = v as { name?: string; display_name?: string }
+    return item?.display_name ?? item?.name ?? '?'
   }
 
   type MatchRow = { id: string; home: unknown; away: unknown }

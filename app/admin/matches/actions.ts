@@ -1,10 +1,11 @@
 'use server'
 
 import { revalidatePath, revalidateTag } from 'next/cache'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, getAuthedClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/session'
 import { logAdminAction } from '@/lib/admin/activityLog'
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
+import { cancelMatchBets } from '@/lib/betting/settlement'
 
 function requireAdmin(session: Awaited<ReturnType<typeof getSession>>) {
   if (!session?.isAdmin) throw new Error('Unauthorized')
@@ -12,8 +13,8 @@ function requireAdmin(session: Awaited<ReturnType<typeof getSession>>) {
 
 /**
  * Admin edit: updates scores on any friendly match regardless of edit-window.
- * Uses service role — auth.uid() is NULL, which makes the prevent_late_edit
- * trigger's admin check evaluate to NULL (falsy), so the window is bypassed.
+ * Uses the authenticated admin client for the write so settlement triggers can
+ * attribute FINAL transitions to the admin.
  */
 export async function adminUpdateFriendlyMatchAction(
   matchId: string,
@@ -25,6 +26,8 @@ export async function adminUpdateFriendlyMatchAction(
   requireAdmin(session)
 
   const supabase = createServiceClient()
+  const authed = await getAuthedClient()
+  if (!authed) throw new Error('Session expired')
 
   const { data: current } = await supabase
     .from('friendly_matches')
@@ -37,7 +40,7 @@ export async function adminUpdateFriendlyMatchAction(
     payload.confirmed_at = new Date().toISOString()
   }
 
-  const { error } = await supabase
+  const { error } = await authed
     .from('friendly_matches')
     .update(payload)
     .eq('id', matchId)
@@ -67,6 +70,8 @@ export async function adminDeleteFriendlyMatchAction(matchId: string): Promise<v
     .select('home_player_id, away_player_id, status')
     .eq('id', matchId)
     .single()
+
+  await cancelMatchBets(matchId, 'friendly', session!.sub, 'Match deleted by admin')
 
   const { error } = await supabase
     .from('friendly_matches')

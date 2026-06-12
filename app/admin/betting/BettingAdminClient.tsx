@@ -12,8 +12,9 @@ import {
   getMatchMarketsAction,
   settleMarketAction,
   createCustomPropAction,
+  backfillChampionshipMarketsAction,
 } from '@/app/betting/odds/actions'
-import { MARKET_LABELS } from '@/lib/betting/validation'
+import { getMarketLabel } from '@/lib/betting/validation'
 
 // ─── Design tokens (light admin theme) ───────────────────────────────────────
 const C = {
@@ -38,6 +39,19 @@ const STATUS_COLORS: Record<string, string> = {
   LOCKED:   C.gold,
   SETTLED:  C.muted,
   CANCELLED:C.loss,
+}
+
+function optionSort(a: string, b: string): number {
+  const ai = Number(a.replace('option', ''))
+  const bi = Number(b.replace('option', ''))
+  if (Number.isFinite(ai) && Number.isFinite(bi)) return ai - bi
+  return a.localeCompare(b)
+}
+
+function marketOptionKeys(market: MarketRow): string[] {
+  return Object.keys(market.options ?? {})
+    .filter(key => Number.isFinite(Number(market.odds?.[key])))
+    .sort(optionSort)
 }
 
 // ─── Confidence badge ─────────────────────────────────────────────────────────
@@ -100,7 +114,7 @@ function SettleModal({
   onClose:   () => void
 }) {
   const { market, selected, busy } = state
-  const optionKeys = (['option1', 'option2', 'option3'] as const).filter(k => market.options[k])
+  const optionKeys = marketOptionKeys(market)
 
   return (
     <div
@@ -123,7 +137,7 @@ function SettleModal({
           Settle Market
         </div>
         <div style={{ fontSize: 13, color: C.text2, marginBottom: 20 }}>
-          {MARKET_LABELS[market.marketType] ?? market.marketType} — pick the winning outcome
+          {getMarketLabel(market.marketType)} — pick the winning outcome
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
@@ -195,7 +209,7 @@ function OverrideForm({
   onSave:   () => void
   onCancel: () => void
 }) {
-  const optionKeys = (['option1', 'option2', 'option3'] as const).filter(k => market.options[k])
+  const optionKeys = marketOptionKeys(market)
 
   return (
     <div style={{
@@ -461,13 +475,13 @@ function MarketDetailRow({
   onRevertAI:      (m: MarketRow) => void
   busy:            boolean
 }) {
-  const optionKeys = (['option1', 'option2', 'option3'] as const).filter(k => market.options[k])
+  const optionKeys = marketOptionKeys(market)
   const statusColor = STATUS_COLORS[market.status] ?? C.muted
   const isSettled  = market.status === 'SETTLED'
   const isLocked   = market.status === 'LOCKED'
   const isOverride = overrideState?.marketId === market.marketId
 
-  const aiRaw = market.aiCalculatedOdds as Record<string, number> | null
+  const aiRaw = (market.aiCalculatedOdds?.raw ?? null) as Record<string, number> | null
 
   return (
     <div style={{
@@ -483,7 +497,7 @@ function MarketDetailRow({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-            {MARKET_LABELS[market.marketType] ?? market.marketType}
+            {getMarketLabel(market.marketType)}
           </span>
           {market.adminOverride && (
             <span style={{
@@ -498,7 +512,7 @@ function MarketDetailRow({
               fontSize: 10, padding: '1px 7px', borderRadius: 8,
               background: `${C.win}18`, color: C.win, fontWeight: 700,
             }}>
-              ✓ {market.options[market.result as 'option1']?.label ?? market.result}
+              ✓ {market.options[market.result]?.label ?? market.result}
             </span>
           )}
         </div>
@@ -511,13 +525,19 @@ function MarketDetailRow({
       </div>
 
       {/* Options row */}
-      <div style={{ display: 'flex', gap: 0, padding: '10px 14px 0' }}>
-        {optionKeys.map((key, idx) => (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+        gap: 8,
+        padding: '10px 14px 0',
+      }}>
+        {optionKeys.map((key) => (
           <div key={key} style={{
-            flex: 1, textAlign: 'center',
-            borderRight: idx < optionKeys.length - 1 ? `1px solid ${C.border}` : 'none',
-            paddingRight: idx < optionKeys.length - 1 ? 12 : 0,
-            paddingLeft: idx > 0 ? 12 : 0,
+            textAlign: 'center',
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            padding: '8px 6px',
+            background: C.bg,
           }}>
             <div style={{ fontSize: 11, color: C.text2, marginBottom: 2 }}>
               {market.options[key]?.label ?? key}
@@ -680,7 +700,7 @@ function MatchCard({
     try {
       const { betsSettled } = await settleMarketAction(
         settle.market.marketId,
-        optionKey as 'option1' | 'option2' | 'option3',
+        optionKey,
         match.matchId,
         match.matchType
       )
@@ -700,7 +720,7 @@ function MatchCard({
 
   function handleOpenOverride(market: MarketRow) {
     const vals: Record<string, string> = {}
-    for (const key of ['option1', 'option2', 'option3'] as const) {
+    for (const key of marketOptionKeys(market)) {
       if (market.options[key]) vals[key] = String(market.odds[key] ?? '')
     }
     setOverride({ marketId: market.marketId, values: vals, reason: '', busy: false })
@@ -945,6 +965,7 @@ type Props = {
 export function BettingAdminClient({ friendly, championship }: Props) {
   const [tab, setTab]   = useState<'friendly' | 'championship'>('friendly')
   const [toasts, setToasts] = useState<Toast[]>([])
+  const [backfilling, setBackfilling] = useState(false)
   let toastId = 0
 
   const pushToast = useCallback((msg: string, type: 'ok' | 'err' = 'ok') => {
@@ -961,10 +982,22 @@ export function BettingAdminClient({ friendly, championship }: Props) {
   const totalSettled = [...friendly, ...championship].reduce((s, m) => s + m.settledMarkets, 0)
   const withMarkets  = [...friendly, ...championship].filter(m => m.totalMarkets > 0).length
 
+  async function handleBackfill() {
+    setBackfilling(true)
+    try {
+      const r = await backfillChampionshipMarketsAction()
+      pushToast(`Backfill done — ${r.generated} generated, ${r.skipped} skipped, ${r.failed} failed`, r.failed > 0 ? 'err' : 'ok')
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : 'Backfill failed', 'err')
+    } finally {
+      setBackfilling(false)
+    }
+  }
+
   return (
     <div>
       {/* Stats bar */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {[
           { label: 'Matches w/ markets', value: withMarkets, color: C.accent },
           { label: 'Open markets',        value: totalOpen,   color: C.win   },
@@ -981,6 +1014,25 @@ export function BettingAdminClient({ friendly, championship }: Props) {
             <div style={{ fontSize: 12, color: C.text2, marginTop: 3 }}>{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Backfill button for existing championship matches without markets */}
+      <div style={{ marginBottom: 20 }}>
+        <button
+          onClick={handleBackfill}
+          disabled={backfilling}
+          style={{
+            padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+            background: backfilling ? C.border : C.accent,
+            color: backfilling ? C.text2 : '#fff',
+            border: 'none', cursor: backfilling ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {backfilling ? 'Generating…' : 'Generate Missing Championship Markets'}
+        </button>
+        <span style={{ marginLeft: 10, fontSize: 12, color: C.text2 }}>
+          Auto-generates betting markets (10% edge) for any championship match that has none yet.
+        </span>
       </div>
 
       {/* Tabs */}

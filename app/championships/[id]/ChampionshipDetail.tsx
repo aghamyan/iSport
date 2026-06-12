@@ -815,6 +815,7 @@ function KnockoutSection({
                           currentUserId={currentUserId}
                           isAdmin={isAdmin}
                           championshipId={championshipId}
+                          championshipIsActive={championshipIsActive}
                           badge={
                             <span
                               style={{
@@ -847,6 +848,7 @@ function KnockoutSection({
                           currentUserId={currentUserId}
                           isAdmin={isAdmin}
                           championshipId={championshipId}
+                          championshipIsActive={championshipIsActive}
                           badge={
                             <span
                               style={{
@@ -956,6 +958,7 @@ function KnockoutSection({
               currentUserId={currentUserId}
               isAdmin={isAdmin}
               championshipId={championshipId}
+              championshipIsActive={championshipIsActive}
             />
 
             {finalPenaltyMatch && (
@@ -967,6 +970,7 @@ function KnockoutSection({
                   currentUserId={currentUserId}
                   isAdmin={isAdmin}
                   championshipId={championshipId}
+                  championshipIsActive={championshipIsActive}
                   badge={
                     <span
                       style={{
@@ -1241,6 +1245,7 @@ function PlayoffKnockoutSection({
                     currentUserId={currentUserId}
                     isAdmin={isAdmin}
                     championshipId={championshipId}
+                    championshipIsActive={championshipIsActive}
                   />
                 )}
 
@@ -1253,6 +1258,7 @@ function PlayoffKnockoutSection({
                       currentUserId={currentUserId}
                       isAdmin={isAdmin}
                       championshipId={championshipId}
+                      championshipIsActive={championshipIsActive}
                       badge={
                         <span
                           style={{
@@ -1337,6 +1343,7 @@ function PlayoffKnockoutSection({
               currentUserId={currentUserId}
               isAdmin={isAdmin}
               championshipId={championshipId}
+              championshipIsActive={championshipIsActive}
             />
 
             {finalPenaltyMatch && (
@@ -1348,6 +1355,7 @@ function PlayoffKnockoutSection({
                   currentUserId={currentUserId}
                   isAdmin={isAdmin}
                   championshipId={championshipId}
+                  championshipIsActive={championshipIsActive}
                   badge={
                     <span
                       style={{
@@ -1882,6 +1890,7 @@ export function ChampionshipDetail({
                               currentUserId={currentUserId}
                               isAdmin={isAdmin}
                               championshipId={championship.id}
+                              championshipIsActive={championship.isActive}
                             />
                           ))}
                         </div>
@@ -1931,6 +1940,7 @@ export function ChampionshipDetail({
                 currentUserId={currentUserId}
                 isAdmin={isAdmin}
                 championshipId={championship.id}
+                championshipIsActive={championship.isActive}
                 groupStageDone={groupStageDone}
                 onGenerateSemis={handleGenerateSemis}
                 onGenerateFinal={handleGenerateFinal}
@@ -2096,6 +2106,7 @@ export function ChampionshipDetail({
                           currentUserId={currentUserId}
                           isAdmin={isAdmin}
                           championshipId={championship.id}
+                          championshipIsActive={championship.isActive}
                         />
                       ))}
                     </div>
@@ -2125,6 +2136,7 @@ export function ChampionshipDetail({
                   currentUserId={currentUserId}
                   isAdmin={isAdmin}
                   championshipId={championship.id}
+                  championshipIsActive={championship.isActive}
                   groupStageDone={groupStageDone}
                   onGenerateSemis={handleGenerateSemis}
                   onGenerateFinal={handleGenerateFinal}
@@ -2348,6 +2360,7 @@ export function ChampionshipDetail({
                           currentUserId={currentUserId}
                           isAdmin={isAdmin}
                           championshipId={championship.id}
+                          championshipIsActive={championship.isActive}
                         />
                       ))}
                     </div>

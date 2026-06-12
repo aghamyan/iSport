@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import supabase from '@/lib/supabase/client'
 import { useBetSlip } from '@/lib/betting/BetSlipContext'
+import { ensurePlayerBalanceAction } from '@/app/betting/balance/actions'
 
 import { BetSlipContents, PlacedBetToast } from '@/app/betting/BetSlipContents'
 import type { PlaceBetResult } from '@/app/betting/bets/actions'
@@ -43,12 +44,14 @@ export function BetSlip({ userId }: Props) {
 
   // Always load balance + subscribe, regardless of visibility
   useEffect(() => {
-    supabase
-      .from('player_balances')
-      .select('current_balance')
-      .eq('player_id', userId)
-      .single()
-      .then(({ data }) => { if (data) setBalance(Number(data.current_balance)) })
+    ensurePlayerBalanceAction().then(() =>
+      supabase
+        .from('player_balances')
+        .select('current_balance')
+        .eq('player_id', userId)
+        .single()
+        .then(({ data }) => { if (data) setBalance(Number(data.current_balance)) })
+    )
 
     const channel = supabase
       .channel(`slip_balance:${userId}`)

@@ -65,6 +65,70 @@ export type SettlementPlayerRow = {
   netResult:    number
 }
 
+export type MatchSettlementResult = {
+  auditId: string | null
+  matchId: string
+  matchType: 'friendly' | 'championship'
+  result: Record<string, unknown>
+  marketsSettled: number
+  marketsSkipped: number
+  failedCount: number
+  betsAffected: number
+  totalStaked: number
+  totalWinningsPaid: number
+  totalRakeCollected: number
+}
+
+export type MatchCancellationResult = {
+  auditId: string | null
+  betsRefunded: number
+  totalRefunded: number
+  failedCount: number
+}
+
+export type DueFinalizationResult = {
+  friendlyFinalized: number
+  championshipFinalized: number
+  totalFinalized: number
+}
+
+export type RetrySettlementResult = {
+  attempted: number
+  resolved: number
+  failed: number
+}
+
+export type SettlementAuditRow = {
+  auditId: string
+  matchId: string
+  matchType: 'friendly' | 'championship'
+  result: Record<string, unknown>
+  marketsSettled: number
+  marketsSkipped: number
+  failedCount: number
+  betsAffected: number
+  totalStaked: number
+  totalWinningsPaid: number
+  totalRakeCollected: number
+  settlementStatus: 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'CANCELLED'
+  notes: string | null
+  createdAt: string
+}
+
+export type SettlementErrorRow = {
+  errorId: string
+  auditId: string | null
+  matchId: string
+  matchType: 'friendly' | 'championship'
+  marketId: string | null
+  betId: string | null
+  errorMessage: string
+  retryCount: number
+  lastRetryAt: string | null
+  resolvedAt: string | null
+  createdAt: string
+}
+
 // ─── Notifications ─────────────────────────────────────────────────────────────
 
 export async function getPlayerNotifications(
@@ -198,6 +262,215 @@ export async function getSettlementReportByPlayer(
   }))
 }
 
+// ─── Match settlement workflow (admin/system) ────────────────────────────────
+
+export async function settleMatchBets(
+  matchId: string,
+  matchType: 'friendly' | 'championship',
+  adminId: string | null = null
+): Promise<MatchSettlementResult> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase.rpc('settle_match_bets', {
+    p_match_id:   matchId,
+    p_match_type: matchType,
+    p_admin_id:   adminId,
+  })
+  if (error) throw new Error(error.message)
+
+  return mapMatchSettlementResult(data as Record<string, unknown>)
+}
+
+export async function cancelMatchBets(
+  matchId: string,
+  matchType: 'friendly' | 'championship',
+  adminId: string,
+  reason: string
+): Promise<MatchCancellationResult> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase.rpc('cancel_match_bets', {
+    p_match_id:   matchId,
+    p_match_type: matchType,
+    p_admin_id:   adminId,
+    p_reason:     reason,
+  })
+  if (error) {
+    if (!isMissingRpcError(error)) throw new Error(error.message)
+    await cancelMatchBetsWithoutRpc(matchId, matchType, adminId)
+    return { auditId: null, betsRefunded: 0, totalRefunded: 0, failedCount: 0 }
+  }
+
+  const d = (data ?? {}) as Record<string, unknown>
+  return {
+    auditId:       d.audit_id != null ? String(d.audit_id) : null,
+    betsRefunded:  Number(d.bets_refunded ?? 0),
+    totalRefunded: Number(d.total_refunded ?? 0),
+    failedCount:   Number(d.failed_count ?? 0),
+  }
+}
+
+function isMissingRpcError(error: { code?: string; message?: string }): boolean {
+  return error.code === 'PGRST202' || /function .*cancel_match_bets|Could not find the function/i.test(error.message ?? '')
+}
+
+function isMissingBettingTableError(error: { code?: string; message?: string }): boolean {
+  return error.code === '42P01' || error.code === 'PGRST205' || /relation .* does not exist|Could not find the table/i.test(error.message ?? '')
+}
+
+async function cancelMatchBetsWithoutRpc(
+  matchId: string,
+  matchType: 'friendly' | 'championship',
+  adminId: string
+): Promise<void> {
+  const supabase = createServiceClient()
+
+  const { data: markets, error: marketsError } = await supabase
+    .from('bet_markets')
+    .select('market_id')
+    .eq('match_id', matchId)
+    .eq('match_type', matchType)
+
+  if (marketsError) {
+    if (isMissingBettingTableError(marketsError)) return
+    throw new Error(marketsError.message)
+  }
+
+  const marketIds = (markets ?? [])
+    .map((m) => String((m as { market_id?: unknown }).market_id ?? ''))
+    .filter(Boolean)
+
+  if (marketIds.length > 0) {
+    const { count: singleCount, error: singleError } = await supabase
+      .from('bets')
+      .select('bet_id', { count: 'exact', head: true })
+      .in('market_id', marketIds)
+      .eq('status', 'PENDING')
+
+    if (singleError) {
+      if (!isMissingBettingTableError(singleError)) throw new Error(singleError.message)
+    } else if ((singleCount ?? 0) > 0) {
+      throw new Error('Cannot delete match while pending bets exist. Apply the betting workflow patch so bets can be refunded automatically.')
+    }
+
+    const { data: parlayLegs, error: parlayError } = await supabase
+      .from('parlay_legs')
+      .select('bet_id')
+      .in('market_id', marketIds)
+      .limit(1000)
+
+    if (parlayError) {
+      if (!isMissingBettingTableError(parlayError)) throw new Error(parlayError.message)
+    } else {
+      const parlayBetIds = [...new Set((parlayLegs ?? [])
+        .map((leg) => String((leg as { bet_id?: unknown }).bet_id ?? ''))
+        .filter(Boolean))]
+
+      if (parlayBetIds.length > 0) {
+        const { count: parlayCount, error: parlayBetError } = await supabase
+          .from('bets')
+          .select('bet_id', { count: 'exact', head: true })
+          .in('bet_id', parlayBetIds)
+          .eq('status', 'PENDING')
+
+        if (parlayBetError) {
+          if (!isMissingBettingTableError(parlayBetError)) throw new Error(parlayBetError.message)
+        } else if ((parlayCount ?? 0) > 0) {
+          throw new Error('Cannot delete match while pending parlay bets exist. Apply the betting workflow patch so bets can be refunded automatically.')
+        }
+      }
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from('bet_markets')
+    .update({
+      status:     'CANCELLED',
+      settled_at: new Date().toISOString(),
+      settled_by: adminId,
+    })
+    .eq('match_id', matchId)
+    .eq('match_type', matchType)
+    .in('status', ['OPEN', 'LOCKED'])
+
+  if (updateError && !isMissingBettingTableError(updateError)) {
+    throw new Error(updateError.message)
+  }
+}
+
+export async function finalizeDueMatches(
+  adminId: string | null = null
+): Promise<DueFinalizationResult> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase.rpc('finalize_due_matches', {
+    p_admin_id: adminId,
+  })
+  if (error) throw new Error(error.message)
+
+  const d = (data ?? {}) as Record<string, unknown>
+  return {
+    friendlyFinalized:     Number(d.friendly_finalized ?? 0),
+    championshipFinalized: Number(d.championship_finalized ?? 0),
+    totalFinalized:        Number(d.total_finalized ?? 0),
+  }
+}
+
+export async function retryFailedSettlements(
+  adminId: string,
+  limit = 20
+): Promise<RetrySettlementResult> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase.rpc('retry_failed_settlements', {
+    p_admin_id: adminId,
+    p_limit:    limit,
+  })
+  if (error) throw new Error(error.message)
+
+  const d = (data ?? {}) as Record<string, unknown>
+  return {
+    attempted: Number(d.attempted ?? 0),
+    resolved:  Number(d.resolved  ?? 0),
+    failed:    Number(d.failed    ?? 0),
+  }
+}
+
+export async function getSettlementAuditReport(
+  from?: Date,
+  to?: Date
+): Promise<SettlementAuditRow[]> {
+  const supabase = createServiceClient()
+  const p_from = (from ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).toISOString()
+  const p_to   = (to   ?? new Date()).toISOString()
+
+  const { data, error } = await supabase.rpc('get_settlement_audit_report', { p_from, p_to })
+  if (error || !data) return []
+
+  return (data as Record<string, unknown>[]).map(mapSettlementAuditRow)
+}
+
+export async function getSettlementErrorReport(limit = 100): Promise<SettlementErrorRow[]> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase.rpc('get_settlement_error_report', { p_limit: limit })
+  if (error || !data) return []
+
+  return (data as Record<string, unknown>[]).map(r => ({
+    errorId:      String(r.error_id),
+    auditId:      r.audit_id != null ? String(r.audit_id) : null,
+    matchId:      String(r.match_id),
+    matchType:    String(r.match_type) as SettlementErrorRow['matchType'],
+    marketId:     r.market_id != null ? String(r.market_id) : null,
+    betId:        r.bet_id != null ? String(r.bet_id) : null,
+    errorMessage: String(r.error_message ?? ''),
+    retryCount:   Number(r.retry_count ?? 0),
+    lastRetryAt:  r.last_retry_at != null ? String(r.last_retry_at) : null,
+    resolvedAt:   r.resolved_at != null ? String(r.resolved_at) : null,
+    createdAt:    String(r.created_at),
+  }))
+}
+
 // ─── Override audit log (admin) ───────────────────────────────────────────────
 
 export async function getBetOverrideAudit(limit = 50): Promise<OverrideAuditRow[]> {
@@ -243,4 +516,39 @@ export async function getBetOverrideAudit(limit = 50): Promise<OverrideAuditRow[
     balanceDelta: Number(r.balance_delta),
     overriddenAt: r.overridden_at,
   }))
+}
+
+function mapMatchSettlementResult(d: Record<string, unknown>): MatchSettlementResult {
+  return {
+    auditId:             d.audit_id != null ? String(d.audit_id) : null,
+    matchId:             String(d.match_id),
+    matchType:           String(d.match_type) as MatchSettlementResult['matchType'],
+    result:              (d.result ?? {}) as Record<string, unknown>,
+    marketsSettled:      Number(d.markets_settled ?? 0),
+    marketsSkipped:      Number(d.markets_skipped ?? 0),
+    failedCount:         Number(d.failed_count ?? 0),
+    betsAffected:        Number(d.bets_affected ?? 0),
+    totalStaked:         Number(d.total_staked ?? 0),
+    totalWinningsPaid:   Number(d.total_winnings_paid ?? 0),
+    totalRakeCollected:  Number(d.total_rake_collected ?? 0),
+  }
+}
+
+function mapSettlementAuditRow(r: Record<string, unknown>): SettlementAuditRow {
+  return {
+    auditId:             String(r.audit_id),
+    matchId:             String(r.match_id),
+    matchType:           String(r.match_type) as SettlementAuditRow['matchType'],
+    result:              (r.result ?? {}) as Record<string, unknown>,
+    marketsSettled:      Number(r.markets_settled ?? 0),
+    marketsSkipped:      Number(r.markets_skipped ?? 0),
+    failedCount:         Number(r.failed_count ?? 0),
+    betsAffected:        Number(r.bets_affected ?? 0),
+    totalStaked:         Number(r.total_staked ?? 0),
+    totalWinningsPaid:   Number(r.total_winnings_paid ?? 0),
+    totalRakeCollected:  Number(r.total_rake_collected ?? 0),
+    settlementStatus:    String(r.settlement_status ?? 'SUCCESS') as SettlementAuditRow['settlementStatus'],
+    notes:               r.notes != null ? String(r.notes) : null,
+    createdAt:           String(r.created_at),
+  }
 }

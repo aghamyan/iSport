@@ -5,6 +5,7 @@ import { getAuthedClient, createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/session'
 import { calculateOdds, type PlayerStats, type OddsFormEntry, type H2HInput, type OddsResult } from '@/lib/odds'
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
+import { cancelMatchBets } from '@/lib/betting/settlement'
 
 export type MatchDraft = {
   awayPlayerId: string
@@ -20,6 +21,7 @@ type RawPlayer = {
   matches_played: number
   goal_diff: number
   goals_for: number
+  goals_against: number
 }
 
 function toStats(p: RawPlayer): PlayerStats {
@@ -30,11 +32,12 @@ function toStats(p: RawPlayer): PlayerStats {
     matchesPlayed: p.matches_played,
     goalDiff:      p.goal_diff,
     goalsFor:      p.goals_for,
+    goalsAgainst:  p.goals_against,
   }
 }
 
 const defaultStats: PlayerStats = {
-  wins: 0, losses: 0, draws: 0, matchesPlayed: 0, goalDiff: 0, goalsFor: 0,
+  wins: 0, losses: 0, draws: 0, matchesPlayed: 0, goalDiff: 0, goalsFor: 0, goalsAgainst: 0,
 }
 
 // Converts the get_player_form RPC rows to the minimal FormEntry the algorithm needs
@@ -55,10 +58,12 @@ function toOddsForm(rows: FormRpcRow[] | null): OddsFormEntry[] {
 }
 
 type H2HRpcRow = {
-  player1_wins: number | string
-  player2_wins: number | string
-  draws: number | string
+  player1_wins:  number | string
+  player2_wins:  number | string
+  draws:         number | string
   total_matches: number | string
+  player1_goals: number | string
+  player2_goals: number | string
   [key: string]: unknown
 }
 
@@ -66,10 +71,24 @@ function toH2HInput(rows: H2HRpcRow[] | null, homeIsPlayer1: boolean): H2HInput 
   if (!rows || rows.length === 0) return undefined
   const row = rows[0]
   const total = Number(row.total_matches)
-  if (total < 3) return undefined
+  if (total < 2) return undefined
   return homeIsPlayer1
-    ? { homeWins: Number(row.player1_wins), awayWins: Number(row.player2_wins), draws: Number(row.draws), totalMatches: total }
-    : { homeWins: Number(row.player2_wins), awayWins: Number(row.player1_wins), draws: Number(row.draws), totalMatches: total }
+    ? {
+        homeWins:     Number(row.player1_wins),
+        awayWins:     Number(row.player2_wins),
+        draws:        Number(row.draws),
+        totalMatches: total,
+        homeGoals:    Number(row.player1_goals),
+        awayGoals:    Number(row.player2_goals),
+      }
+    : {
+        homeWins:     Number(row.player2_wins),
+        awayWins:     Number(row.player1_wins),
+        draws:        Number(row.draws),
+        totalMatches: total,
+        homeGoals:    Number(row.player2_goals),
+        awayGoals:    Number(row.player1_goals),
+      }
 }
 
 // ─── Pre-match odds preview (read-only, no auth required) ─────────────────────
@@ -91,7 +110,7 @@ export async function getPreMatchOddsAction(
   const [statsResult, homeFormResult, awayFormResult, h2hResult] = await Promise.all([
     supabase
       .from('players')
-      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
       .in('id', [homeId, awayId]),
     supabase.rpc('get_player_form', { p_player_id: homeId, p_limit: 5 }),
     supabase.rpc('get_player_form', { p_player_id: awayId, p_limit: 5 }),
@@ -142,7 +161,7 @@ export async function getMatchPreviewDataAction(
   const [statsResult, homeFormResult, awayFormResult, h2hResult] = await Promise.all([
     supabase
       .from('players')
-      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
       .in('id', [homeId, awayId]),
     supabase.rpc('get_player_form', { p_player_id: homeId, p_limit: 5 }),
     supabase.rpc('get_player_form', { p_player_id: awayId, p_limit: 5 }),
@@ -221,7 +240,7 @@ export async function createMatchesBatchAction(
   const [statsResult, homeFormResult, ...restResults] = await Promise.all([
     supabase
       .from('players')
-      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for')
+      .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
       .in('id', allIds),
     supabase.rpc('get_player_form', { p_player_id: homePlayerId, p_limit: 5 }),
     // Away player form (one per unique away player)
@@ -387,6 +406,7 @@ export async function updateMatchAction(
     .update(payload)
     .eq('id', matchId)
     .or(`home_player_id.eq.${session.sub},away_player_id.eq.${session.sub}`)
+    .eq('status', 'confirmed')
 
   if (error) throw new Error(error.message)
   revalidateTag(STATS_CACHE_TAG, 'max')
@@ -415,6 +435,8 @@ export async function deleteMatchAction(matchId: string): Promise<void> {
   if (match.home_player_id !== session.sub && match.away_player_id !== session.sub) {
     throw new Error('Not authorised')
   }
+
+  await cancelMatchBets(matchId, 'friendly', session.sub, 'Match deleted before confirmation')
 
   const { error } = await supabase
     .from('friendly_matches')

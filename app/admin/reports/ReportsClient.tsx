@@ -1,8 +1,19 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import type { SettlementSummary, SettlementPlayerRow, OverrideAuditRow } from '@/lib/betting/settlement'
-import { getSettlementReportAction, getBetOverrideAuditAction } from '@/app/betting/odds/actions'
+import type {
+  SettlementSummary,
+  SettlementPlayerRow,
+  OverrideAuditRow,
+  SettlementAuditRow,
+  SettlementErrorRow,
+} from '@/lib/betting/settlement'
+import {
+  getSettlementReportAction,
+  getBetOverrideAuditAction,
+  finalizeDueMatchesAction,
+  retryFailedSettlementsAction,
+} from '@/app/betting/odds/actions'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -371,20 +382,197 @@ function OverrideLog({ overrides }: { overrides: OverrideAuditRow[] }) {
   )
 }
 
+// ─── Match settlement audit ──────────────────────────────────────────────────
+
+function resultLabel(result: Record<string, unknown>) {
+  if (result.cancelled) return `Cancelled: ${String(result.reason ?? 'Match cancelled')}`
+  return String(result.score ?? `${result.home_score ?? '?'}-${result.away_score ?? '?'}`)
+}
+
+function SettlementAuditLog({ audits }: { audits: SettlementAuditRow[] }) {
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <h2 style={{ fontSize: 16, fontWeight: 800, color: C.text, margin: '0 0 16px' }}>
+        Match Settlement Audit
+      </h2>
+
+      {audits.length === 0 ? (
+        <div style={{
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
+          padding: '24px', textAlign: 'center', color: C.muted, fontSize: 13,
+        }}>
+          No match settlement runs for this period.
+        </div>
+      ) : (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 90px 90px 90px 100px 120px',
+            padding: '10px 16px',
+            borderBottom: `1px solid ${C.border}`,
+            fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+          }}>
+            <span>Match result</span>
+            <span>Status</span>
+            <span style={{ textAlign: 'right' }}>Bets</span>
+            <span style={{ textAlign: 'right' }}>Winnings</span>
+            <span style={{ textAlign: 'right' }}>Rake</span>
+            <span style={{ textAlign: 'right' }}>Date</span>
+          </div>
+
+          {audits.map(a => {
+            const statusColor = a.settlementStatus === 'SUCCESS' || a.settlementStatus === 'CANCELLED'
+              ? C.win
+              : a.settlementStatus === 'PARTIAL'
+                ? C.gold
+                : C.loss
+
+            return (
+              <div key={a.auditId} style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 90px 90px 90px 100px 120px',
+                padding: '11px 16px',
+                borderBottom: `1px solid ${C.border}`,
+                alignItems: 'center',
+                fontSize: 13,
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: C.text }}>{resultLabel(a.result)}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>
+                    {a.matchType} · {a.marketsSettled} settled
+                    {a.marketsSkipped > 0 ? ` · ${a.marketsSkipped} skipped` : ''}
+                    {a.failedCount > 0 ? ` · ${a.failedCount} failed` : ''}
+                  </div>
+                </div>
+                <span style={{
+                  width: 'fit-content',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  padding: '2px 7px',
+                  borderRadius: 7,
+                  background: `${statusColor}18`,
+                  color: statusColor,
+                }}>
+                  {a.settlementStatus}
+                </span>
+                <span style={{ textAlign: 'right', color: C.text }}>{a.betsAffected}</span>
+                <span style={{ textAlign: 'right', color: C.win, fontWeight: 700 }}>{fmt(a.totalWinningsPaid)}</span>
+                <span style={{ textAlign: 'right', color: C.gold, fontWeight: 700 }}>{fmt(a.totalRakeCollected)}</span>
+                <span style={{ textAlign: 'right', color: C.muted, fontSize: 12 }}>{fmtDate(a.createdAt)}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SettlementErrorLog({
+  errors,
+  onRetry,
+  retrying,
+}: {
+  errors: SettlementErrorRow[]
+  onRetry: () => void
+  retrying: boolean
+}) {
+  const openErrors = errors.filter(e => !e.resolvedAt)
+
+  return (
+    <div style={{ marginBottom: 32 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, color: C.text, margin: 0, flex: 1 }}>
+          Settlement Errors
+        </h2>
+        <button
+          onClick={onRetry}
+          disabled={retrying || openErrors.length === 0}
+          style={{
+            padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 800,
+            border: `1px solid ${openErrors.length > 0 ? C.loss : C.border}`,
+            background: openErrors.length > 0 ? `${C.loss}10` : 'transparent',
+            color: openErrors.length > 0 ? C.loss : C.muted,
+            cursor: retrying || openErrors.length === 0 ? 'default' : 'pointer',
+          }}
+        >
+          {retrying ? 'Retrying...' : `Retry open (${openErrors.length})`}
+        </button>
+      </div>
+
+      {errors.length === 0 ? (
+        <div style={{
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
+          padding: '24px', textAlign: 'center', color: C.muted, fontSize: 13,
+        }}>
+          No settlement errors.
+        </div>
+      ) : (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
+          {errors.map(e => (
+            <div key={e.errorId} style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${C.border}`,
+              display: 'grid',
+              gridTemplateColumns: '1fr 90px 120px',
+              gap: 12,
+              alignItems: 'center',
+              fontSize: 13,
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: e.resolvedAt ? C.text2 : C.loss, fontWeight: 700 }}>
+                  {e.errorMessage}
+                </div>
+                <div style={{ color: C.muted, fontSize: 11, marginTop: 3 }}>
+                  {e.matchType} · market {e.marketId?.slice(0, 8) ?? 'n/a'} · retries {e.retryCount}
+                </div>
+              </div>
+              <span style={{
+                width: 'fit-content',
+                fontSize: 11,
+                fontWeight: 800,
+                padding: '2px 7px',
+                borderRadius: 7,
+                background: e.resolvedAt ? `${C.win}18` : `${C.loss}18`,
+                color: e.resolvedAt ? C.win : C.loss,
+              }}>
+                {e.resolvedAt ? 'RESOLVED' : 'OPEN'}
+              </span>
+              <span style={{ textAlign: 'right', color: C.muted, fontSize: 12 }}>{fmtDate(e.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
   summary:   SettlementSummary | null
   players:   SettlementPlayerRow[]
   overrides: OverrideAuditRow[]
+  audits:    SettlementAuditRow[]
+  errors:    SettlementErrorRow[]
 }
 
-export function ReportsClient({ summary: initialSummary, players: initialPlayers, overrides: initialOverrides }: Props) {
+export function ReportsClient({
+  summary:   initialSummary,
+  players:   initialPlayers,
+  overrides: initialOverrides,
+  audits:    initialAudits,
+  errors:    initialErrors,
+}: Props) {
   const [summary,   setSummary]   = useState(initialSummary)
   const [players,   setPlayers]   = useState(initialPlayers)
   const [overrides, setOverrides] = useState(initialOverrides)
+  const [audits,    setAudits]    = useState(initialAudits)
+  const [errors,    setErrors]    = useState(initialErrors)
   const [period, setPeriod]       = useState(30)
   const [loading, start]          = useTransition()
+  const [retrying, startRetry]    = useTransition()
+  const [finalizing, startFinalize] = useTransition()
 
   function changePeriod(days: number) {
     setPeriod(days)
@@ -397,7 +585,35 @@ export function ReportsClient({ summary: initialSummary, players: initialPlayers
       ])
       setSummary(result.summary)
       setPlayers(result.players)
+      setAudits(result.audits)
+      setErrors(result.errors)
       setOverrides(newOverrides)
+    })
+  }
+
+  function retryOpenErrors() {
+    startRetry(async () => {
+      await retryFailedSettlementsAction(20)
+      const to   = new Date()
+      const from = new Date(Date.now() - period * 24 * 60 * 60 * 1000)
+      const result = await getSettlementReportAction(from, to)
+      setSummary(result.summary)
+      setPlayers(result.players)
+      setAudits(result.audits)
+      setErrors(result.errors)
+    })
+  }
+
+  function finalizeDue() {
+    startFinalize(async () => {
+      await finalizeDueMatchesAction()
+      const to   = new Date()
+      const from = new Date(Date.now() - period * 24 * 60 * 60 * 1000)
+      const result = await getSettlementReportAction(from, to)
+      setSummary(result.summary)
+      setPlayers(result.players)
+      setAudits(result.audits)
+      setErrors(result.errors)
     })
   }
 
@@ -422,6 +638,20 @@ export function ReportsClient({ summary: initialSummary, players: initialPlayers
           </button>
         ))}
         {loading && <span style={{ fontSize: 13, color: C.muted, alignSelf: 'center' }}>Loading…</span>}
+        <div style={{ flex: 1 }} />
+        <button
+          onClick={finalizeDue}
+          disabled={finalizing}
+          style={{
+            padding: '7px 18px', borderRadius: 8, fontSize: 13, fontWeight: 800,
+            cursor: finalizing ? 'wait' : 'pointer',
+            border: `1px solid ${C.win}`,
+            background: `${C.win}10`,
+            color: C.win,
+          }}
+        >
+          {finalizing ? 'Finalizing...' : 'Finalize due matches'}
+        </button>
       </div>
 
       {summary ? (
@@ -443,6 +673,8 @@ export function ReportsClient({ summary: initialSummary, players: initialPlayers
         onExport={() => exportPlayersCSV(players)}
       />
 
+      <SettlementAuditLog audits={audits} />
+      <SettlementErrorLog errors={errors} onRetry={retryOpenErrors} retrying={retrying} />
       <OverrideLog overrides={overrides} />
     </div>
   )

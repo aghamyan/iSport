@@ -116,64 +116,55 @@ function EditMatchModal({ match, onClose }: { match: Match; onClose: () => void 
   )
 }
 
-function MatchRow({ match }: { match: Match }) {
+function MatchRow({
+  match,
+  deleting,
+  onEdit,
+  onDelete,
+}: {
+  match: Match
+  deleting: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const { t } = useTranslation()
-  const [editing, setEditing]   = useState(false)
-  const [confirm, setConfirm]   = useState(false)
-  const [pending, start]        = useTransition()
   const sc = STATUS_COLORS[match.status]
 
-  function doDelete() {
-    start(async () => {
-      await adminDeleteFriendlyMatchAction(match.id)
-      setConfirm(false)
-    })
-  }
-
   return (
-    <>
-      <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-        <td style={{ padding: '12px 16px', fontSize: 13 }}>
-          <div style={{ fontWeight: 600, color: '#111827' }}>
-            {match.homePlayer} <span style={{ color: '#9ca3af' }}>vs</span> {match.awayPlayer}
-          </div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
-            {new Date(match.createdAt).toLocaleDateString()}
-          </div>
-        </td>
-        <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 700, fontSize: 15 }}>
-          {match.homeScore !== null ? `${match.homeScore} – ${match.awayScore}` : '— : —'}
-        </td>
-        <td style={{ padding: '12px 16px' }}>
-          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {match.status}
-          </span>
-        </td>
-        <td style={{ padding: '12px 16px' }}>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => setEditing(true)} style={S.btn('#374151', '#f3f4f6')}>{t('common.edit')}</button>
-            <button onClick={() => setConfirm(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
-          </div>
-        </td>
-      </tr>
-      {editing && <EditMatchModal match={match} onClose={() => setEditing(false)} />}
-      {confirm && (
-        <ConfirmDialog
-          title={t('admin.matches.deleteTitle')}
-          message={t('admin.matches.deleteMsg', { home: match.homePlayer, away: match.awayPlayer })}
-          confirmLabel={t('common.delete')}
-          danger
-          onConfirm={doDelete}
-          onCancel={() => setConfirm(false)}
-        />
-      )}
-    </>
+    <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+      <td style={{ padding: '12px 16px', fontSize: 13 }}>
+        <div style={{ fontWeight: 600, color: '#111827' }}>
+          {match.homePlayer} <span style={{ color: '#9ca3af' }}>vs</span> {match.awayPlayer}
+        </div>
+        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+          {new Date(match.createdAt).toLocaleDateString()}
+        </div>
+      </td>
+      <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 700, fontSize: 15 }}>
+        {match.homeScore !== null ? `${match.homeScore} – ${match.awayScore}` : '— : —'}
+      </td>
+      <td style={{ padding: '12px 16px' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: sc.bg, color: sc.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          {match.status}
+        </span>
+      </td>
+      <td style={{ padding: '12px 16px' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={onEdit} style={S.btn('#374151', '#f3f4f6')}>{t('common.edit')}</button>
+          <button onClick={onDelete} disabled={deleting} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
+        </div>
+      </td>
+    </tr>
   )
 }
 
 export function MatchesAdminClient({ matches }: Props) {
   const { t } = useTranslation()
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'final'>('all')
+  const [editing, setEditing] = useState<Match | null>(null)
+  const [confirming, setConfirming] = useState<Match | null>(null)
+  const [deleteError, setDeleteError] = useState('')
+  const [pending, start] = useTransition()
 
   const visible = filter === 'all' ? matches : matches.filter((m) => m.status === filter)
 
@@ -182,6 +173,20 @@ export function MatchesAdminClient({ matches }: Props) {
     pending:   t('admin.status.pending'),
     confirmed: t('admin.status.confirmed'),
     final:     t('admin.status.final'),
+  }
+
+  function doDelete() {
+    if (!confirming) return
+
+    start(async () => {
+      try {
+        setDeleteError('')
+        await adminDeleteFriendlyMatchAction(confirming.id)
+        setConfirming(null)
+      } catch (e) {
+        setDeleteError(e instanceof Error ? e.message : t('home.err.failedDelete'))
+      }
+    })
   }
 
   return (
@@ -216,6 +221,12 @@ export function MatchesAdminClient({ matches }: Props) {
         </div>
       </div>
 
+      {deleteError && (
+        <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', fontSize: 13, fontWeight: 600 }}>
+          {deleteError}
+        </div>
+      )}
+
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -231,13 +242,38 @@ export function MatchesAdminClient({ matches }: Props) {
             </tr>
           </thead>
           <tbody>
-            {visible.map((m) => <MatchRow key={m.id} match={m} />)}
+            {visible.map((m) => (
+              <MatchRow
+                key={m.id}
+                match={m}
+                deleting={pending && confirming?.id === m.id}
+                onEdit={() => setEditing(m)}
+                onDelete={() => {
+                  setDeleteError('')
+                  setConfirming(m)
+                }}
+              />
+            ))}
           </tbody>
         </table>
         {visible.length === 0 && (
           <div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>{t('admin.matches.noMatches')}</div>
         )}
       </div>
+
+      {editing && <EditMatchModal match={editing} onClose={() => setEditing(null)} />}
+      {confirming && (
+        <ConfirmDialog
+          title={t('admin.matches.deleteTitle')}
+          message={t('admin.matches.deleteMsg', { home: confirming.homePlayer, away: confirming.awayPlayer })}
+          confirmLabel={pending ? t('common.deleting') : t('common.delete')}
+          danger
+          onConfirm={doDelete}
+          onCancel={() => {
+            if (!pending) setConfirming(null)
+          }}
+        />
+      )}
     </div>
   )
 }

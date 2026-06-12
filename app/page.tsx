@@ -76,7 +76,7 @@ export default async function HomePage() {
     supabase.from('users').select('avatar_url').eq('id', session.sub).single(),
     supabase
       .from('friendly_matches')
-      .select('id, home_player_id, away_player_id')
+      .select('id, status, created_at, home_player_id, away_player_id')
       .or(`home_player_id.eq.${session.sub},away_player_id.eq.${session.sub}`)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
@@ -181,6 +181,8 @@ export default async function HomePage() {
 
     return {
       id:                 match.id as string,
+      status:             match.status as string,
+      createdAt:          match.created_at as string,
       homePlayerId:       homeId,
       homePlayerName:     playerName(homeId),
       homePlayerAvatarUrl: playerAvatar(homeId),

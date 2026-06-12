@@ -85,7 +85,7 @@ create table bet_markets (
   -- Options: { "option1": {"key":"home","label":"Team A"},
   --            "option2": {"key":"draw","label":"Draw"},
   --            "option3": {"key":"away","label":"Team B"} }
-  -- option3 is nullable (e.g. BTTS only has 2 options)
+  -- Markets may define option4+ (for example Exact Score).
   options             jsonb         not null,
 
   -- Current live odds: { "option1": 1.85, "option2": 3.20, "option3": 1.95 }
@@ -99,8 +99,8 @@ create table bet_markets (
 
   status              market_status not null default 'OPEN',
 
-  -- Which option key won (set when settled): 'option1' | 'option2' | 'option3'
-  result              text          check (result in ('option1','option2','option3')),
+  -- Which option key won (set when settled): option1, option2, option3...
+  result              text          check (result is null or result ~ '^option[0-9]+$'),
 
   created_by          uuid          not null references users(id) on delete restrict,
   created_at          timestamptz   not null default now(),
@@ -139,8 +139,8 @@ create table bets (
 
   -- For SINGLE bets: the market being bet on
   market_id            uuid          references bet_markets(market_id) on delete restrict,
-  -- For SINGLE bets: 'option1' | 'option2' | 'option3'
-  selected_option      text          check (selected_option in ('option1','option2','option3')),
+  -- For SINGLE bets: option1, option2, option3...
+  selected_option      text          check (selected_option is null or selected_option ~ '^option[0-9]+$'),
   -- Odds snapshot at time of placement (single bet)
   odds_at_placement    numeric(8,4),
 
@@ -183,7 +183,7 @@ create table parlay_legs (
   bet_id             uuid          not null references bets(bet_id) on delete cascade,
   leg_order          smallint      not null check (leg_order >= 1),
   market_id          uuid          not null references bet_markets(market_id) on delete restrict,
-  selected_option    text          not null check (selected_option in ('option1','option2','option3')),
+  selected_option    text          not null check (selected_option ~ '^option[0-9]+$'),
   odds_at_placement  numeric(8,4)  not null check (odds_at_placement > 1),
   result             leg_result    not null default 'PENDING',
   settled_at         timestamptz,
@@ -523,7 +523,7 @@ $$;
 -- ──────────────────────────────────────────────────────────────
 -- FUNCTION: settle_market
 -- Settles all PENDING bets on a market in one call.
--- Admin passes the winning option key ('option1'|'option2'|'option3').
+-- Admin passes the winning option key (option1, option2, option3...).
 -- ──────────────────────────────────────────────────────────────
 create or replace function settle_market(
   p_market_id      uuid,
@@ -540,8 +540,17 @@ declare
   v_count    int := 0;
   v_leg      parlay_legs%rowtype;
 begin
-  if p_winning_option not in ('option1','option2','option3') then
+  if p_winning_option is null or p_winning_option !~ '^option[0-9]+$' then
     raise exception 'Invalid winning option "%".', p_winning_option;
+  end if;
+
+  if not exists (
+    select 1
+    from bet_markets
+    where market_id = p_market_id
+      and options ? p_winning_option
+  ) then
+    raise exception 'Option "%" does not exist for market %.', p_winning_option, p_market_id;
   end if;
 
   -- Mark market settled
