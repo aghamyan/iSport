@@ -41,9 +41,9 @@ export function BottomNav({ userId }: { userId: string }) {
         disabled={pending}
         title={t('common.signOut')}
         style={{
-          position: 'fixed', top: 12, right: 12, zIndex: 51,
+          position: 'fixed', top: 10, right: 12, zIndex: 51,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 32, height: 32, borderRadius: '50%',
+          width: 40, height: 40, borderRadius: '50%',
           background: 'rgba(12,20,34,0.85)', backdropFilter: 'blur(10px)',
           border: `1px solid ${BORDER}`,
           color: pending ? '#2a3a52' : MUTED,

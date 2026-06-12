@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Trophy, Medal } from 'lucide-react'
+import { AnimatedShinyText } from '@/app/components/magicui/animated-shiny-text'
+import { Meteors } from '@/app/components/magicui/meteors'
 import type { NamedPlayerStats, ChampionshipLeader } from '@/lib/stats/types'
 import type { RivalryItem } from './HomeLoggedIn'
 import { useTranslation } from '@/lib/i18n/context'
@@ -39,6 +42,17 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
   return (
     <div style={{ minHeight: '100svh', background: BG, fontFamily: 'system-ui, sans-serif', color: TEXT }}>
 
+      <style>{`
+        .lo-leaderboard-row { transition: background .15s ease; cursor: default; }
+        .lo-leaderboard-row:hover { background: rgba(30,45,69,0.75) !important; }
+        .lo-leaderboard-row-gold:hover { background: rgba(25,18,2,0.9) !important; }
+        .lo-champ-card { transition: background .15s ease, border-color .15s ease; }
+        .lo-champ-card:hover { border-color: rgba(245,158,11,0.5) !important; }
+        .lo-rivalry-card { transition: background .15s ease, border-color .15s ease; }
+        .lo-rivalry-card:hover { background: rgba(22,36,60,0.9) !important; border-color: rgba(59,130,246,0.3) !important; }
+        .lo-tab-btn { transition: color .15s ease; }
+      `}</style>
+
       {/* ── Sticky header ─────────────────────────────────────────── */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 40,
@@ -63,10 +77,16 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         background: 'linear-gradient(160deg, #0f2545 0%, #1a0a3e 55%, #0d1a35 100%)',
         borderBottom: `1px solid ${BORDER}`,
         textAlign: 'center',
+        position: 'relative',
+        overflow: 'hidden',
       }}>
-        <div style={{ fontSize: 48, marginBottom: 10, lineHeight: 1 }}>⚽</div>
+        <Meteors number={10} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+          <Trophy size={52} style={{ color: ACCENT }} />
+        </div>
         <h1 style={{ margin: '0 0 8px', fontSize: 30, fontWeight: 900, letterSpacing: '-0.03em', color: TEXT }}>
-          FC26 Tracker
+          <AnimatedShinyText style={{ color: TEXT }}>FC26 Tracker</AnimatedShinyText>
         </h1>
         <p style={{ margin: '0 0 28px', fontSize: 15, color: '#94a3b8', maxWidth: 280, marginLeft: 'auto', marginRight: 'auto' }}>
           {t('out.tagline')}
@@ -80,6 +100,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         }}>
           {t('out.getStarted')}
         </Link>
+        </div>{/* /relative z-1 */}
       </div>
 
       {/* ── Tabs ──────────────────────────────────────────────────── */}
@@ -89,7 +110,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         position: 'sticky', top: 57, zIndex: 30,
       }}>
         {([['stats', t('out.tab.stats')], ['rivalries', t('out.tab.rivalries')]] as [Tab, string][]).map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
+          <button key={id} onClick={() => setTab(id)} className="lo-tab-btn" style={{
             flex: 1, padding: '13px', background: 'none', border: 'none',
             borderBottom: `2px solid ${tab === id ? ACCENT : 'transparent'}`,
             marginBottom: -1, cursor: 'pointer',
@@ -114,7 +135,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
                 <Empty text={t('out.noPlayers')} />
               )}
               {top.map((p, i) => (
-                <div key={p.id} style={{
+                <div key={p.id} className={i === 0 ? 'lo-leaderboard-row lo-leaderboard-row-gold' : 'lo-leaderboard-row'} style={{
                   ...(i === 0
                     ? { background: '#150e00', border: '1px solid #f59e0b44' }
                     : { background: CARD, border: `1px solid ${BORDER}` }),
@@ -150,7 +171,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
                 <SectionHeader label={t('out.activeChamps')} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 28 }}>
                   {activeChamps.map((c) => (
-                    <div key={c.championshipId} style={{
+                    <div key={c.championshipId} className="lo-champ-card" style={{
                       background: '#150e00', border: '1px solid #f59e0b33',
                       borderRadius: 10, padding: '14px 16px',
                     }}>
@@ -158,7 +179,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
                         {c.championshipName}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 18 }}>🏆</span>
+                        <Trophy size={20} style={{ color: '#f59e0b', flexShrink: 0 }} />
                         <PlayerAvatar name={c.playerName} avatarUrl={c.avatarUrl} size={28} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -187,7 +208,7 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
             {rivalries.length === 0 && <Empty text={t('out.noRivalries')} />}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {rivalries.map((r) => (
-                <div key={r.id} style={{
+                <div key={r.id} className="lo-rivalry-card" style={{
                   background: CARD, border: `1px solid ${BORDER}`,
                   borderRadius: 10, padding: '14px 16px',
                 }}>
@@ -255,11 +276,24 @@ function Empty({ text }: { text: string }) {
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  const label = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank
-  const color = rank === 1 ? '#f59e0b' : rank === 2 ? '#94a3b8' : rank === 3 ? '#cd7c3a' : MUTED
+  if (rank === 1) return (
+    <div style={{ minWidth: 22, textAlign: 'center', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+      <Trophy size={18} style={{ color: '#f59e0b' }} />
+    </div>
+  )
+  if (rank === 2) return (
+    <div style={{ minWidth: 22, textAlign: 'center', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+      <Medal size={18} style={{ color: '#94a3b8' }} />
+    </div>
+  )
+  if (rank === 3) return (
+    <div style={{ minWidth: 22, textAlign: 'center', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+      <Medal size={18} style={{ color: '#cd7c3a' }} />
+    </div>
+  )
   return (
-    <div style={{ minWidth: 22, textAlign: 'center', fontSize: rank <= 3 ? 18 : 12, fontWeight: 800, color, flexShrink: 0 }}>
-      {label}
+    <div style={{ minWidth: 22, textAlign: 'center', fontSize: 12, fontWeight: 800, color: MUTED, flexShrink: 0 }}>
+      {rank}
     </div>
   )
 }

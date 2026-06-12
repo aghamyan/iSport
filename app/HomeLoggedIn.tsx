@@ -11,6 +11,9 @@ import type { ActivePlayer } from '@/app/matches/CreateMatchModal'
 import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader, CurrentChampion } from '@/lib/stats/types'
 import { BottomNav } from '@/app/components/BottomNav'
 import { BetNotificationCenter } from '@/app/components/BetNotificationCenter'
+import { NumberTicker } from '@/app/components/magicui/number-ticker'
+import { Meteors } from '@/app/components/magicui/meteors'
+import { ShimmerButton } from '@/app/components/magicui/shimmer-button'
 import { logoutAction } from '@/lib/auth/actions'
 import { confirmMatchAction, deleteMatchAction } from '@/app/matches/actions'
 import { useTranslation } from '@/lib/i18n/context'
@@ -230,6 +233,17 @@ export function HomeLoggedIn({
         .rival-card { animation: slide-up .4s ease both; }
         .rival-card:nth-child(2) { animation-delay:.06s; }
         .rival-card:nth-child(3) { animation-delay:.12s; }
+        .nav-card { transition: transform .15s ease, border-color .15s ease, background .15s ease; cursor: pointer; }
+        .nav-card:hover { transform: translateY(-2px); border-color: rgba(59,130,246,0.4) !important; background: rgba(20,35,60,0.9) !important; }
+        .nav-card:active { transform: scale(0.96); opacity: 0.85; }
+        .champ-past-row { transition: background .15s ease; }
+        .champ-past-row:hover { background: rgba(28,44,70,0.9) !important; }
+        .champ-past-row:active { opacity: 0.8; }
+        .rival-link-row { transition: filter .15s ease; }
+        .rival-link-row:hover { filter: brightness(1.08); }
+        .rival-link-row:active { filter: brightness(0.9); }
+        .header-btn { transition: background .15s ease, color .15s ease; }
+        .header-btn:hover { background: rgba(255,255,255,0.1) !important; color: #cbd5e1 !important; }
       `}</style>
 
       {/* ── Sticky header ─────────────────────────────────────────── */}
@@ -252,19 +266,21 @@ export function HomeLoggedIn({
           {isAdmin && (
             <button
               onClick={() => setShowAdminPrompt(true)}
+              className="header-btn"
               style={{
-                fontSize: 11, color: MUTED, background: 'rgba(255,255,255,0.05)',
-                padding: '4px 10px', border: `1px solid ${BORDER}`, borderRadius: 6, cursor: 'pointer',
+                fontSize: 12, color: MUTED, background: 'rgba(255,255,255,0.05)',
+                padding: '8px 12px', border: `1px solid ${BORDER}`, borderRadius: 8,
+                cursor: 'pointer', minHeight: 36,
               }}
             >
               {t('common.admin')}
             </button>
           )}
           <form action={logoutAction}>
-            <button type="submit" style={{
-              fontSize: 11, color: MUTED, background: 'none',
-              border: `1px solid ${BORDER}`, borderRadius: 6,
-              padding: '4px 10px', cursor: 'pointer',
+            <button type="submit" className="header-btn" style={{
+              fontSize: 12, color: MUTED, background: 'none',
+              border: `1px solid ${BORDER}`, borderRadius: 8,
+              padding: '8px 12px', cursor: 'pointer', minHeight: 36,
             }}>
               {t('common.signOut')}
             </button>
@@ -294,7 +310,10 @@ export function HomeLoggedIn({
         backgroundSize: '300% 300%',
         animation: 'hero-shift 9s ease infinite',
         borderBottom: `1px solid ${BORDER}`,
+        position: 'relative',
+        overflow: 'hidden',
       }}>
+        <Meteors number={14} />
         <div style={{ maxWidth: 480, margin: '0 auto' }}>
 
           {/* Avatar + name */}
@@ -362,7 +381,7 @@ export function HomeLoggedIn({
                 background: bg, border: `1px solid ${bd}`,
                 borderRadius: 12, padding: '12px 4px', textAlign: 'center',
               }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+                <NumberTicker value={value} style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1, display: 'block' }} />
                 <div style={{ fontSize: 9, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 5 }}>
                   {label}
                 </div>
@@ -380,8 +399,8 @@ export function HomeLoggedIn({
                 <span style={{ fontSize: 9, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
                   {t('common.winRate')}
                 </span>
-                <span style={{ fontSize: 14, fontWeight: 900, color: winRate >= 60 ? WIN : winRate >= 40 ? DRAW : TEXT2 }}>
-                  {winRate}%
+                <span style={{ fontSize: 14, fontWeight: 900, color: winRate >= 60 ? WIN : winRate >= 40 ? DRAW : TEXT2, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+                  <NumberTicker value={winRate} style={{ color: 'inherit' }} />%
                 </span>
               </div>
               <div style={{ height: 5, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' }}>
@@ -406,8 +425,10 @@ export function HomeLoggedIn({
               <div style={{
                 fontSize: 20, fontWeight: 900,
                 color: stats.goalDiff > 0 ? WIN : stats.goalDiff < 0 ? LOSS : TEXT2,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
               }}>
-                {stats.goalDiff > 0 ? `+${stats.goalDiff}` : stats.goalDiff}
+                {stats.goalDiff > 0 && <span>+</span>}
+                <NumberTicker value={stats.goalDiff} style={{ color: 'inherit' }} />
               </div>
             </div>
           </div>
@@ -467,21 +488,19 @@ export function HomeLoggedIn({
         )}
 
         {/* ── Add match CTA ─────────────────────────────────────── */}
-        <button
+        <ShimmerButton
           onClick={() => setShowAddMatch(true)}
           style={{
             width: '100%', padding: '16px',
-            background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)',
-            color: '#fff', border: 'none', borderRadius: 14, cursor: 'pointer',
-            fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em',
+            color: '#fff', fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em',
             boxShadow: '0 4px 30px rgba(37,99,235,0.45)',
             marginBottom: 16,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            gap: 8,
           }}
         >
           <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
           {t('home.recordMatch')}
-        </button>
+        </ShimmerButton>
 
         {/* ── Quick nav ─────────────────────────────────────────── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 30 }}>
@@ -491,7 +510,7 @@ export function HomeLoggedIn({
             { label: t('home.quickNav.rivalries'),     href: '/rivalries',     icon: <Swords   size={22} style={{ color: '#a78bfa' }} /> },
           ] as { label: string; href: string; icon: ReactNode }[]).map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
-              <div style={{
+              <div className="nav-card" style={{
                 background: CARD, border: `1px solid ${BORDER}`,
                 borderRadius: 12, padding: '14px 8px', textAlign: 'center',
               }}>
@@ -596,7 +615,7 @@ export function HomeLoggedIn({
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {activeRivalries.map((r) => (
-                <Link key={r.id} href={`/rivalries/${r.id}`} style={{ textDecoration: 'none' }} className="rival-card">
+                <Link key={r.id} href={`/rivalries/${r.id}`} style={{ textDecoration: 'none' }} className="rival-card rival-link-row">
                   <RivalryCard rivalry={r} userId={userId} />
                 </Link>
               ))}
@@ -613,7 +632,7 @@ export function HomeLoggedIn({
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {completedChamps.slice(0, 3).map((c) => (
                 <Link key={c.championshipId} href={`/championships/${c.championshipId}`} style={{ textDecoration: 'none' }}>
-                  <div style={{
+                  <div className="champ-past-row" style={{
                     background: CARD, border: `1px solid ${BORDER}`,
                     borderRadius: 10, padding: '10px 14px',
                     display: 'flex', alignItems: 'center', gap: 12,
@@ -663,18 +682,18 @@ export function HomeLoggedIn({
                 <span key={i}>{line}{i === 0 && <br />}</span>
               ))}
             </div>
-            <button
+            <ShimmerButton
               onClick={() => setShowAddMatch(true)}
+              borderRadius="10px"
               style={{
                 padding: '12px 32px',
-                background: 'linear-gradient(135deg,#2563eb,#7c3aed)',
-                color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer',
+                color: '#fff',
                 fontSize: 15, fontWeight: 800,
                 boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
               }}
             >
               {t('home.recordFirstMatch')}
-            </button>
+            </ShimmerButton>
           </div>
         )}
       </div>
