@@ -9,7 +9,7 @@ import { H2HSection } from './H2HSection'
 import { fetchMoreMatchesAction } from '../actions'
 import { logoutAction } from '@/lib/auth/actions'
 import { uploadAvatarAction } from '@/lib/auth/avatarAction'
-import { uploadIntroVideoAction, removeIntroVideoAction } from '@/lib/auth/introVideoAction'
+import { getSignedUploadUrlAction, finalizeVideoUploadAction, removeIntroVideoAction } from '@/lib/auth/introVideoAction'
 import { BottomNav } from '@/app/components/BottomNav'
 import { useTranslation } from '@/lib/i18n/context'
 
@@ -117,6 +117,64 @@ function IntroStyles() {
       @keyframes intro-video-name {
         0%   { opacity: 0; transform: translateY(10px) scale(1.05); }
         100% { opacity: 1; transform: translateY(0)    scale(1); }
+      }
+      @keyframes flash-in {
+        0%   { opacity: 0.25; }
+        40%  { opacity: 0; }
+        100% { opacity: 0; }
+      }
+      @keyframes scan-sweep {
+        0%   { transform: translateY(0);    opacity: 0.9; }
+        100% { transform: translateY(100vh); opacity: 0; }
+      }
+      @keyframes video-border-glow {
+        0%, 100% {
+          box-shadow:
+            inset 0 0 0 1px rgba(251,191,36,0.22),
+            inset 0 0 50px 0 rgba(251,191,36,0.04);
+        }
+        50% {
+          box-shadow:
+            inset 0 0 0 1px rgba(251,191,36,0.55),
+            inset 0 0 70px 12px rgba(251,191,36,0.10);
+        }
+      }
+      @keyframes corner-in-tl {
+        0%   { opacity: 0; transform: translate(-14px, -14px); }
+        100% { opacity: 1; transform: translate(0, 0); }
+      }
+      @keyframes corner-in-tr {
+        0%   { opacity: 0; transform: translate(14px, -14px); }
+        100% { opacity: 1; transform: translate(0, 0); }
+      }
+      @keyframes corner-in-bl {
+        0%   { opacity: 0; transform: translate(-14px, 14px); }
+        100% { opacity: 1; transform: translate(0, 0); }
+      }
+      @keyframes corner-in-br {
+        0%   { opacity: 0; transform: translate(14px, 14px); }
+        100% { opacity: 1; transform: translate(0, 0); }
+      }
+      @keyframes diamond-pulse {
+        0%, 100% { opacity: 0.5;  transform: rotate(45deg) scale(1);   }
+        50%       { opacity: 1;    transform: rotate(45deg) scale(1.5); }
+      }
+      @keyframes name-glow-pulse {
+        0%, 100% { text-shadow: 0 0 18px rgba(251,191,36,0.4), 0 0 6px rgba(251,191,36,0.15); }
+        50%       { text-shadow: 0 0 32px rgba(251,191,36,0.85), 0 0 14px rgba(251,191,36,0.4), 0 0 55px rgba(251,191,36,0.18); }
+      }
+      @keyframes eyebrow-in {
+        from { opacity: 0; letter-spacing: 0.55em; }
+        to   { opacity: 0.65; letter-spacing: 0.28em; }
+      }
+      @keyframes gold-particle-float {
+        0%   { transform: translateY(0)     scale(1);   opacity: 0; }
+        15%  {                                           opacity: 1; }
+        85%  {                                           opacity: 0.8; }
+        100% { transform: translateY(-90px) scale(0.2); opacity: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
       }
     `}</style>
   )
@@ -293,6 +351,17 @@ function AvatarIntroOverlay({
 }
 
 // ── Cinematic video intro ────────────────────────────────────
+const VIDEO_PARTICLES = [
+  { top: '28%', left:  '7%', delay: '0.2s', dur: '2.8s', size: 3 },
+  { top: '38%', left: '91%', delay: '1.1s', dur: '3.2s', size: 2 },
+  { top: '53%', left:  '5%', delay: '0.7s', dur: '2.5s', size: 4 },
+  { top: '62%', left: '92%', delay: '1.5s', dur: '3.0s', size: 2 },
+  { top: '72%', left: '13%', delay: '0.0s', dur: '2.7s', size: 3 },
+  { top: '45%', left: '94%', delay: '2.0s', dur: '3.5s', size: 2 },
+  { top: '22%', left: '87%', delay: '0.5s', dur: '2.9s', size: 3 },
+  { top: '76%', left: '79%', delay: '1.8s', dur: '2.6s', size: 2 },
+]
+
 function VideoIntroOverlay({
   videoUrl,
   playerName,
@@ -304,11 +373,21 @@ function VideoIntroOverlay({
 }) {
   const { t } = useTranslation()
   const [opacity, setOpacity] = useState(1)
+  const [isForcedMuted, setIsForcedMuted] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      videoRef.current?.play().catch(() => {})
+    const timer = setTimeout(async () => {
+      const video = videoRef.current
+      if (!video) return
+      try {
+        video.muted = false
+        await video.play()
+      } catch {
+        video.muted = true
+        setIsForcedMuted(true)
+        video.play().catch(() => {})
+      }
     }, 100)
     return () => clearTimeout(timer)
   }, [])
@@ -319,6 +398,13 @@ function VideoIntroOverlay({
     if (e.target === e.currentTarget && opacity === 0) onDismiss()
   }
 
+  function unmuteVideo() {
+    if (videoRef.current) {
+      videoRef.current.muted = false
+      setIsForcedMuted(false)
+    }
+  }
+
   return (
     <div
       onTransitionEnd={handleTransitionEnd}
@@ -327,78 +413,203 @@ function VideoIntroOverlay({
         opacity, transition: 'opacity 0.6s ease',
       }}
     >
-      {/* Video fills screen */}
+      {/* Gold flash reveal */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 20, pointerEvents: 'none',
+        background: 'rgba(251,191,36,0.10)',
+        animation: 'flash-in 0.85s ease-out both',
+      }} />
+
+      {/* Video */}
       <video
         ref={videoRef}
         src={videoUrl}
-        muted
         playsInline
         onEnded={dismiss}
         style={{
-          position: 'absolute', inset: 0,
+          position: 'absolute', inset: 0, zIndex: 1,
           width: '100%', height: '100%', objectFit: 'contain',
         }}
       />
 
-      {/* Bottom vignette gradient */}
+      {/* CRT scanlines */}
       <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        height: '32%',
-        background:
-          'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.55) 50%, transparent 100%)',
-        pointerEvents: 'none', zIndex: 1,
+        position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none',
+        backgroundImage:
+          'repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.045) 3px, rgba(0,0,0,0.045) 4px)',
       }} />
 
-      {/* Top cinematic letterbox bar */}
+      {/* Cinematic scan sweep line */}
+      <div style={{
+        position: 'absolute', top: 58, left: 0, right: 0,
+        height: 2, zIndex: 4, pointerEvents: 'none',
+        background:
+          'linear-gradient(90deg, transparent 0%, rgba(251,191,36,0.55) 25%, rgba(255,255,255,0.85) 50%, rgba(251,191,36,0.55) 75%, transparent 100%)',
+        animation: 'scan-sweep 1.1s 0.25s ease-out both',
+      }} />
+
+      {/* Pulsing border frame */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none',
+        animation: 'video-border-glow 2.8s 1.2s ease-in-out infinite',
+      }} />
+
+      {/* Gold particles */}
+      {VIDEO_PARTICLES.map((p, i) => (
+        <div key={i} style={{
+          position: 'absolute', top: p.top, left: p.left, zIndex: 6,
+          width: p.size, height: p.size, borderRadius: '50%',
+          background: '#fbbf24',
+          boxShadow: `0 0 ${p.size * 3}px ${p.size + 1}px rgba(251,191,36,0.65)`,
+          animation: `gold-particle-float ${p.dur} ${p.delay} ease-in-out infinite`,
+          pointerEvents: 'none',
+        }} />
+      ))}
+
+      {/* Side + bottom vignettes */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: '42%',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.6) 40%, transparent 100%)',
+        pointerEvents: 'none', zIndex: 7,
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 7, pointerEvents: 'none',
+        background:
+          'radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(0,0,0,0.6) 100%)',
+      }} />
+
+      {/* Top letterbox */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 58,
-        background: '#000', zIndex: 2,
+        background: '#000', zIndex: 8,
         animation: 'intro-letterbox-top 0.38s cubic-bezier(0.4,0,0.2,1) both',
-      }} />
-
-      {/* Bottom letterbox nameplate */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: 74,
-        background: '#000', zIndex: 2,
-        animation: 'intro-letterbox-bottom 0.38s cubic-bezier(0.4,0,0.2,1) both',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
       }}>
-        {/* Left accent line */}
         <div style={{
-          flex: '0 0 48px', height: 1,
-          background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.38))',
-        }} />
-        <h2 style={{
-          margin: 0, fontSize: 18, fontWeight: 900, color: '#fff',
-          letterSpacing: '0.22em', textTransform: 'uppercase',
-          textShadow: '0 0 22px rgba(255,255,255,0.28)',
-          animation: 'intro-video-name 0.52s 0.4s both ease-out',
-          whiteSpace: 'nowrap',
-        }}>
-          {playerName}
-        </h2>
-        {/* Right accent line */}
-        <div style={{
-          flex: '0 0 48px', height: 1,
-          background: 'linear-gradient(to left, transparent, rgba(255,255,255,0.38))',
+          position: 'absolute', bottom: 0, left: 0, right: 0, height: 1,
+          background:
+            'linear-gradient(90deg, transparent, rgba(251,191,36,0.65) 20%, rgba(251,191,36,0.65) 80%, transparent)',
         }} />
       </div>
 
-      {/* Skip sits inside the top bar */}
+      {/* Bottom nameplate */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 92,
+        background: 'linear-gradient(to top, #000 65%, rgba(0,0,0,0.88) 100%)',
+        zIndex: 8,
+        animation: 'intro-letterbox-bottom 0.38s cubic-bezier(0.4,0,0.2,1) both',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 5,
+      }}>
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+          background:
+            'linear-gradient(90deg, transparent, rgba(251,191,36,0.65) 20%, rgba(251,191,36,0.65) 80%, transparent)',
+        }} />
+
+        {/* Eyebrow */}
+        <div style={{
+          fontSize: 9, fontWeight: 700, color: 'rgba(251,191,36,0.7)',
+          letterSpacing: '0.28em', textTransform: 'uppercase',
+          animation: 'eyebrow-in 0.5s 0.55s both ease-out',
+        }}>
+          PLAYER
+        </div>
+
+        {/* Name row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14,
+          animation: 'intro-video-name 0.55s 0.35s both ease-out',
+        }}>
+          <div style={{
+            flex: '0 0 52px', height: 1,
+            background: 'linear-gradient(to right, transparent, rgba(251,191,36,0.75))',
+          }} />
+          <div style={{
+            width: 5, height: 5, background: 'rgba(251,191,36,0.9)',
+            flexShrink: 0,
+            animation: 'diamond-pulse 2s 1.1s ease-in-out infinite',
+            transform: 'rotate(45deg)',
+          }} />
+          <h2 style={{
+            margin: 0, fontSize: 18, fontWeight: 900, color: '#fff',
+            letterSpacing: '0.2em', textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            animation: 'name-glow-pulse 2.8s 1.3s ease-in-out infinite',
+          }}>
+            {playerName}
+          </h2>
+          <div style={{
+            width: 5, height: 5, background: 'rgba(251,191,36,0.9)',
+            flexShrink: 0,
+            animation: 'diamond-pulse 2s 1.4s ease-in-out infinite',
+            transform: 'rotate(45deg)',
+          }} />
+          <div style={{
+            flex: '0 0 52px', height: 1,
+            background: 'linear-gradient(to left, transparent, rgba(251,191,36,0.75))',
+          }} />
+        </div>
+      </div>
+
+      {/* Corner brackets */}
+      <div style={{ position: 'absolute', top: 66, left: 12, zIndex: 9, pointerEvents: 'none', animation: 'corner-in-tl 0.5s 0.18s cubic-bezier(0.34,1.45,0.64,1) both' }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M 46 2 L 2 2 L 2 46" stroke="rgba(251,191,36,0.85)" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <div style={{ position: 'absolute', top: 66, right: 12, zIndex: 9, pointerEvents: 'none', animation: 'corner-in-tr 0.5s 0.28s cubic-bezier(0.34,1.45,0.64,1) both' }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M 2 2 L 46 2 L 46 46" stroke="rgba(251,191,36,0.85)" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <div style={{ position: 'absolute', bottom: 100, left: 12, zIndex: 9, pointerEvents: 'none', animation: 'corner-in-bl 0.5s 0.38s cubic-bezier(0.34,1.45,0.64,1) both' }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M 46 46 L 2 46 L 2 2" stroke="rgba(251,191,36,0.85)" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <div style={{ position: 'absolute', bottom: 100, right: 12, zIndex: 9, pointerEvents: 'none', animation: 'corner-in-br 0.5s 0.48s cubic-bezier(0.34,1.45,0.64,1) both' }}>
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+          <path d="M 2 46 L 46 46 L 46 2" stroke="rgba(251,191,36,0.85)" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+
+      {/* Skip */}
       <button
         onClick={dismiss}
         style={{
-          position: 'absolute', top: 15, right: 20, zIndex: 10,
-          background: 'rgba(255,255,255,0.1)',
-          backdropFilter: 'blur(6px)',
-          border: '1px solid rgba(255,255,255,0.2)',
-          borderRadius: 20, color: 'rgba(255,255,255,0.8)',
-          fontSize: 12, fontWeight: 600,
-          padding: '5px 14px', cursor: 'pointer', letterSpacing: '0.04em',
+          position: 'absolute', top: 15, right: 20, zIndex: 15,
+          background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(251,191,36,0.35)',
+          borderRadius: 20, color: 'rgba(255,255,255,0.75)',
+          fontSize: 11, fontWeight: 600,
+          padding: '5px 14px', cursor: 'pointer', letterSpacing: '0.06em',
         }}
       >
         {t('player.skip')}
       </button>
+
+      {/* Tap for sound fallback */}
+      {isForcedMuted && (
+        <button
+          onClick={unmuteVideo}
+          style={{
+            position: 'absolute', bottom: 102, left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 15,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(251,191,36,0.55)',
+            borderRadius: 24, color: '#fbbf24',
+            fontSize: 11, fontWeight: 700,
+            padding: '8px 20px', cursor: 'pointer', letterSpacing: '0.1em',
+            display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+          TAP FOR SOUND
+        </button>
+      )}
     </div>
   )
 }
@@ -564,15 +775,29 @@ export function PlayerProfile({
       return
     }
     setVideoError(null)
-    const fd = new FormData()
-    fd.append('introVideo', file)
-    fd.append('targetUserId', player.id)
+    const ext = (file.type === 'video/webm' ? 'webm' : 'mp4') as 'mp4' | 'webm'
+    e.target.value = ''
     startVideoTrans(async () => {
-      const result = await uploadIntroVideoAction(fd)
+      // 1. Get a signed upload URL (tiny request, no binary through Next.js)
+      const signed = await getSignedUploadUrlAction(player.id, ext)
+      if (signed.error) { setVideoError(signed.error); return }
+
+      // 2. PUT file directly from browser → Supabase Storage (bypasses Next.js body limit)
+      const uploadRes = await fetch(signed.signedUrl!, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      })
+      if (!uploadRes.ok) {
+        setVideoError('Upload failed. Please try again.')
+        return
+      }
+
+      // 3. Save public URL to the database
+      const result = await finalizeVideoUploadAction(player.id, signed.storagePath!)
       if (result.error) setVideoError(result.error)
       else if (result.url) setIntroVideoUrl(result.url)
     })
-    e.target.value = ''
   }
 
   function handleRemoveVideo() {
