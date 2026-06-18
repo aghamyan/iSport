@@ -9,18 +9,25 @@ export default async function AdminMatchesPage() {
 
   const supabase = createServiceClient()
 
-  const { data } = await supabase
-    .from('friendly_matches')
-    .select(`
-      id,
-      home_score,
-      away_score,
-      status,
-      created_at,
-      home_player:players!home_player_id(id, display_name),
-      away_player:players!away_player_id(id, display_name)
-    `)
-    .order('created_at', { ascending: false })
+  const [{ data }, { data: usersData }] = await Promise.all([
+    supabase
+      .from('friendly_matches')
+      .select(`
+        id,
+        home_score,
+        away_score,
+        status,
+        created_at,
+        home_player:players!home_player_id(id, display_name),
+        away_player:players!away_player_id(id, display_name)
+      `)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('users')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name'),
+  ])
 
   const matches = (data ?? []).map((m) => ({
     id:         m.id,
@@ -32,5 +39,7 @@ export default async function AdminMatchesPage() {
     createdAt:  m.created_at,
   }))
 
-  return <MatchesAdminClient matches={matches} />
+  const players = (usersData ?? []).map((u) => ({ id: u.id, name: u.name }))
+
+  return <MatchesAdminClient matches={matches} players={players} />
 }

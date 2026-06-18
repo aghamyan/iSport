@@ -54,6 +54,54 @@ export async function adminUpdateFriendlyMatchAction(
 }
 
 /**
+ * Admin create: inserts a new friendly match on behalf of any two players.
+ * The trg_friendly_stats trigger fires automatically and recomputes stats when
+ * status = 'confirmed' with scores present.
+ */
+export async function adminCreateFriendlyMatchAction(
+  homePlayerId: string,
+  awayPlayerId: string,
+  homeScore: number | null,
+  awayScore: number | null,
+  status: 'pending' | 'confirmed' | 'final'
+): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  if (homePlayerId === awayPlayerId) throw new Error('Home and away players must be different')
+  if (status !== 'pending' && (homeScore === null || awayScore === null)) {
+    throw new Error('Scores are required for confirmed / final matches')
+  }
+
+  const supabase = createServiceClient()
+
+  const payload: Record<string, unknown> = {
+    home_player_id: homePlayerId,
+    away_player_id: awayPlayerId,
+    home_score:     homeScore,
+    away_score:     awayScore,
+    status,
+    created_by:     session!.sub,
+  }
+  if (status === 'confirmed' || status === 'final') {
+    payload.confirmed_at = new Date().toISOString()
+  }
+
+  const { data: created, error } = await supabase
+    .from('friendly_matches')
+    .insert(payload)
+    .select('id')
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  await logAdminAction('create_match', 'match', created.id, { homePlayerId, awayPlayerId, status })
+  revalidateTag(STATS_CACHE_TAG, 'max')
+  revalidatePath('/admin/matches')
+  revalidatePath('/matches')
+}
+
+/**
  * Admin delete: removes a friendly match and recomputes stats for both players.
  * The stats triggers only cover INSERT/UPDATE — delete is not handled — so we
  * must call recompute_player_stats manually after the row is gone.
