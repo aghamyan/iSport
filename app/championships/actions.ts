@@ -404,8 +404,7 @@ export async function generateFinalAction(championshipId: string): Promise<void>
 
   // Find the two ties by grouping on player pair
   const semiMatches = km.filter((m) => m.round === 'semi')
-  const minSemis = isGroupPlayoff ? 2 : 4
-  if (semiMatches.length < minSemis) throw new Error('Semi-finals not yet generated or incomplete')
+  if (semiMatches.length < 4) throw new Error('Semi-finals not yet generated or incomplete')
 
   // Identify tie pairs: {p1, p2} unordered
   const pairs = new Map<string, string[]>()
@@ -513,7 +512,7 @@ export async function generatePenaltyDeciderAction(
     : resolveSemiTie(p1, p2, tieMatches)
   if (result.winner !== null) throw new Error('This semi-final already has a winner — no penalty decider needed')
   if (!result.needsPenalty) {
-    throw new Error(isGroupPlayoff ? 'Semi-final has not been played yet' : 'Semi-final legs not complete yet')
+    throw new Error('Semi-final legs not complete yet')
   }
 
   // Check no penalty decider already exists for this pair

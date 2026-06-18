@@ -237,7 +237,7 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
       : 0
 
   const groupPlayoffMatchCount = n >= 4
-    ? ((n * (n - 1)) / 2) * cycles + 2 + 1  // group stage + 2 semis + 1 final
+    ? ((n * (n - 1)) / 2) * cycles + 4 + 1  // group stage + 4 semi-final legs + 1 final
     : 0
 
   function handleSubmit() {

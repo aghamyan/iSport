@@ -1144,11 +1144,13 @@ function PlayoffKnockoutSection({
 
           {Array.from(ties.entries()).map(([key, tieMatches], tieIdx) => {
             const [p1, p2] = key.split('|')
-            const semiMatch = tieMatches.find((m) => m.round === 'semi')
+            const semiLegs = tieMatches.filter((m) => m.round === 'semi')
             const penaltyMatch = tieMatches.find((m) => m.round === 'penalty')
-            const isPlayed = semiMatch?.homeScore !== null
+            const leg1 = semiLegs.find((m) => m.leg === 1)
+            const leg2 = semiLegs.find((m) => m.leg === 2)
+            const allLegsPlayed = leg1 && leg2 && leg1.homeScore !== null && leg2.homeScore !== null
 
-            const tieResult = isPlayed
+            const tieResult = allLegsPlayed
               ? resolvePlayoffSemi(p1, p2, tieMatches.map((m) => ({
                   homePlayerId: m.homePlayerId,
                   awayPlayerId: m.awayPlayerId,
@@ -1160,6 +1162,19 @@ function PlayoffKnockoutSection({
               : null
 
             const hasPenalty = !!penaltyMatch
+
+            let p1Goals = 0, p2Goals = 0
+            if (allLegsPlayed) {
+              for (const leg of semiLegs) {
+                if (leg.homePlayerId === p1) {
+                  p1Goals += leg.homeScore!
+                  p2Goals += leg.awayScore!
+                } else {
+                  p2Goals += leg.homeScore!
+                  p1Goals += leg.awayScore!
+                }
+              }
+            }
 
             return (
               <div
@@ -1195,14 +1210,20 @@ function PlayoffKnockoutSection({
                         letterSpacing: '0.06em',
                       }}
                     >
-                      SF {tieIdx + 1}
+                      {t('champ.semiN', { n: tieIdx + 1 })}
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
                       {playerMap.get(p1) ?? '?'} vs {playerMap.get(p2) ?? '?'}
                     </span>
                   </div>
-                  {isPlayed && (
+                  {allLegsPlayed && (
                     <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span>
+                        {t('champ.aggregate')}{' '}
+                        <strong style={{ color: '#e2e8f0' }}>
+                          {p1Goals}–{p2Goals}
+                        </strong>
+                      </span>
                       {tieResult?.winner && (
                         <span
                           style={{
@@ -1237,17 +1258,48 @@ function PlayoffKnockoutSection({
                   )}
                 </div>
 
-                {semiMatch && (
-                  <MatchCard
-                    match={semiMatch}
-                    playerMap={playerMap}
-                    avatarMap={avatarMap}
-                    currentUserId={currentUserId}
-                    isAdmin={isAdmin}
-                    championshipId={championshipId}
-                    championshipIsActive={championshipIsActive}
-                  />
-                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {semiLegs
+                    .sort((a, b) => (a.leg ?? 0) - (b.leg ?? 0))
+                    .map((m, i) => (
+                      <div
+                        key={m.id}
+                        style={{
+                          borderBottom:
+                            i < semiLegs.length - 1 || hasPenalty
+                              ? '1px solid #1a2840'
+                              : 'none',
+                        }}
+                      >
+                        <MatchCard
+                          match={m}
+                          playerMap={playerMap}
+                          avatarMap={avatarMap}
+                          currentUserId={currentUserId}
+                          isAdmin={isAdmin}
+                          championshipId={championshipId}
+                          championshipIsActive={championshipIsActive}
+                          badge={
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 700,
+                                color: '#64748b',
+                                background: '#0f1a2e',
+                                border: '1px solid #1a2840',
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.06em',
+                              }}
+                            >
+                              {t('champ.leg', { n: m.leg ?? 0 })}
+                            </span>
+                          }
+                        />
+                      </div>
+                    ))}
+                </div>
 
                 {penaltyMatch && (
                   <div style={{ borderTop: '1px solid #1a2840' }}>
@@ -1272,7 +1324,7 @@ function PlayoffKnockoutSection({
                             letterSpacing: '0.06em',
                           }}
                         >
-                          Pens
+                          {t('champ.pens')}
                         </span>
                       }
                     />

@@ -1,6 +1,6 @@
 import { generateRoundRobin, type MatchSlot } from './roundRobin'
 import { calculateStandings, type MatchRow } from './standings'
-import { SEMI_LEG1_CYCLE, PENALTY_CYCLE } from './groupKnockout'
+import { SEMI_LEG1_CYCLE, SEMI_LEG2_CYCLE, PENALTY_CYCLE } from './groupKnockout'
 
 export type PlayoffQualifiers = {
   p1: string  // 1st place
@@ -46,20 +46,26 @@ export function getPlayoffQualifiers(groupMatches: MatchRow[], playerIds: string
 }
 
 /**
- * Two single-leg semi-final pairings:
- *   Semi 1: 1st (home) vs 4th (away)
- *   Semi 2: 2nd (home) vs 3rd (away)
+ * Two-legged semi-final pairings (CL-style):
+ *   Semi 1: 1st (home) vs 4th (away) — Leg 1 + Leg 2
+ *   Semi 2: 2nd (home) vs 3rd (away) — Leg 1 + Leg 2
  */
 export function generatePlayoffSemiSlots(q: PlayoffQualifiers): MatchSlot[] {
   return [
-    { homePlayerId: q.p1, awayPlayerId: q.p4, cycle: SEMI_LEG1_CYCLE, groupLabel: null, round: 'semi', leg: null },
-    { homePlayerId: q.p2, awayPlayerId: q.p3, cycle: SEMI_LEG1_CYCLE, groupLabel: null, round: 'semi', leg: null },
+    // Semi 1 — Leg 1: p1 home
+    { homePlayerId: q.p1, awayPlayerId: q.p4, cycle: SEMI_LEG1_CYCLE, groupLabel: null, round: 'semi', leg: 1 },
+    // Semi 1 — Leg 2: p4 home
+    { homePlayerId: q.p4, awayPlayerId: q.p1, cycle: SEMI_LEG2_CYCLE, groupLabel: null, round: 'semi', leg: 2 },
+    // Semi 2 — Leg 1: p2 home
+    { homePlayerId: q.p2, awayPlayerId: q.p3, cycle: SEMI_LEG1_CYCLE, groupLabel: null, round: 'semi', leg: 1 },
+    // Semi 2 — Leg 2: p3 home
+    { homePlayerId: q.p3, awayPlayerId: q.p2, cycle: SEMI_LEG2_CYCLE, groupLabel: null, round: 'semi', leg: 2 },
   ]
 }
 
 /**
- * Resolves a single-leg semi-final or its penalty decider.
- * Returns winner ID, or null when the match is unplayed / tied (penalty needed).
+ * Resolves a two-legged semi-final tie (or its penalty decider) on aggregate.
+ * Returns winner ID, or null when not yet resolved (legs incomplete / aggregate level).
  */
 export function resolvePlayoffSemi(p1: string, p2: string, matches: SemiMatch[]): PlayoffSemiResult {
   const penalty = matches.find((m) => m.round === 'penalty')
@@ -68,12 +74,27 @@ export function resolvePlayoffSemi(p1: string, p2: string, matches: SemiMatch[])
     return { winner: w, needsPenalty: false }
   }
 
-  const semi = matches.find((m) => m.round === 'semi')
-  if (!semi || semi.homeScore === null || semi.awayScore === null) {
+  const legs = matches.filter((m) => m.round === 'semi')
+  const leg1 = legs.find((m) => m.leg === 1)
+  const leg2 = legs.find((m) => m.leg === 2)
+
+  if (!leg1 || !leg2 || leg1.homeScore === null || leg2.homeScore === null) {
     return { winner: null, needsPenalty: false }
   }
 
-  if (semi.homeScore > semi.awayScore) return { winner: semi.homePlayerId, needsPenalty: false }
-  if (semi.awayScore > semi.homeScore) return { winner: semi.awayPlayerId, needsPenalty: false }
+  let p1Goals = 0
+  let p2Goals = 0
+  for (const leg of [leg1, leg2]) {
+    if (leg.homePlayerId === p1) {
+      p1Goals += leg.homeScore!
+      p2Goals += leg.awayScore!
+    } else {
+      p2Goals += leg.homeScore!
+      p1Goals += leg.awayScore!
+    }
+  }
+
+  if (p1Goals > p2Goals) return { winner: p1, needsPenalty: false }
+  if (p2Goals > p1Goals) return { winner: p2, needsPenalty: false }
   return { winner: null, needsPenalty: true }
 }
