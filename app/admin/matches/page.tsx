@@ -9,37 +9,36 @@ export default async function AdminMatchesPage() {
 
   const supabase = createServiceClient()
 
-  const [{ data }, { data: usersData }] = await Promise.all([
+  // Step 1: fetch raw match rows — no PostgREST join to avoid silent FK-ambiguity errors
+  const [{ data: rawMatches }, { data: allUsers }] = await Promise.all([
     supabase
       .from('friendly_matches')
-      .select(`
-        id,
-        home_score,
-        away_score,
-        status,
-        created_at,
-        home_player:players!home_player_id(id, display_name),
-        away_player:players!away_player_id(id, display_name)
-      `)
+      .select('id, home_player_id, away_player_id, home_score, away_score, status, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('users')
       .select('id, name')
-      .eq('is_active', true)
       .order('name'),
   ])
 
-  const matches = (data ?? []).map((m) => ({
-    id:         m.id,
-    homePlayer: (m.home_player as unknown as { display_name: string } | null)?.display_name ?? 'Unknown',
-    awayPlayer: (m.away_player as unknown as { display_name: string } | null)?.display_name ?? 'Unknown',
-    homeScore:  m.home_score,
-    awayScore:  m.away_score,
+  // Step 2: build a name lookup from users (users.id == players.id)
+  const nameMap: Record<string, string> = {}
+  for (const u of allUsers ?? []) nameMap[u.id] = u.name
+
+  const matches = (rawMatches ?? []).map((m) => ({
+    id:         m.id as string,
+    homePlayer: nameMap[m.home_player_id as string] ?? 'Unknown',
+    awayPlayer: nameMap[m.away_player_id as string] ?? 'Unknown',
+    homeScore:  m.home_score as number | null,
+    awayScore:  m.away_score as number | null,
     status:     m.status as 'pending' | 'confirmed' | 'final',
-    createdAt:  m.created_at,
+    createdAt:  m.created_at as string,
   }))
 
-  const players = (usersData ?? []).map((u) => ({ id: u.id, name: u.name }))
+  // Active users for the "Add Match" player pickers
+  const players = (allUsers ?? [])
+    .filter((u) => u.name)
+    .map((u) => ({ id: u.id as string, name: u.name as string }))
 
   return <MatchesAdminClient matches={matches} players={players} />
 }
