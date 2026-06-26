@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getPlayerForm, getPlayerChampionshipPlacements } from '@/lib/stats/queries'
 import { PlayerProfile } from './PlayerProfile'
 
+export const dynamic = 'force-dynamic'
+
 export default async function PlayerProfilePage({
   params,
 }: {
@@ -18,7 +20,7 @@ export default async function PlayerProfilePage({
 
   const [userResult, playerResult, badgesResult, rivalriesResult, formResult, placementsResult, allUsersResult] =
     await Promise.all([
-      supabase.from('users').select('id, name, avatar_url, intro_video_url, is_active').eq('id', id).single(),
+      supabase.from('users').select('id, name, avatar_url, intro_video_url, hero_photo_url, hero_photo_position, intro_audio_url, intro_audio_trim_start, intro_audio_trim_end, is_active, instagram_url, navi_coords').eq('id', id).single(),
       supabase
         .from('players')
         .select('wins, losses, draws, matches_played, goals_for, goals_against, goal_diff')
@@ -100,6 +102,15 @@ export default async function PlayerProfilePage({
         name:          user.name,
         avatarUrl:      user.avatar_url as string | null,
         introVideoUrl:  user.intro_video_url as string | null,
+        heroPhotoUrl:        user.hero_photo_url as string | null,
+        heroPhotoPosition:   (user.hero_photo_position as string | null) ?? '50% 15%',
+        introAudioUrl:       user.intro_audio_url as string | null,
+        introAudioTrimStart: (user.intro_audio_trim_start as number | null) ?? 0,
+        introAudioTrimEnd:   user.intro_audio_trim_end as number | null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        instagramUrl:   ((user as any).instagram_url as string | null) ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        naviCoords:     ((user as any).navi_coords as string | null) ?? null,
         isActive:       user.is_active,
         wins:          player?.wins ?? 0,
         losses:        player?.losses ?? 0,

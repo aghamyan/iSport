@@ -9,6 +9,8 @@ export const en = {
   'nav.stats': 'Stats',
   'nav.champs': 'Champs',
   'nav.rivals': 'Rivals',
+  'nav.news': 'News',
+  'nav.shop': 'Shop',
   'nav.profile': 'Profile',
 
   // ── Language switcher ────────────────────────────────────────────────────────
@@ -432,6 +434,8 @@ export const en = {
   'admin.card.settingsDesc': 'Gameplay rules and display preferences',
   'admin.card.activity': 'Activity Log',
   'admin.card.activityDesc': 'Audit trail of all admin actions',
+  'admin.card.news': 'News',
+  'admin.card.newsDesc': 'Publish and manage news articles',
   'admin.stats.players': 'Players',
   'admin.stats.matches': 'Matches',
   'admin.stats.championships': 'Championships',
@@ -752,6 +756,8 @@ export const ru: Dict = {
   'nav.stats': 'Статистика',
   'nav.champs': 'Чемпионаты',
   'nav.rivals': 'Противостояния',
+  'nav.news': 'Новости',
+  'nav.shop': 'Магазин',
   'nav.profile': 'Профиль',
 
   // ── Language switcher ────────────────────────────────────────────────────────
@@ -1175,6 +1181,8 @@ export const ru: Dict = {
   'admin.card.settingsDesc': 'Правила игры и настройки отображения',
   'admin.card.activity': 'Журнал активности',
   'admin.card.activityDesc': 'Аудит всех действий администратора',
+  'admin.card.news': 'Новости',
+  'admin.card.newsDesc': 'Публикация и управление новостями',
   'admin.stats.players': 'Игроки',
   'admin.stats.matches': 'Матчи',
   'admin.stats.championships': 'Чемпионаты',

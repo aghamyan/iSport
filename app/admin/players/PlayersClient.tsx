@@ -11,8 +11,14 @@ import {
   setPlayerAdminAction,
   rotateAccessCodeAction,
   deletePlayerAction,
+  updateSocialLinksAction,
 } from './actions'
 import { uploadAvatarAction } from '@/lib/auth/avatarAction'
+import {
+  getSignedHeroPhotoUrlAction,
+  finalizeHeroPhotoUploadAction,
+  removeHeroPhotoAction,
+} from '@/lib/auth/heroPhotoAction'
 
 type Player = {
   id: string
@@ -21,6 +27,9 @@ type Player = {
   isAdmin: boolean
   createdAt: string
   avatarUrl: string | null
+  heroPhotoUrl: string | null
+  instagramUrl: string | null
+  naviCoords: string | null
 }
 
 type Props = { players: Player[] }
@@ -229,13 +238,15 @@ function AvatarCell({ player }: { player: Player }) {
         style={{ position: 'relative', width: SIZE, height: SIZE, flexShrink: 0, cursor: 'pointer' }}
       >
         {url ? (
-          <img
-            src={url}
-            alt={player.name}
-            width={SIZE}
-            height={SIZE}
-            style={{ borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb', display: 'block' }}
-          />
+          <div style={{ width: SIZE, height: SIZE, borderRadius: '50%', background: 'var(--card)', border: '2px solid rgba(var(--rgb-overlay),0.1)', overflow: 'hidden' }}>
+            <img
+              src={url}
+              alt={player.name}
+              width={SIZE}
+              height={SIZE}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          </div>
         ) : (
           <div style={{
             width: SIZE, height: SIZE, borderRadius: '50%',
@@ -259,6 +270,140 @@ function AvatarCell({ player }: { player: Player }) {
       </div>
       <div>
         {error && <div style={{ fontSize: 10, color: '#dc2626', maxWidth: 140 }}>{error}</div>}
+      </div>
+    </div>
+  )
+}
+
+function HeroPhotoCell({ player }: { player: Player }) {
+  const [url, setUrl]     = useState(player.heroPhotoUrl)
+  const [error, setError] = useState('')
+  const [pending, start]  = useTransition()
+  const [hovered, setHov] = useState(false)
+  const inputRef          = useRef<HTMLInputElement>(null)
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]; if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setError('Max 10 MB'); return }
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) { setError('JPG/PNG/WebP only'); return }
+    setError('')
+    const ext = (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg') as 'jpg'|'png'|'webp'
+    e.target.value = ''
+    start(async () => {
+      const signed = await getSignedHeroPhotoUrlAction(player.id, ext)
+      if (signed.error) { setError(signed.error); return }
+      const res = await fetch(signed.signedUrl!, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+      if (!res.ok) { setError('Upload failed'); return }
+      const result = await finalizeHeroPhotoUploadAction(player.id, signed.storagePath!)
+      if (result.error) setError(result.error); else if (result.url) setUrl(result.url)
+    })
+  }
+
+  function handleRemove() {
+    setError('')
+    start(async () => {
+      const r = await removeHeroPhotoAction(player.id)
+      if (r.error) setError(r.error); else setUrl(null)
+    })
+  }
+
+  const W = 64, H = 40
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 110 }}>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" style={{ display: 'none' }} onChange={handleFile} />
+      <div
+        onClick={() => inputRef.current?.click()}
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+        title={url ? 'Replace hero photo' : 'Upload hero photo'}
+        style={{ position: 'relative', width: W, height: H, cursor: 'pointer', borderRadius: 6, overflow: 'hidden', border: url ? '2px solid #86efac' : '2px dashed #d1d5db', background: url ? 'transparent' : '#f9fafb', flexShrink: 0 }}
+      >
+        {url ? (
+          <img src={url} alt="hero" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <span style={{ fontSize: 14 }}>🖼️</span>
+            <span style={{ fontSize: 8, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.06em' }}>ADD PHOTO</span>
+          </div>
+        )}
+        {(hovered || pending) && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 16 }}>{pending ? '⏳' : '📷'}</span>
+          </div>
+        )}
+      </div>
+      {url && !pending && (
+        <button
+          onClick={handleRemove}
+          style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}
+        >
+          Remove
+        </button>
+      )}
+      {error && <div style={{ fontSize: 10, color: '#dc2626', maxWidth: 110 }}>{error}</div>}
+    </div>
+  )
+}
+
+function SocialLinksCell({ player }: { player: Player }) {
+  const [instagram, setInstagram] = useState(player.instagramUrl ?? '')
+  const [navi, setNavi]           = useState(player.naviCoords ?? '')
+  const [editing, setEditing]     = useState(false)
+  const [error, setError]         = useState('')
+  const [pending, start]          = useTransition()
+
+  function save() {
+    start(async () => {
+      try {
+        await updateSocialLinksAction(player.id, instagram.trim() || null, navi.trim() || null)
+        setEditing(false)
+        setError('')
+      } catch (e) {
+        setError((e as Error).message)
+      }
+    })
+  }
+
+  if (!editing) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 120 }}>
+        <div style={{ fontSize: 11, color: instagram ? '#2563eb' : '#9ca3af' }}>
+          {instagram ? '📷 Set' : '📷 —'}
+        </div>
+        <div style={{ fontSize: 11, color: navi ? '#16a34a' : '#9ca3af' }}>
+          {navi ? '🗺 Set' : '🗺 —'}
+        </div>
+        <button onClick={() => setEditing(true)} style={S.btn('#374151', '#f3f4f6')}>Edit</button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
+      <label style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Instagram URL
+      </label>
+      <input
+        value={instagram}
+        onChange={(e) => setInstagram(e.target.value)}
+        placeholder="https://instagram.com/username"
+        style={{ ...S.input, fontSize: 12 }}
+      />
+      <label style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        Yandex Navi coords (lat,lon)
+      </label>
+      <input
+        value={navi}
+        onChange={(e) => setNavi(e.target.value)}
+        placeholder="40.123456,44.654321"
+        style={{ ...S.input, fontSize: 12 }}
+      />
+      {error && <div style={{ fontSize: 11, color: '#dc2626' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button onClick={save} disabled={pending} style={S.btn('#fff', '#2563eb')}>Save</button>
+        <button onClick={() => { setEditing(false); setError('') }} style={S.btn('#374151', '#f3f4f6')}>Cancel</button>
       </div>
     </div>
   )
@@ -308,6 +453,9 @@ function PlayerRow({ player }: { player: Player }) {
         <td style={{ padding: '14px 16px', width: 56 }}>
           <AvatarCell player={player} />
         </td>
+        <td style={{ padding: '14px 16px', width: 120 }}>
+          <HeroPhotoCell player={player} />
+        </td>
         <td style={{ padding: '14px 16px' }}>
           <EditNameInline player={player} />
           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
@@ -316,6 +464,9 @@ function PlayerRow({ player }: { player: Player }) {
         </td>
         <td style={{ padding: '14px 16px' }}>
           <AccessCodeCell playerId={player.id} />
+        </td>
+        <td style={{ padding: '14px 16px' }}>
+          <SocialLinksCell player={player} />
         </td>
         <td style={{ padding: '14px 16px' }}>
           <span style={S.badge(
@@ -475,8 +626,10 @@ export function PlayersClient({ players }: Props) {
             <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
               {([
                 t('admin.players.col.avatar'),
+                'Hero Photo',
                 t('admin.players.col.name'),
                 t('admin.players.col.code'),
+                'Social',
                 t('admin.players.col.status'),
                 t('admin.players.col.role'),
                 t('admin.players.col.actions'),

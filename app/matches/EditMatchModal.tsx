@@ -78,7 +78,7 @@ export function EditMatchModal({
     >
       <div
         style={{
-          background: '#fff',
+          background: 'var(--card)',
           borderRadius: 12,
           padding: 24,
           width: 440,
@@ -106,7 +106,7 @@ export function EditMatchModal({
               border: 'none',
               cursor: 'pointer',
               fontSize: 22,
-              color: '#6b7280',
+              color: 'var(--muted)',
               padding: 0,
               lineHeight: 1,
             }}
@@ -152,8 +152,8 @@ export function EditMatchModal({
                 borderRadius: 8,
                 fontSize: 24,
                 fontWeight: 800,
-                color: '#111827',
-                background: '#fff',
+                color: 'var(--text)',
+                background: 'var(--card)',
               }}
             />
           </div>
@@ -187,8 +187,8 @@ export function EditMatchModal({
                 borderRadius: 8,
                 fontSize: 24,
                 fontWeight: 800,
-                color: '#111827',
-                background: '#fff',
+                color: 'var(--text)',
+                background: 'var(--card)',
               }}
             />
           </div>
@@ -209,8 +209,8 @@ export function EditMatchModal({
             fontSize: 13,
             resize: 'vertical',
             boxSizing: 'border-box',
-            background: '#fff',
-            color: '#111827',
+            background: 'var(--card)',
+            color: 'var(--text)',
             fontFamily: 'inherit',
           }}
         />
@@ -234,7 +234,7 @@ export function EditMatchModal({
               padding: '8px 18px',
               border: '1px solid #d1d5db',
               borderRadius: 7,
-              background: '#fff',
+              background: 'var(--card)',
               cursor: 'pointer',
               fontSize: 14,
             }}

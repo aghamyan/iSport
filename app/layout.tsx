@@ -12,8 +12,6 @@ import type { Locale } from '@/lib/i18n/translations'
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
 }
 
@@ -26,12 +24,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const cookieStore = await cookies()
   const rawLang = cookieStore.get('lang')?.value
   const locale: Locale = rawLang === 'ru' ? 'ru' : 'en'
+  const theme = cookieStore.get('theme')?.value === 'dark' ? 'dark' : 'light'
 
   return (
-    <html lang={locale}>
+    <html lang={locale} data-theme={theme}>
       <body>
         <I18nProvider initialLocale={locale}>
-          <LanguageSwitcher />
+          {/* Only show standalone switcher for logged-out users; logged-in users get it via BottomNav */}
+          {!user && <LanguageSwitcher />}
           <BetSlipProvider>
             {/* AuthProvider bridges server-read session to client components */}
             <AuthProvider user={user}>{children}</AuthProvider>

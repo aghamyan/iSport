@@ -64,7 +64,7 @@ type PlayerWithUser = {
   goals_against: number
   goal_diff: number
   updated_at: string
-  users: { name: string; avatar_url: string | null } | null
+  users: { name: string; avatar_url: string | null; hero_photo_url: string | null } | null
 }
 
 export const getLeaderboard = unstable_cache(
@@ -74,7 +74,7 @@ export const getLeaderboard = unstable_cache(
       .select(`
         id, wins, losses, draws, matches_played,
         goals_for, goals_against, goal_diff, updated_at,
-        users(name, avatar_url)
+        users(name, avatar_url, hero_photo_url)
       `)
       .order('wins',        { ascending: false })
       .order('goal_diff',   { ascending: false })
@@ -95,6 +95,7 @@ export const getLeaderboard = unstable_cache(
       updatedAt:     p.updated_at,
       name:          p.users?.name ?? 'Unknown',
       avatarUrl:     p.users?.avatar_url ?? null,
+      heroPhotoUrl:  p.users?.hero_photo_url ?? null,
     }))
   },
   ['leaderboard'],
@@ -781,7 +782,7 @@ export const getChampionshipOnlyStats = unstable_cache(
 
     const { data: users } = await supabase
       .from('users')
-      .select('id, name, avatar_url')
+      .select('id, name, avatar_url, hero_photo_url')
       .in('id', playerIds)
     const userMap = new Map((users ?? []).map((u) => [u.id, u]))
 
@@ -792,6 +793,7 @@ export const getChampionshipOnlyStats = unstable_cache(
         id:            pid,
         name:          u?.name       ?? 'Unknown',
         avatarUrl:     (u?.avatar_url as string | null) ?? null,
+        heroPhotoUrl:  (u?.hero_photo_url as string | null) ?? null,
         wins:          s.wins,
         losses:        s.losses,
         draws:         s.draws,

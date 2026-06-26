@@ -22,12 +22,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/balances',      label: 'Balances'                    },
     { href: '/admin/reports',       label: 'Reports'                     },
     { href: '/admin/rules',         label: 'Betting Rules'               },
+    { href: '/admin/news',          label: 'News'                        },
+    { href: '/admin/shop',          label: 'Shop'                        },
   ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', flexWrap: 'wrap' }}>
       {/* Sidebar */}
+      <style>{`
+        @media (max-width: 640px) {
+          .admin-sidebar { width: 100% !important; flex-direction: row !important; flex-wrap: wrap; padding: 12px !important; }
+          .admin-sidebar-header { padding: 0 8px 12px !important; }
+          .admin-sidebar-links { flex-direction: row !important; flex-wrap: wrap; padding: 0 !important; }
+          .admin-sidebar-links a { padding: 6px 10px !important; font-size: 12px !important; }
+          .admin-main { width: 100% !important; }
+        }
+      `}</style>
       <nav
+        className="admin-sidebar"
         style={{
           width: 220,
           flexShrink: 0,
@@ -37,7 +49,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           flexDirection: 'column',
         }}
       >
-        <div style={{ padding: '0 20px 24px', borderBottom: '1px solid #1f2937' }}>
+        <div className="admin-sidebar-header" style={{ padding: '0 20px 24px', borderBottom: '1px solid #1f2937' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             {t('admin.panelLabel')}
           </div>
@@ -49,7 +61,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </Link>
         </div>
 
-        <div style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div className="admin-sidebar-links" style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           {NAV.map((item) => (
             <Link
               key={item.href}
@@ -72,7 +84,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </nav>
 
       {/* Main content */}
-      <main style={{ flex: 1, background: '#f9fafb', minHeight: '100vh', overflow: 'auto' }}>
+      <main className="admin-main" style={{ flex: 1, background: '#f9fafb', minHeight: '100vh', overflow: 'auto' }}>
         {children}
       </main>
     </div>

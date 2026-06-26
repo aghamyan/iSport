@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getMatchPreviewAction, type MatchPreviewData } from './actions'
 import { useTranslation } from '@/lib/i18n/context'
+import { NumberTicker } from '@/app/components/magicui/number-ticker'
 
 const PREVIEW_ANIMS = `
   @keyframes previewOverlayIn {
@@ -10,30 +11,16 @@ const PREVIEW_ANIMS = `
     to   { opacity: 1; }
   }
   @keyframes previewPanelIn {
-    from { opacity: 0; transform: scale(0.93) translateY(16px); }
-    to   { opacity: 1; transform: scale(1) translateY(0); }
-  }
-  @keyframes homeGlow {
-    0%, 100% { box-shadow: 0 0 22px 5px rgba(59,130,246,0.5), 0 0 60px rgba(59,130,246,0.18); }
-    50%       { box-shadow: 0 0 38px 10px rgba(59,130,246,0.75), 0 0 90px rgba(59,130,246,0.32); }
-  }
-  @keyframes awayGlow {
-    0%, 100% { box-shadow: 0 0 22px 5px rgba(239,68,68,0.5), 0 0 60px rgba(239,68,68,0.18); }
-    50%       { box-shadow: 0 0 38px 10px rgba(239,68,68,0.75), 0 0 90px rgba(239,68,68,0.32); }
-  }
-  @keyframes vsFlicker {
-    0%, 80%, 100% { opacity: 1; }
-    82%, 86%      { opacity: 0.55; }
-    84%           { opacity: 0.9; }
-    88%           { opacity: 1; }
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes floatLeft {
-    0%, 100% { transform: translateY(0) rotate(-4deg); }
-    50%       { transform: translateY(-7px) rotate(-4deg); }
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-6px); }
   }
   @keyframes floatRight {
-    0%, 100% { transform: translateY(0) rotate(4deg); }
-    50%       { transform: translateY(-7px) rotate(4deg); }
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-6px); }
   }
   @keyframes formDotIn {
     from { opacity: 0; transform: scale(0.3); }
@@ -42,21 +29,21 @@ const PREVIEW_ANIMS = `
   @keyframes barFill {
     from { width: 0 !important; }
   }
-  @keyframes rotateLeft {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-  @keyframes rotateRight {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(-360deg); }
-  }
-  @keyframes scanLine {
-    0%   { transform: translateY(-100%); opacity: 0.07; }
-    100% { transform: translateY(100%); opacity: 0; }
-  }
   @keyframes shimmer {
     0%   { background-position: -200% 0; }
     100% { background-position: 200% 0; }
+  }
+  @keyframes statRowIn {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes colorBarSlide {
+    from { opacity: 0; transform: scaleX(0.6); }
+    to   { opacity: 1; transform: scaleX(1); }
+  }
+  @keyframes vsIn {
+    from { opacity: 0; transform: scale(0.7); }
+    to   { opacity: 1; transform: scale(1); }
   }
 `
 
@@ -86,95 +73,68 @@ function PreviewAvatar({
 }) {
   const bg = nameToColor(name)
   const isHome = side === 'home'
-  const accent = isHome ? '#3b82f6' : '#ef4444'
-  const accentMid = isHome ? 'rgba(59,130,246,0.35)' : 'rgba(239,68,68,0.35)'
-  const accentFaint = isHome ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)'
+  const accent = isHome ? '#dc2626' : '#1d4ed8'
+  const w = 148
+  const h = 172
 
   return (
-    /* Outer decoration ring */
     <div
       style={{
         position: 'relative',
-        width: 116,
-        height: 116,
+        width: w,
+        height: h,
         flexShrink: 0,
-        animation: `${isHome ? 'floatLeft' : 'floatRight'} 3.2s ease-in-out infinite`,
+        animation: `${isHome ? 'floatLeft' : 'floatRight'} 4s ease-in-out infinite`,
       }}
     >
-      {/* Outer glow disc */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: -8,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${accentFaint} 0%, transparent 70%)`,
-          animation: `${isHome ? 'homeGlow' : 'awayGlow'} 2.4s ease-in-out infinite`,
-        }}
-      />
-      {/* Dashed outer ring */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: -4,
-          borderRadius: '50%',
-          border: `2px dashed ${accentMid}`,
-          animation: `${isHome ? 'rotateLeft' : 'rotateRight'} 12s linear infinite`,
-        }}
-      />
-      {/* Solid inner ring */}
+      {/* Photo / initials */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          borderRadius: '50%',
-          border: `3px solid ${accent}`,
-          zIndex: 1,
-        }}
-      />
-      {/* Avatar image / initials */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 3,
-          borderRadius: '50%',
           overflow: 'hidden',
-          zIndex: 2,
+          borderRadius: 6,
+          background: '#f1f5f9',
         }}
       >
         {url ? (
-          <img src={url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            src={url}
+            alt={name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+          />
         ) : (
           <div
             style={{
               width: '100%', height: '100%', background: bg,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 34, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em',
+              fontSize: 52, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em',
             }}
           >
             {getInitials(name)}
           </div>
         )}
-      </div>
-      {/* HOME / AWAY badge */}
-      <div
-        style={{
+        {/* Bottom gradient overlay */}
+        <div style={{
           position: 'absolute',
-          bottom: -6,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: accent,
-          color: '#fff',
-          fontSize: 8,
-          fontWeight: 900,
-          letterSpacing: '0.12em',
-          padding: '2px 8px',
-          borderRadius: 10,
-          zIndex: 3,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {isHome ? 'HOME' : 'AWAY'}
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 56,
+          background: `linear-gradient(to top, ${accent}22, transparent)`,
+          pointerEvents: 'none',
+        }} />
       </div>
+      {/* Bold accent bar at bottom */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 4,
+        background: accent,
+        borderRadius: '0 0 6px 6px',
+      }} />
     </div>
   )
 }
@@ -191,9 +151,9 @@ function FormDot({
   goalsAgainst: number
 }) {
   const colors: Record<string, { bg: string; border: string; text: string }> = {
-    W: { bg: 'rgba(16,185,129,0.2)', border: '#10b981', text: '#34d399' },
-    D: { bg: 'rgba(245,158,11,0.15)', border: '#d97706', text: '#fbbf24' },
-    L: { bg: 'rgba(239,68,68,0.15)', border: '#dc2626', text: '#f87171' },
+    W: { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
+    D: { bg: '#fef3c7', border: '#d97706', text: '#92400e' },
+    L: { bg: '#fee2e2', border: '#dc2626', text: '#991b1b' },
   }
   const c = colors[result]
   return (
@@ -206,172 +166,66 @@ function FormDot({
         animation: `formDotIn 0.3s ease ${index * 0.06}s both`,
       }}
     >
-      {/* Result badge */}
       <div
         style={{
           width: 38,
           height: 38,
-          borderRadius: 9,
+          borderRadius: 8,
           background: c.bg,
           border: `1.5px solid ${c.border}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexShrink: 0,
         }}
       >
         <span style={{ fontSize: 15, fontWeight: 900, color: c.text, lineHeight: 1 }}>{result}</span>
       </div>
-      {/* Score below the badge — never inside */}
-      <span
-        style={{
-          fontSize: 9,
-          color: '#475569',
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
-          fontWeight: 600,
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
+      <span style={{ fontSize: 9, color: '#6b7280', lineHeight: 1, whiteSpace: 'nowrap', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
         {goalsFor}:{goalsAgainst}
       </span>
     </div>
   )
 }
 
-function StatBar({
+type ActiveTab = 'matchup' | 'odds' | 'h2h' | 'form'
+
+function UFCStatRow({
   label,
-  homeVal,
-  awayVal,
-  format,
-  higher = 'better',
+  homeContent,
+  awayContent,
+  delay = 0,
 }: {
   label: string
-  homeVal: number
-  awayVal: number
-  format?: (v: number) => string
-  higher?: 'better' | 'worse'
-}) {
-  const fmt = format ?? ((v: number) => String(v))
-  const max = Math.max(Math.abs(homeVal), Math.abs(awayVal), 0.01)
-  const homePct = Math.round((Math.abs(homeVal) / max) * 100)
-  const awayPct = Math.round((Math.abs(awayVal) / max) * 100)
-
-  const homeLeads =
-    higher === 'better' ? homeVal > awayVal : homeVal < awayVal
-  const awayLeads =
-    higher === 'better' ? awayVal > homeVal : awayVal < homeVal
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 6, alignItems: 'center' }}>
-      {/* Home bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: homeLeads ? 800 : 500,
-            color: homeLeads ? '#60a5fa' : '#64748b',
-            minWidth: 36,
-            textAlign: 'right',
-          }}
-        >
-          {fmt(homeVal)}
-        </span>
-        <div style={{ position: 'relative', height: 6, width: 80, background: '#0f1a2e', borderRadius: 3, overflow: 'hidden' }}>
-          <div
-            style={{
-              position: 'absolute',
-              right: 0,
-              top: 0,
-              height: '100%',
-              width: `${homePct}%`,
-              background: homeLeads
-                ? 'linear-gradient(90deg, rgba(59,130,246,0.4), #3b82f6)'
-                : 'rgba(59,130,246,0.25)',
-              borderRadius: 3,
-              animation: 'barFill 0.6s ease both',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Label */}
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 600,
-          color: '#475569',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          textAlign: 'center',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </span>
-
-      {/* Away bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ position: 'relative', height: 6, width: 80, background: '#0f1a2e', borderRadius: 3, overflow: 'hidden' }}>
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              height: '100%',
-              width: `${awayPct}%`,
-              background: awayLeads
-                ? 'linear-gradient(90deg, #ef4444, rgba(239,68,68,0.4))'
-                : 'rgba(239,68,68,0.25)',
-              borderRadius: 3,
-              animation: 'barFill 0.6s ease both',
-            }}
-          />
-        </div>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: awayLeads ? 800 : 500,
-            color: awayLeads ? '#f87171' : '#64748b',
-            minWidth: 36,
-          }}
-        >
-          {fmt(awayVal)}
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function SectionCard({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
+  homeContent: React.ReactNode
+  awayContent: React.ReactNode
+  delay?: number
 }) {
   return (
     <div
       style={{
-        background: '#0a1220',
-        border: '1px solid #1a2840',
-        borderRadius: 12,
-        padding: '14px 16px',
+        display: 'grid',
+        gridTemplateColumns: '1fr 110px 1fr',
+        alignItems: 'center',
+        padding: '16px 0',
+        borderBottom: '1px solid #f1f5f9',
+        animation: `statRowIn 0.25s ease ${delay}s both`,
       }}
     >
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.12em',
-          color: '#334155',
+      <div style={{ textAlign: 'right', paddingRight: 14 }}>{homeContent}</div>
+      <div style={{ textAlign: 'center' }}>
+        <span style={{
+          fontSize: 9,
+          fontWeight: 800,
+          color: '#9ca3af',
           textTransform: 'uppercase',
-          marginBottom: 12,
-        }}
-      >
-        {title}
+          letterSpacing: '0.14em',
+          lineHeight: 1.4,
+          display: 'block',
+        }}>
+          {label}
+        </span>
       </div>
-      {children}
+      <div style={{ textAlign: 'left', paddingLeft: 14 }}>{awayContent}</div>
     </div>
   )
 }
@@ -383,6 +237,7 @@ export function MatchPreviewModal({
   awayName,
   homeAvatarUrl,
   awayAvatarUrl,
+  boutLabel,
   onClose,
 }: {
   homePlayerId: string
@@ -391,12 +246,14 @@ export function MatchPreviewModal({
   awayName: string
   homeAvatarUrl: string | null | undefined
   awayAvatarUrl: string | null | undefined
+  boutLabel?: string
   onClose: () => void
 }) {
   const { t } = useTranslation()
   const [data, setData] = useState<MatchPreviewData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('matchup')
 
   useEffect(() => {
     let cancelled = false
@@ -419,256 +276,265 @@ export function MatchPreviewModal({
   const drawPct = o ? Math.round(o.drawPct) : 0
   const awayPct = o ? Math.round(o.awayWinPct) : 0
 
+  const homeWinRatePct = hStats ? Math.round(hStats.winRate * 100) : 0
+  const awayWinRatePct = aStats ? Math.round(aStats.winRate * 100) : 0
+
+  const TABS: { key: ActiveTab; label: string }[] = [
+    { key: 'matchup', label: 'MATCHUP' },
+    { key: 'odds', label: 'ODDS' },
+    { key: 'h2h', label: 'H2H' },
+    { key: 'form', label: 'FORM' },
+  ]
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: PREVIEW_ANIMS }} />
 
-      {/* Overlay — does NOT close on click */}
+      {/* Overlay */}
       <div
+        onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(3,7,18,0.92)',
-          backdropFilter: 'blur(8px)',
+          background: 'rgba(0,0,0,0.65)',
+          backdropFilter: 'blur(6px)',
           zIndex: 200,
-          animation: 'previewOverlayIn 0.25s ease both',
+          animation: 'previewOverlayIn 0.2s ease both',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
         }}
       >
-        {/* Panel */}
         <div
+          onClick={(e) => e.stopPropagation()}
           style={{
-            maxWidth: 640,
+            maxWidth: 680,
             margin: '0 auto',
-            padding: '16px 12px 32px',
+            padding: '20px 12px 40px',
             minHeight: '100%',
             boxSizing: 'border-box',
           }}
         >
+          {/* Panel */}
           <div
             style={{
-              background: 'linear-gradient(180deg, #0c1422 0%, #050911 100%)',
-              border: '1px solid #1a2840',
-              borderRadius: 16,
+              background: '#ffffff',
+              borderRadius: 4,
               overflow: 'hidden',
-              animation: 'previewPanelIn 0.35s cubic-bezier(0.22,1,0.36,1) both',
-              position: 'relative',
+              boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+              animation: 'previewPanelIn 0.3s cubic-bezier(0.22,1,0.36,1) both',
             }}
           >
-            {/* Scan line decoration */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                overflow: 'hidden',
-                pointerEvents: 'none',
-                borderRadius: 16,
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  height: '30%',
-                  background: 'linear-gradient(180deg, transparent, rgba(59,130,246,0.04), transparent)',
-                  animation: 'scanLine 4s linear infinite',
-                }}
-              />
-            </div>
-
-            {/* Header */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '14px 16px 0',
-                position: 'relative',
-                zIndex: 1,
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.14em',
-                  color: '#334155',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {t('champ.preview.title')}
-              </span>
-              <button
-                onClick={onClose}
-                style={{
-                  background: 'rgba(15,26,46,0.9)',
-                  border: '1px solid #1a2840',
-                  borderRadius: 8,
-                  color: '#94a3b8',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  padding: '5px 12px',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {t('champ.preview.close')}
-              </button>
-            </div>
-
-            {/* Hero VS section */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '28px 24px 20px',
-                gap: 0,
-                position: 'relative',
-              }}
-            >
-              {/* Home side */}
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 16,
-                }}
-              >
-                <PreviewAvatar url={homeAvatarUrl} name={homeName} side="home" />
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 800,
-                      color: '#f1f5f9',
-                      letterSpacing: '-0.01em',
-                      maxWidth: 130,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
+            {/* ── Header ── */}
+            <div style={{ padding: '20px 20px 0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'flex-start', gap: 8 }}>
+                {/* Home name */}
+                <div>
+                  <div style={{
+                    fontSize: 18,
+                    fontWeight: 900,
+                    color: '#0f172a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em',
+                    lineHeight: 1.15,
+                  }}>
                     {homeName}
                   </div>
                   {hStats && (
-                    <div style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700, marginTop: 2 }}>
-                      {Math.round(hStats.winRate * 100)}% {t('champ.preview.winRate')}
+                    <div style={{ fontSize: 11, color: '#dc2626', fontWeight: 700, marginTop: 4 }}>
+                      {homeWinRatePct}% {t('champ.preview.winRate')}
                     </div>
                   )}
                 </div>
-              </div>
 
-              {/* VS */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 4,
-                  flexShrink: 0,
-                  zIndex: 2,
-                  padding: '0 8px',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: '0.08em',
-                    color: '#3b5580',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {o && `${o.homeWinOdds.toFixed(2)}`}
-                </div>
-                <div
-                  style={{
-                    fontSize: 44,
-                    fontWeight: 900,
-                    color: '#fbbf24',
-                    letterSpacing: '-0.04em',
-                    lineHeight: 1,
-                    textShadow: '0 0 28px rgba(251,191,36,0.7), 0 0 56px rgba(245,158,11,0.35), 0 0 80px rgba(245,158,11,0.15)',
-                    animation: 'vsFlicker 5s ease-in-out infinite',
-                    fontStyle: 'italic',
-                  }}
-                >
-                  VS
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: '0.08em',
-                    color: '#3b5580',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {o && `${o.awayWinOdds.toFixed(2)}`}
-                </div>
-              </div>
-
-              {/* Away side */}
-              <div
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 16,
-                }}
-              >
-                <PreviewAvatar url={awayAvatarUrl} name={awayName} side="away" />
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 800,
-                      color: '#f1f5f9',
-                      letterSpacing: '-0.01em',
-                      maxWidth: 130,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
+                {/* Center: bout label + close */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, paddingTop: 2 }}>
+                  {boutLabel && (
+                    <span style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: '#9ca3af',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.14em',
                       whiteSpace: 'nowrap',
+                      textAlign: 'center',
+                    }}>
+                      {boutLabel}
+                    </span>
+                  )}
+                  <button
+                    onClick={onClose}
+                    style={{
+                      background: '#f1f5f9',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#64748b',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: '5px 11px',
+                      lineHeight: 1,
+                      transition: 'background 0.15s',
                     }}
                   >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Away name */}
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{
+                    fontSize: 18,
+                    fontWeight: 900,
+                    color: '#0f172a',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.02em',
+                    lineHeight: 1.15,
+                  }}>
                     {awayName}
                   </div>
                   {aStats && (
-                    <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 700, marginTop: 2 }}>
-                      {Math.round(aStats.winRate * 100)}% {t('champ.preview.winRate')}
+                    <div style={{ fontSize: 11, color: '#1d4ed8', fontWeight: 700, marginTop: 4 }}>
+                      {awayWinRatePct}% {t('champ.preview.winRate')}
                     </div>
                   )}
                 </div>
               </div>
+
+              {/* Split color bar */}
+              <div
+                style={{
+                  display: 'flex',
+                  height: 3,
+                  marginTop: 14,
+                  animation: 'colorBarSlide 0.4s ease 0.05s both',
+                }}
+              >
+                <div style={{ flex: 1, background: '#dc2626' }} />
+                <div style={{ flex: 1, background: '#1d4ed8' }} />
+              </div>
             </div>
 
-            {/* Content */}
+            {/* ── Hero: avatars + VS ── */}
             <div
               style={{
-                padding: '0 14px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10,
+                position: 'relative',
+                display: 'grid',
+                gridTemplateColumns: '1fr auto 1fr',
+                alignItems: 'flex-end',
+                padding: '24px 20px 0',
+                background: '#fafafa',
+                borderBottom: '1px solid #e5e7eb',
+                overflow: 'hidden',
               }}
             >
+              {/* Home */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+                <PreviewAvatar url={homeAvatarUrl} name={homeName} side="home" />
+                {o && (
+                  <div style={{
+                    fontSize: 26,
+                    fontWeight: 900,
+                    color: '#dc2626',
+                    letterSpacing: '0.02em',
+                    lineHeight: 1,
+                    padding: '12px 0 16px',
+                  }}>
+                    {o.homeWinOdds.toFixed(2)}
+                  </div>
+                )}
+              </div>
+
+              {/* VS */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                padding: '0 16px',
+                paddingBottom: o ? 20 : 24,
+                animation: 'vsIn 0.4s ease 0.1s both',
+              }}>
+                <div style={{
+                  fontSize: 52,
+                  fontWeight: 900,
+                  color: '#0f172a',
+                  letterSpacing: '-0.05em',
+                  lineHeight: 1,
+                  fontStyle: 'italic',
+                }}>
+                  VS
+                </div>
+                {o && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em' }}>
+                    {drawPct}% DRAW
+                  </div>
+                )}
+              </div>
+
+              {/* Away */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+                <PreviewAvatar url={awayAvatarUrl} name={awayName} side="away" />
+                {o && (
+                  <div style={{
+                    fontSize: 26,
+                    fontWeight: 900,
+                    color: '#1d4ed8',
+                    letterSpacing: '0.02em',
+                    lineHeight: 1,
+                    padding: '12px 0 16px',
+                  }}>
+                    {o.awayWinOdds.toFixed(2)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Tab navigation ── */}
+            <div style={{
+              display: 'flex',
+              borderBottom: '1px solid #e5e7eb',
+              background: '#ffffff',
+            }}>
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    flex: 1,
+                    padding: '13px 4px',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: activeTab === tab.key ? '3px solid #0f172a' : '3px solid transparent',
+                    color: activeTab === tab.key ? '#0f172a' : '#9ca3af',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    transition: 'color 0.15s, border-color 0.15s',
+                    marginBottom: -1,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Tab content ── */}
+            <div style={{ padding: '0 20px 24px', minHeight: 160, background: '#ffffff' }}>
+
               {loading && (
                 <div
                   style={{
                     textAlign: 'center',
-                    padding: '32px 0',
-                    color: '#475569',
-                    fontSize: 13,
-                    background: 'linear-gradient(90deg, #475569 0%, #94a3b8 50%, #475569 100%)',
+                    padding: '48px 0',
+                    background: 'linear-gradient(90deg, #94a3b8 0%, #cbd5e1 50%, #94a3b8 100%)',
                     backgroundSize: '200% auto',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     animation: 'shimmer 1.8s linear infinite',
+                    fontSize: 13,
+                    fontWeight: 600,
                   }}
                 >
                   {t('champ.preview.loading')}
@@ -676,449 +542,355 @@ export function MatchPreviewModal({
               )}
 
               {error && (
-                <div style={{ color: '#f87171', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>
+                <div style={{ color: '#dc2626', fontSize: 13, textAlign: 'center', padding: '28px 0' }}>
                   {error}
                 </div>
               )}
 
               {data && (
                 <>
-                  {/* Odds */}
-                  {o && (
-                    <SectionCard title={t('champ.preview.odds')}>
-                      {/* Probability bar */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          height: 10,
-                          borderRadius: 5,
-                          overflow: 'hidden',
-                          marginBottom: 10,
-                          gap: 2,
-                        }}
-                      >
-                        <div
-                          style={{
-                            flex: homePct,
-                            background: 'linear-gradient(90deg, #1d4ed8, #3b82f6)',
-                            borderRadius: '5px 0 0 5px',
-                            animation: 'barFill 0.7s ease both',
-                          }}
-                        />
-                        <div
-                          style={{
-                            flex: drawPct,
-                            background: 'linear-gradient(90deg, #92400e, #d97706)',
-                            animation: 'barFill 0.7s ease 0.1s both',
-                          }}
-                        />
-                        <div
-                          style={{
-                            flex: awayPct,
-                            background: 'linear-gradient(90deg, #991b1b, #ef4444)',
-                            borderRadius: '0 5px 5px 0',
-                            animation: 'barFill 0.7s ease 0.2s both',
-                          }}
-                        />
-                      </div>
+                  {/* ── MATCHUP tab ── */}
+                  {activeTab === 'matchup' && (
+                    <div>
+                      {(hStats || aStats) ? (
+                        <div>
+                          {/* RECORD */}
+                          <UFCStatRow
+                            label="RECORD"
+                            delay={0}
+                            homeContent={
+                              <span style={{ fontSize: 20, fontWeight: 800, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                                {hStats ? `${hStats.wins}-${hStats.losses}-${hStats.draws}` : '–'}
+                              </span>
+                            }
+                            awayContent={
+                              <span style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8', fontVariantNumeric: 'tabular-nums' }}>
+                                {aStats ? `${aStats.wins}-${aStats.losses}-${aStats.draws}` : '–'}
+                              </span>
+                            }
+                          />
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                        {/* Home */}
-                        <div
-                          style={{
-                            background: 'rgba(59,130,246,0.08)',
-                            border: '1px solid rgba(59,130,246,0.2)',
-                            borderRadius: 8,
-                            padding: '8px 4px',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <div style={{ fontSize: 9, fontWeight: 700, color: '#3b82f6', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                            {t('champ.preview.win')}
-                          </div>
-                          <div style={{ fontSize: 22, fontWeight: 900, color: '#60a5fa', lineHeight: 1 }}>
-                            {homePct}%
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', marginTop: 3 }}>
-                            {o.homeWinOdds.toFixed(2)}
-                          </div>
+                          {/* LAST MATCH */}
+                          {(hForm.length > 0 || aForm.length > 0) && (
+                            <UFCStatRow
+                              label="LAST MATCH"
+                              delay={0.05}
+                              homeContent={(() => {
+                                const r = hForm[0]?.result
+                                if (!r) return <span style={{ fontSize: 20, fontWeight: 800, color: '#9ca3af' }}>–</span>
+                                const clr = r === 'W' ? '#16a34a' : r === 'L' ? '#dc2626' : '#d97706'
+                                const lbl = r === 'W' ? 'Win' : r === 'L' ? 'Loss' : 'Draw'
+                                return <span style={{ fontSize: 20, fontWeight: 800, color: clr }}>{lbl}</span>
+                              })()}
+                              awayContent={(() => {
+                                const r = aForm[0]?.result
+                                if (!r) return <span style={{ fontSize: 20, fontWeight: 800, color: '#9ca3af' }}>–</span>
+                                const clr = r === 'W' ? '#16a34a' : r === 'L' ? '#dc2626' : '#d97706'
+                                const lbl = r === 'W' ? 'Win' : r === 'L' ? 'Loss' : 'Draw'
+                                return <span style={{ fontSize: 20, fontWeight: 800, color: clr }}>{lbl}</span>
+                              })()}
+                            />
+                          )}
+
+                          {/* WIN RATE */}
+                          <UFCStatRow
+                            label={t('champ.preview.winRate')}
+                            delay={0.1}
+                            homeContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
+                                <NumberTicker value={homeWinRatePct} />%
+                              </span>
+                            }
+                            awayContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8' }}>
+                                <NumberTicker value={awayWinRatePct} />%
+                              </span>
+                            }
+                          />
+
+                          {/* GOALS FOR */}
+                          <UFCStatRow
+                            label={t('champ.preview.goalsFor')}
+                            delay={0.15}
+                            homeContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                                <NumberTicker value={hStats?.goalsFor ?? 0} />
+                              </span>
+                            }
+                            awayContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', fontVariantNumeric: 'tabular-nums' }}>
+                                <NumberTicker value={aStats?.goalsFor ?? 0} />
+                              </span>
+                            }
+                          />
+
+                          {/* GOALS AGAINST */}
+                          <UFCStatRow
+                            label={t('champ.preview.goalsAgainst')}
+                            delay={0.2}
+                            homeContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                                <NumberTicker value={hStats?.goalsAgainst ?? 0} />
+                              </span>
+                            }
+                            awayContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', fontVariantNumeric: 'tabular-nums' }}>
+                                <NumberTicker value={aStats?.goalsAgainst ?? 0} />
+                              </span>
+                            }
+                          />
+
+                          {/* GOAL DIFF */}
+                          <UFCStatRow
+                            label={t('champ.preview.goalDiff')}
+                            delay={0.25}
+                            homeContent={(() => {
+                              const v = hStats?.goalDiff ?? 0
+                              return (
+                                <span style={{ fontSize: 24, fontWeight: 900, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                                  {v > 0 ? `+${v}` : v}
+                                </span>
+                              )
+                            })()}
+                            awayContent={(() => {
+                              const v = aStats?.goalDiff ?? 0
+                              return (
+                                <span style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', fontVariantNumeric: 'tabular-nums' }}>
+                                  {v > 0 ? `+${v}` : v}
+                                </span>
+                              )
+                            })()}
+                          />
+
+                          {/* MATCHES */}
+                          <UFCStatRow
+                            label={t('champ.preview.matches')}
+                            delay={0.3}
+                            homeContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                                <NumberTicker value={hStats?.matchesPlayed ?? 0} />
+                              </span>
+                            }
+                            awayContent={
+                              <span style={{ fontSize: 24, fontWeight: 900, color: '#1d4ed8', fontVariantNumeric: 'tabular-nums' }}>
+                                <NumberTicker value={aStats?.matchesPlayed ?? 0} />
+                              </span>
+                            }
+                          />
                         </div>
-
-                        {/* Draw */}
-                        <div
-                          style={{
-                            background: 'rgba(245,158,11,0.07)',
-                            border: '1px solid rgba(245,158,11,0.18)',
-                            borderRadius: 8,
-                            padding: '8px 4px',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <div style={{ fontSize: 9, fontWeight: 700, color: '#d97706', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                            {t('champ.preview.draw')}
-                          </div>
-                          <div style={{ fontSize: 22, fontWeight: 900, color: '#fbbf24', lineHeight: 1 }}>
-                            {drawPct}%
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309', marginTop: 3 }}>
-                            {o.drawOdds.toFixed(2)}
-                          </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '32px 0' }}>
+                          {t('champ.preview.formNone')}
                         </div>
-
-                        {/* Away */}
-                        <div
-                          style={{
-                            background: 'rgba(239,68,68,0.08)',
-                            border: '1px solid rgba(239,68,68,0.2)',
-                            borderRadius: 8,
-                            padding: '8px 4px',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-                            {t('champ.preview.win')}
-                          </div>
-                          <div style={{ fontSize: 22, fontWeight: 900, color: '#f87171', lineHeight: 1 }}>
-                            {awayPct}%
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', marginTop: 3 }}>
-                            {o.awayWinOdds.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* xG row */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginTop: 10,
-                          padding: '8px 10px',
-                          background: '#050911',
-                          borderRadius: 8,
-                          border: '1px solid #0f1a2e',
-                        }}
-                      >
-                        <span style={{ fontSize: 16, fontWeight: 800, color: '#60a5fa' }}>
-                          {o.expectedHomeGoals.toFixed(1)}
-                        </span>
-                        <span style={{ fontSize: 10, fontWeight: 600, color: '#334155', letterSpacing: '0.1em' }}>
-                          {t('champ.preview.xg')} ·{' '}
-                          {o.homeHandicap !== 0
-                            ? `${homeName.split(' ')[0]} ${o.homeHandicap > 0 ? '+' : ''}${o.homeHandicap}`
-                            : t('champ.preview.handicap')}
-                        </span>
-                        <span style={{ fontSize: 16, fontWeight: 800, color: '#f87171' }}>
-                          {o.expectedAwayGoals.toFixed(1)}
-                        </span>
-                      </div>
-                    </SectionCard>
+                      )}
+                    </div>
                   )}
 
-                  {/* H2H */}
-                  <SectionCard title={t('champ.preview.h2h')}>
-                    {h2h && h2h.totalMatches > 0 ? (
-                      <>
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: 10,
-                          }}
-                        >
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 28, fontWeight: 900, color: '#60a5fa', lineHeight: 1 }}>
-                              {h2h.homeWins}
-                            </div>
-                            <div style={{ fontSize: 9, color: '#3b82f6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                              {t('common.wins')}
-                            </div>
+                  {/* ── ODDS tab ── */}
+                  {activeTab === 'odds' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 16 }}>
+                      {o ? (
+                        <>
+                          {/* Probability bar */}
+                          <div style={{ height: 8, borderRadius: 4, overflow: 'hidden', display: 'flex', gap: 2 }}>
+                            <div style={{ flex: homePct, background: '#dc2626', borderRadius: '4px 0 0 4px', animation: 'barFill 0.7s ease both' }} />
+                            <div style={{ flex: drawPct, background: '#d97706', animation: 'barFill 0.7s ease 0.1s both' }} />
+                            <div style={{ flex: awayPct, background: '#1d4ed8', borderRadius: '0 4px 4px 0', animation: 'barFill 0.7s ease 0.2s both' }} />
                           </div>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 22, fontWeight: 800, color: '#fbbf24', lineHeight: 1 }}>
-                              {h2h.draws}
-                            </div>
-                            <div style={{ fontSize: 9, color: '#d97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                              {t('common.draws')}
-                            </div>
-                          </div>
-                          <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 28, fontWeight: 900, color: '#f87171', lineHeight: 1 }}>
-                              {h2h.awayWins}
-                            </div>
-                            <div style={{ fontSize: 9, color: '#ef4444', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                              {t('common.wins')}
-                            </div>
-                          </div>
-                        </div>
 
-                        {/* H2H dominance bar */}
-                        <div
-                          style={{
-                            height: 8,
-                            borderRadius: 4,
-                            overflow: 'hidden',
-                            display: 'flex',
-                            gap: 1,
-                            marginBottom: 8,
-                          }}
-                        >
-                          {h2h.homeWins > 0 && (
-                            <div
-                              style={{
-                                flex: h2h.homeWins,
-                                background: 'linear-gradient(90deg, #1d4ed8, #3b82f6)',
-                                animation: 'barFill 0.8s ease both',
-                              }}
-                            />
+                          {/* Win / Draw / Win cards */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                            <div style={{ background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 6px', textAlign: 'center' }}>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: '#dc2626', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                                {homeName.split(' ')[0]}
+                              </div>
+                              <div style={{ fontSize: 26, fontWeight: 900, color: '#dc2626', lineHeight: 1 }}>
+                                <NumberTicker value={homePct} />%
+                              </div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280', marginTop: 4 }}>
+                                {o.homeWinOdds.toFixed(2)}
+                              </div>
+                            </div>
+                            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 6px', textAlign: 'center' }}>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: '#d97706', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                                {t('champ.preview.draw')}
+                              </div>
+                              <div style={{ fontSize: 26, fontWeight: 900, color: '#d97706', lineHeight: 1 }}>
+                                <NumberTicker value={drawPct} />%
+                              </div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280', marginTop: 4 }}>
+                                {o.drawOdds.toFixed(2)}
+                              </div>
+                            </div>
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '12px 6px', textAlign: 'center' }}>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: '#1d4ed8', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
+                                {awayName.split(' ')[0]}
+                              </div>
+                              <div style={{ fontSize: 26, fontWeight: 900, color: '#1d4ed8', lineHeight: 1 }}>
+                                <NumberTicker value={awayPct} />%
+                              </div>
+                              <div style={{ fontSize: 14, fontWeight: 700, color: '#6b7280', marginTop: 4 }}>
+                                {o.awayWinOdds.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* xG row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                            <span style={{ fontSize: 20, fontWeight: 800, color: '#dc2626' }}>{o.expectedHomeGoals.toFixed(1)}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textAlign: 'center' }}>
+                              {t('champ.preview.xg')}<br />
+                              {o.homeHandicap !== 0 ? `${homeName.split(' ')[0]} ${o.homeHandicap > 0 ? '+' : ''}${o.homeHandicap}` : t('champ.preview.handicap')}
+                            </span>
+                            <span style={{ fontSize: 20, fontWeight: 800, color: '#1d4ed8' }}>{o.expectedAwayGoals.toFixed(1)}</span>
+                          </div>
+
+                          {/* Key factors */}
+                          {(o.homeFactors.length > 0 || o.awayFactors.length > 0) && (
+                            <>
+                              <div style={{ fontSize: 9, fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+                                {t('champ.preview.factors')}
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {o.homeFactors.slice(0, 3).map((f, i) => (
+                                    <div key={i} style={{ background: '#fff5f5', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 10px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                                        <span style={{ fontSize: 9, fontWeight: 800, color: f.impact === 'positive' ? '#16a34a' : f.impact === 'negative' ? '#dc2626' : '#d97706', textTransform: 'uppercase' }}>
+                                          {f.impact === 'positive' ? '▲' : f.impact === 'negative' ? '▼' : '●'}
+                                        </span>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: '#374151' }}>{f.label}</span>
+                                      </div>
+                                      <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.35 }}>{f.description}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {o.awayFactors.slice(0, 3).map((f, i) => (
+                                    <div key={i} style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 10px' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                                        <span style={{ fontSize: 9, fontWeight: 800, color: f.impact === 'positive' ? '#16a34a' : f.impact === 'negative' ? '#dc2626' : '#d97706', textTransform: 'uppercase' }}>
+                                          {f.impact === 'positive' ? '▲' : f.impact === 'negative' ? '▼' : '●'}
+                                        </span>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: '#374151' }}>{f.label}</span>
+                                      </div>
+                                      <div style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.35 }}>{f.description}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </>
                           )}
-                          {h2h.draws > 0 && (
-                            <div
-                              style={{
-                                flex: h2h.draws,
-                                background: 'linear-gradient(90deg, #92400e, #d97706)',
-                                animation: 'barFill 0.8s ease 0.1s both',
-                              }}
-                            />
-                          )}
-                          {h2h.awayWins > 0 && (
-                            <div
-                              style={{
-                                flex: h2h.awayWins,
-                                background: 'linear-gradient(90deg, #991b1b, #ef4444)',
-                                animation: 'barFill 0.8s ease 0.2s both',
-                              }}
-                            />
-                          )}
+                        </>
+                      ) : (
+                        <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '32px 0' }}>
+                          {t('champ.preview.formNone')}
                         </div>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 700 }}>
-                            {h2h.homeGoals} {t('common.goals')}
-                          </span>
-                          <span style={{ fontSize: 10, color: '#334155', fontWeight: 600 }}>
-                            {t('champ.preview.totalMeetings').replace('{n}', String(h2h.totalMatches))}
-                          </span>
-                          <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 700 }}>
-                            {h2h.awayGoals} {t('common.goals')}
-                          </span>
-                        </div>
-                      </>
-                    ) : (
-                      <div style={{ color: '#334155', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
-                        {t('champ.preview.h2hNone')}
-                      </div>
-                    )}
-                  </SectionCard>
-
-                  {/* Recent Form */}
-                  <SectionCard title={t('champ.preview.form')}>
-                    {hForm.length === 0 && aForm.length === 0 ? (
-                      <div style={{ color: '#334155', fontSize: 12, textAlign: 'center', padding: '8px 0' }}>
-                        {t('champ.preview.formNone')}
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {/* Home form */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: '#3b82f6',
-                              minWidth: 60,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              lineHeight: '38px',
-                            }}
-                          >
-                            {homeName.split(' ')[0]}
-                          </span>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
-                            {hForm.length === 0 ? (
-                              <span style={{ fontSize: 11, color: '#334155', lineHeight: '38px' }}>–</span>
-                            ) : (
-                              hForm.map((f, i) => (
-                                <FormDot
-                                  key={i}
-                                  result={f.result}
-                                  index={i}
-                                  goalsFor={f.goalsFor}
-                                  goalsAgainst={f.goalsAgainst}
-                                />
-                              ))
-                            )}
-                          </div>
-                        </div>
-                        {/* Away form */}
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: '#ef4444',
-                              minWidth: 60,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              lineHeight: '38px',
-                            }}
-                          >
-                            {awayName.split(' ')[0]}
-                          </span>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
-                            {aForm.length === 0 ? (
-                              <span style={{ fontSize: 11, color: '#334155', lineHeight: '38px' }}>–</span>
-                            ) : (
-                              aForm.map((f, i) => (
-                                <FormDot
-                                  key={i}
-                                  result={f.result}
-                                  index={i}
-                                  goalsFor={f.goalsFor}
-                                  goalsAgainst={f.goalsAgainst}
-                                />
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </SectionCard>
-
-                  {/* Stats comparison */}
-                  {(hStats || aStats) && (
-                    <SectionCard title={t('champ.preview.stats')}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <StatBar
-                          label={t('champ.preview.winRate')}
-                          homeVal={hStats ? Math.round(hStats.winRate * 100) : 0}
-                          awayVal={aStats ? Math.round(aStats.winRate * 100) : 0}
-                          format={(v) => `${v}%`}
-                        />
-                        <StatBar
-                          label={t('champ.preview.goalsFor')}
-                          homeVal={hStats?.goalsFor ?? 0}
-                          awayVal={aStats?.goalsFor ?? 0}
-                        />
-                        <StatBar
-                          label={t('champ.preview.goalsAgainst')}
-                          homeVal={hStats?.goalsAgainst ?? 0}
-                          awayVal={aStats?.goalsAgainst ?? 0}
-                          higher="worse"
-                        />
-                        <StatBar
-                          label={t('champ.preview.goalDiff')}
-                          homeVal={hStats?.goalDiff ?? 0}
-                          awayVal={aStats?.goalDiff ?? 0}
-                          format={(v) => (v > 0 ? `+${v}` : String(v))}
-                        />
-                        <StatBar
-                          label={t('champ.preview.matches')}
-                          homeVal={hStats?.matchesPlayed ?? 0}
-                          awayVal={aStats?.matchesPlayed ?? 0}
-                        />
-                      </div>
-                    </SectionCard>
+                      )}
+                    </div>
                   )}
 
-                  {/* Key Factors */}
-                  {o && (o.homeFactors.length > 0 || o.awayFactors.length > 0) && (
-                    <SectionCard title={t('champ.preview.factors')}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        {/* Home factors */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {o.homeFactors.slice(0, 3).map((f, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                background: 'rgba(59,130,246,0.06)',
-                                border: '1px solid rgba(59,130,246,0.15)',
-                                borderRadius: 8,
-                                padding: '7px 9px',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                  marginBottom: 3,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontSize: 9,
-                                    fontWeight: 800,
-                                    color: f.impact === 'positive' ? '#10b981' : f.impact === 'negative' ? '#ef4444' : '#d97706',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.06em',
-                                  }}
-                                >
-                                  {f.impact === 'positive' ? '▲' : f.impact === 'negative' ? '▼' : '●'}
-                                </span>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8' }}>
-                                  {f.label}
-                                </span>
+                  {/* ── H2H tab ── */}
+                  {activeTab === 'h2h' && (
+                    <div style={{ paddingTop: 20 }}>
+                      {h2h && h2h.totalMatches > 0 ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: 40, fontWeight: 900, color: '#dc2626', lineHeight: 1 }}>
+                                <NumberTicker value={h2h.homeWins} />
                               </div>
-                              <div style={{ fontSize: 10, color: '#475569', lineHeight: 1.35 }}>
-                                {f.description}
+                              <div style={{ fontSize: 10, color: '#dc2626', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
+                                {homeName.split(' ')[0]}
+                              </div>
+                              <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>
+                                {t('common.wins')}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                        {/* Away factors */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {o.awayFactors.slice(0, 3).map((f, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                background: 'rgba(239,68,68,0.06)',
-                                border: '1px solid rgba(239,68,68,0.15)',
-                                borderRadius: 8,
-                                padding: '7px 9px',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 5,
-                                  marginBottom: 3,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    fontSize: 9,
-                                    fontWeight: 800,
-                                    color: f.impact === 'positive' ? '#10b981' : f.impact === 'negative' ? '#ef4444' : '#d97706',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.06em',
-                                  }}
-                                >
-                                  {f.impact === 'positive' ? '▲' : f.impact === 'negative' ? '▼' : '●'}
-                                </span>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8' }}>
-                                  {f.label}
-                                </span>
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: 28, fontWeight: 900, color: '#d97706', lineHeight: 1 }}>
+                                <NumberTicker value={h2h.draws} />
                               </div>
-                              <div style={{ fontSize: 10, color: '#475569', lineHeight: 1.35 }}>
-                                {f.description}
+                              <div style={{ fontSize: 10, color: '#d97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
+                                {t('common.draws')}
                               </div>
                             </div>
-                          ))}
+                            <div style={{ textAlign: 'center' }}>
+                              <div style={{ fontSize: 40, fontWeight: 900, color: '#1d4ed8', lineHeight: 1 }}>
+                                <NumberTicker value={h2h.awayWins} />
+                              </div>
+                              <div style={{ fontSize: 10, color: '#1d4ed8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 4 }}>
+                                {awayName.split(' ')[0]}
+                              </div>
+                              <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, marginTop: 2 }}>
+                                {t('common.wins')}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* H2H bar */}
+                          <div style={{ height: 8, borderRadius: 4, overflow: 'hidden', display: 'flex', gap: 2, marginBottom: 14 }}>
+                            {h2h.homeWins > 0 && <div style={{ flex: h2h.homeWins, background: '#dc2626', animation: 'barFill 0.8s ease both' }} />}
+                            {h2h.draws > 0 && <div style={{ flex: h2h.draws, background: '#d97706', animation: 'barFill 0.8s ease 0.1s both' }} />}
+                            {h2h.awayWins > 0 && <div style={{ flex: h2h.awayWins, background: '#1d4ed8', animation: 'barFill 0.8s ease 0.2s both' }} />}
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid #f1f5f9' }}>
+                            <span style={{ fontSize: 14, color: '#dc2626', fontWeight: 800 }}>{h2h.homeGoals} {t('common.goals')}</span>
+                            <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>
+                              {t('champ.preview.totalMeetings').replace('{n}', String(h2h.totalMatches))}
+                            </span>
+                            <span style={{ fontSize: 14, color: '#1d4ed8', fontWeight: 800 }}>{h2h.awayGoals} {t('common.goals')}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '32px 0' }}>
+                          {t('champ.preview.h2hNone')}
                         </div>
-                      </div>
-                    </SectionCard>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── FORM tab ── */}
+                  {activeTab === 'form' && (
+                    <div style={{ paddingTop: 18 }}>
+                      {hForm.length === 0 && aForm.length === 0 ? (
+                        <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: 13, padding: '32px 0' }}>
+                          {t('champ.preview.formNone')}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#dc2626', minWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '38px' }}>
+                              {homeName.split(' ')[0]}
+                            </span>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
+                              {hForm.length === 0 ? (
+                                <span style={{ fontSize: 12, color: '#9ca3af', lineHeight: '38px' }}>–</span>
+                              ) : (
+                                hForm.map((f, i) => (
+                                  <FormDot key={i} result={f.result} index={i} goalsFor={f.goalsFor} goalsAgainst={f.goalsAgainst} />
+                                ))
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#1d4ed8', minWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: '38px' }}>
+                              {awayName.split(' ')[0]}
+                            </span>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
+                              {aForm.length === 0 ? (
+                                <span style={{ fontSize: 12, color: '#9ca3af', lineHeight: '38px' }}>–</span>
+                              ) : (
+                                aForm.map((f, i) => (
+                                  <FormDot key={i} result={f.result} index={i} goalsFor={f.goalsFor} goalsAgainst={f.goalsAgainst} />
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </>
               )}

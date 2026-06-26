@@ -79,7 +79,7 @@ export function BetSlip({ userId }: Props) {
         <button
           onClick={() => setOpen(true)}
           style={{
-            position: 'fixed', bottom: 72, right: 16, zIndex: 60,
+            position: 'fixed', bottom: 76, right: 16, zIndex: 60,
             background: ACCENT, color: '#fff', border: 'none', borderRadius: 24,
             padding: '10px 18px', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 8,
@@ -117,7 +117,7 @@ export function BetSlip({ userId }: Props) {
 
           {/* Sheet */}
           <div style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 60,
+            position: 'fixed', bottom: 58, left: 0, right: 0, zIndex: 60,
             background: BG, borderRadius: '20px 20px 0 0',
             border: `1px solid ${BORDER}`, borderBottom: 'none',
             maxHeight: '88dvh', display: 'flex', flexDirection: 'column',

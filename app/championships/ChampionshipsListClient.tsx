@@ -4,24 +4,18 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Trophy } from 'lucide-react'
 import { CreateChampionshipModal, type PlayerOption } from './CreateChampionshipModal'
-import { BottomNav } from '@/app/components/BottomNav'
 import { useTranslation } from '@/lib/i18n/context'
+import { BottomNav } from '@/app/components/BottomNav'
 
-const BG    = '#050911'
-const CARD  = '#0c1422'
-const CARD2 = '#0f1a2e'
-const BORDER = '#1a2840'
-const ACCENT = '#3b82f6'
-const GOLD  = '#f59e0b'
-const TEXT  = '#f8fafc'
-const MUTED = '#6b7280'
-const GREEN = '#22c55e'
+const BG     = 'var(--bg)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const GOLD   = 'var(--gold)'
+const TEXT   = 'var(--text)'
+const MUTED  = 'var(--muted)'
+const GREEN  = 'var(--win)'
 
 const ANIMS = `
-  @keyframes trophyGlow {
-    0%, 100% { box-shadow: 0 0 14px rgba(245,158,11,0.45), 0 0 28px rgba(245,158,11,0.2); }
-    50%       { box-shadow: 0 0 24px rgba(245,158,11,0.75), 0 0 48px rgba(245,158,11,0.38); }
-  }
   @keyframes fadeSlideIn {
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -30,9 +24,9 @@ const ANIMS = `
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: 0.5; transform: scale(0.9); }
   }
-  @keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position:  200% center; }
+  @keyframes trophyGlow {
+    0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.35), 0 0 22px rgba(245,158,11,0.15); }
+    50%       { box-shadow: 0 0 18px rgba(245,158,11,0.6), 0 0 36px rgba(245,158,11,0.28); }
   }
 `
 
@@ -60,21 +54,21 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
 
   return (
     <div
+      className="app-page"
       style={{
-        maxWidth: 720,
-        margin: '0 auto',
-        padding: '0 0 56px',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         background: BG,
         minHeight: '100svh',
+        paddingBottom: 'var(--nav-h)',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: ANIMS }} />
+      <div className="page-content-wide">
 
       {/* ── Header banner ── */}
       <div
         style={{
-          background: 'linear-gradient(160deg, #050d1c 0%, #0c1e3a 55%, #050911 100%)',
+          background: 'var(--gradient-banner)',
           borderBottom: `1px solid ${BORDER}`,
           padding: '36px 24px 32px',
           marginBottom: 28,
@@ -85,7 +79,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
         {/* Grid texture */}
         <div style={{
           position: 'absolute', inset: 0,
-          backgroundImage: 'linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(rgba(220,38,38,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(220,38,38,0.03) 1px, transparent 1px)',
           backgroundSize: '44px 44px',
           pointerEvents: 'none',
         }} />
@@ -93,19 +87,19 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
         <div style={{
           position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)',
           width: 300, height: 160, borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(59,130,246,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(220,38,38,0.06) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
 
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, position: 'relative', flexWrap: 'wrap' }}>
           <div>
             <div style={{
-              fontSize: 10, fontWeight: 800, color: 'rgba(148,163,184,0.55)',
+              fontSize: 10, fontWeight: 800, color: 'rgba(107,114,128,0.7)',
               textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 8,
             }}>
-              iSport FC
+              ULTIMATE FC CHAMPIONSHIPS
             </div>
-            <h1 style={{ margin: '0 0 10px', fontSize: 30, fontWeight: 900, color: TEXT, letterSpacing: '-0.5px' }}>
+            <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(22px, 6vw, 30px)', fontWeight: 900, color: TEXT, letterSpacing: '-0.5px' }}>
               {t('champ.title')}
             </h1>
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -134,18 +128,18 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
               onClick={() => setShowCreate(true)}
               style={{
                 padding: '10px 22px',
-                background: `linear-gradient(135deg, #1d4ed8, ${ACCENT})`,
+                background: `linear-gradient(135deg, var(--accent), var(--accent2))`,
                 color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer',
                 fontSize: 13, fontWeight: 700,
-                boxShadow: '0 4px 16px rgba(59,130,246,0.4)', flexShrink: 0,
+                boxShadow: '0 4px 16px rgba(220,38,38,0.3)', flexShrink: 0,
                 transition: 'transform 0.1s, box-shadow 0.1s',
               }}
               onMouseEnter={(e) => {
-                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 24px rgba(59,130,246,0.6)'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 24px rgba(220,38,38,0.5)'
                 ;(e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'
               }}
               onMouseLeave={(e) => {
-                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(59,130,246,0.4)'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(220,38,38,0.3)'
                 ;(e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
               }}
             >
@@ -163,7 +157,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
             border: `2px dashed ${BORDER}`, borderRadius: 16,
           }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><Trophy size={48} style={{ color: GOLD, opacity: 0.5 }} /></div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#94a3b8', marginBottom: 8 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted2)', marginBottom: 8 }}>
               {t('champ.noChampYet')}
             </div>
             {isAdmin && (
@@ -180,7 +174,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
             )}
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {championships.map((c, i) => {
               const isActive = c.isActive
               return (
@@ -195,65 +189,79 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                 >
                   <div
                     style={{
-                      border: `1px solid ${isActive ? 'rgba(245,158,11,0.35)' : BORDER}`,
+                      border: `1.5px solid ${isActive ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
                       borderRadius: 14,
-                      padding: '16px 20px',
-                      background: CARD,
+                      overflow: 'hidden',
+                      background: 'var(--card)',
                       cursor: 'pointer',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 14,
+                      alignItems: 'stretch',
+                      minHeight: 96,
                       boxShadow: isActive
-                        ? '0 2px 14px rgba(245,158,11,0.1)'
-                        : '0 2px 8px rgba(0,0,0,0.25)',
-                      transition: 'box-shadow 0.2s, border-color 0.2s, background 0.2s',
+                        ? '0 2px 14px rgba(245,158,11,0.2), 0 4px 20px rgba(0,0,0,0.25)'
+                        : '0 2px 8px rgba(var(--rgb-overlay),0.18)',
+                      transition: 'transform 0.15s, box-shadow 0.2s, border-color 0.2s',
                     }}
                     onMouseEnter={(e) => {
                       const el = e.currentTarget as HTMLDivElement
+                      el.style.transform = 'translateY(-2px)'
                       el.style.boxShadow = isActive
-                        ? '0 0 0 1px rgba(245,158,11,0.6), 0 6px 24px rgba(245,158,11,0.18)'
-                        : `0 0 0 1px rgba(59,130,246,0.55), 0 6px 24px rgba(59,130,246,0.18)`
-                      el.style.borderColor = isActive ? 'rgba(245,158,11,0.65)' : 'rgba(59,130,246,0.5)'
-                      el.style.background = CARD2
+                        ? '0 6px 24px rgba(245,158,11,0.3), 0 8px 32px rgba(0,0,0,0.3)'
+                        : '0 6px 20px rgba(0,0,0,0.22), 0 2px 6px rgba(var(--rgb-overlay),0.12)'
+                      el.style.borderColor = isActive ? 'rgba(245,158,11,0.65)' : 'var(--border)'
                     }}
                     onMouseLeave={(e) => {
                       const el = e.currentTarget as HTMLDivElement
-                      el.style.boxShadow = isActive ? '0 2px 14px rgba(245,158,11,0.1)' : '0 2px 8px rgba(0,0,0,0.25)'
-                      el.style.borderColor = isActive ? 'rgba(245,158,11,0.35)' : BORDER
-                      el.style.background = CARD
+                      el.style.transform = 'translateY(0)'
+                      el.style.boxShadow = isActive
+                        ? '0 2px 14px rgba(245,158,11,0.2), 0 4px 20px rgba(0,0,0,0.25)'
+                        : '0 2px 8px rgba(var(--rgb-overlay),0.18)'
+                      el.style.borderColor = isActive ? 'rgba(245,158,11,0.4)' : 'var(--border)'
                     }}
                   >
-                    {/* Trophy icon */}
+                    {/* Left emblem area */}
                     <div style={{
-                      width: 44, height: 44, borderRadius: 12,
-                      background: isActive
-                        ? 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(251,191,36,0.12))'
-                        : 'rgba(59,130,246,0.07)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: 80,
                       flexShrink: 0,
-                      border: `1px solid ${isActive ? 'rgba(245,158,11,0.35)' : BORDER}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: isActive
+                        ? 'linear-gradient(135deg, rgba(245,158,11,0.1), rgba(217,119,6,0.15))'
+                        : `rgba(var(--rgb-overlay),0.04)`,
+                      borderRight: `1px solid ${isActive ? 'rgba(245,158,11,0.3)' : 'var(--border)'}`,
                       animation: isActive ? 'trophyGlow 2.8s ease-in-out infinite' : 'none',
                     }}>
-                      <Trophy size={22} style={{ color: isActive ? GOLD : ACCENT }} />
+                      <Trophy size={30} style={{ color: isActive ? 'var(--gold)' : 'var(--accent)' }} />
                     </div>
 
-                    {/* Info */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* Main info */}
+                    <div style={{ flex: 1, padding: '18px 18px', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
                       <div style={{
-                        fontSize: 15, fontWeight: 700, color: TEXT,
-                        marginBottom: 5, overflow: 'hidden',
-                        textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontSize: 17,
+                        fontWeight: 800,
+                        color: 'var(--text)',
+                        marginBottom: 6,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}>
                         {c.name}
                       </div>
                       <div style={{
-                        fontSize: 12, color: MUTED, display: 'flex', gap: 12, flexWrap: 'wrap',
+                        fontSize: 12.5,
+                        color: 'var(--muted)',
+                        display: 'flex',
+                        gap: 8,
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
                       }}>
                         <span>{t('champ.playerCount', { n: c.playerCount })}</span>
+                        <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)', display: 'inline-block', flexShrink: 0 }} />
                         <span>
                           {t(c.numberOfCycles !== 1 ? 'champ.cycle.many' : 'champ.cycle.one', { n: c.numberOfCycles })}
                         </span>
+                        <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--border)', display: 'inline-block', flexShrink: 0 }} />
                         <span>
                           {new Date(c.playedAt ?? c.createdAt).toLocaleDateString('en-GB', {
                             day: 'numeric', month: 'short', year: 'numeric',
@@ -263,17 +271,22 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
                     </div>
 
                     {/* Status + arrow */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingRight: 18, flexShrink: 0 }}>
                       <span style={{
-                        fontSize: 10, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                        background: isActive ? 'rgba(34,197,94,0.14)' : 'rgba(148,163,184,0.07)',
-                        color: isActive ? GREEN : MUTED,
-                        border: isActive ? '1px solid rgba(34,197,94,0.3)' : `1px solid ${BORDER}`,
-                        textTransform: 'uppercase', letterSpacing: '0.08em',
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '4px 10px',
+                        borderRadius: 20,
+                        background: isActive ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.1)',
+                        color: isActive ? '#15803d' : '#64748B',
+                        border: isActive ? '1px solid rgba(34,197,94,0.35)' : '1px solid #e5e7eb',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        whiteSpace: 'nowrap',
                       }}>
                         {isActive ? t('champ.active') : t('champ.ended')}
                       </span>
-                      <span style={{ color: '#475569', fontSize: 18, lineHeight: 1 }}>›</span>
+                      <span style={{ color: 'var(--muted2)', fontSize: 20, lineHeight: 1, fontWeight: 300 }}>›</span>
                     </div>
                   </div>
                 </Link>
@@ -287,6 +300,7 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
         <CreateChampionshipModal players={players} onClose={() => setShowCreate(false)} />
       )}
       <BottomNav userId={userId} />
+      </div>
     </div>
   )
 }

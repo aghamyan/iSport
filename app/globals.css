@@ -1,5 +1,140 @@
 @import "tailwindcss";
 
+/* ── Design system tokens (light & dark) ─────────────────────────────────── */
+
+:root {
+  /* Layout */
+  --fixed-nav-h: 60px;
+  --nav-h: 0px;
+
+  /* Backgrounds */
+  --bg:    #F1F5F9;
+  --card:  #FFFFFF;
+  --card2: #F8FAFC;
+  --card3: #F3F4F6;
+
+  /* Borders */
+  --border: #E5E7EB;
+
+  /* Text */
+  --text:   #111827;
+  --text2:  #374151;
+  --muted:  #6B7280;
+  --muted2: #64748B;
+
+  /* Accent / semantic */
+  --accent:  #DC2626;
+  --accent2: #B91C1C;
+  --gold:    #D97706;
+  --win:     #16A34A;
+  --draw:    #D97706;
+
+  /* Nav */
+  --nav-bg:     #FFFFFF;
+  --nav-border: #E5E7EB;
+
+  /* Overlay trick — use rgba(var(--rgb-overlay), alpha) in inline styles  */
+  /* so tints flip from black-on-white to white-on-dark automatically.     */
+  --rgb-overlay: 0,0,0;
+  --rgb-accent:  220,38,38;
+
+  /* Shadows */
+  --shadow-sm:         0 1px 4px rgba(0,0,0,0.06);
+  --shadow-md:         0 2px 8px rgba(0,0,0,0.10);
+  --shadow-card:       0 2px 8px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-card-hover: 0 6px 20px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.12);
+  --shadow-accent:     0 4px 16px rgba(220,38,38,0.30);
+  --shadow-accent-hover: 0 6px 24px rgba(220,38,38,0.45);
+
+  /* Gradients */
+  --gradient-banner: linear-gradient(160deg, #FFFFFF 0%, #FEF2F2 60%, #F1F5F9 100%);
+  --gradient-banner-dark-edge: rgba(220,38,38,0.03);
+}
+
+[data-theme="dark"] {
+  --bg:    #0A0F1E;
+  --card:  #111827;
+  --card2: #1A2333;
+  --card3: #162030;
+  --border: #1E3050;
+  --text:   #F9FAFB;
+  --text2:  #E5E7EB;
+  --muted:  #9CA3AF;
+  --muted2: #94A3B8;
+  --accent:  #EF4444;
+  --accent2: #DC2626;
+  --gold:    #F59E0B;
+  --win:     #22C55E;
+  --draw:    #FBBF24;
+  --nav-bg:     #0E1B2E;
+  --nav-border: #1E3050;
+  --rgb-overlay: 255,255,255;
+  --rgb-accent:  239,68,68;
+  --shadow-sm:         0 1px 4px rgba(0,0,0,0.3);
+  --shadow-md:         0 2px 8px rgba(0,0,0,0.4);
+  --shadow-card:       0 2px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-card-hover: 0 8px 24px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-accent:     0 4px 16px rgba(239,68,68,0.25);
+  --shadow-accent-hover: 0 6px 24px rgba(239,68,68,0.40);
+  --gradient-banner: linear-gradient(160deg, #111827 0%, #1a0f20 60%, #0A0F1E 100%);
+  --gradient-banner-dark-edge: rgba(239,68,68,0.04);
+}
+
+/* ── Apply theme to root elements ────────────────────────────────────────── */
+
+:root { color-scheme: light; }
+[data-theme="dark"] { color-scheme: dark; }
+
+html, body {
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100%;
+  overflow-x: clip;
+}
+
+/* ── Smooth theme transition ─────────────────────────────────────────────── */
+
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, box-shadow 0.2s ease;
+}
+
+/* ── Nav: fixed bottom bar ─────────────────────────────────────────────────── */
+
+/* Always apply bottom padding for the fixed nav */
+.app-page {
+  padding-bottom: var(--fixed-nav-h) !important;
+  padding-left: 0 !important;
+}
+
+/* ── Responsive content containers ───────────────────────────────────────── */
+
+.page-content      { max-width: 480px;  margin: 0 auto; }
+.page-content-wide { max-width: 840px;  margin: 0 auto; }
+
+@media (min-width: 1024px) {
+  .page-content      { max-width: 720px;  }
+  .page-content-wide { max-width: 1000px; }
+}
+
+/* ── Responsive visibility helpers ───────────────────────────────────────── */
+
+@media (min-width: 1024px) {
+  .hidden-desktop { display: none !important; }
+}
+
+/* ── Bottom nav styles ────────────────────────────────────────────────────── */
+
+.bnav-logo:hover {
+  transform: translateY(-18px) scale(1.08) !important;
+  box-shadow: 0 6px 24px rgba(220,38,38,0.5) !important;
+}
+
+.bnav-menu-item:hover {
+  color: var(--accent) !important;
+  background: rgba(var(--rgb-accent), 0.09) !important;
+  border-color: rgba(var(--rgb-accent), 0.22) !important;
+}
+
 /* ── Global keyframes used by betting components ─────────────────────────── */
 
 @keyframes slip-in {

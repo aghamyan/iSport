@@ -1,15 +1,15 @@
 'use client'
 
-import { useState, useMemo, useTransition, type ReactNode } from 'react'
+import { useState, useMemo, useTransition, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { Trophy, Crown, Medal, Flame, Zap, TrendingUp, Shield, Target, BarChart3, Award, Activity, Sparkles, Waves, Users, Building2, Star, Gamepad2, Calculator } from 'lucide-react'
 import type { NamedPlayerStats, RivalryWinner, ChampionshipLeader, LastChampionshipPodiumEntry, H2HRecord } from '@/lib/stats/types'
 import type { P4PRankedPlayer } from '@/lib/stats/p4p'
-import { BottomNav } from '@/app/components/BottomNav'
 import { fetchH2HAction } from '@/app/players/actions'
 import { useTranslation } from '@/lib/i18n/context'
+import { BottomNav } from '@/app/components/BottomNav'
 
-type Tab = 'overall' | 'scorers' | 'active' | 'rivalry' | 'championships' | 'insights' | 'p4p' | 'compare'
+type Tab = 'overall' | 'scorers' | 'active' | 'rivalry' | 'championships' | 'insights' | 'p4p' | 'compare' | 'roster'
 type SortKey = 'wins' | 'goalDiff' | 'winRate' | 'goalsFor' | 'goalsAgainst' | 'matchesPlayed' | 'avgGoals' | 'avgGoalDiff'
 
 type Props = {
@@ -24,19 +24,19 @@ type Props = {
 const PAGE_SIZE = 10
 
 // ─── Design tokens (match app theme) ──────────────────────────────────────────
-const BG     = '#050911'
-const CARD   = '#0c1422'
-const CARD2  = '#0f1a2e'
-const BORDER = '#1a2840'
-const ACCENT = '#3b82f6'
-const GOLD   = '#f59e0b'
-const SILVER = '#94a3b8'
-const BRONZE = '#cd7f32'
-const TEXT   = '#f8fafc'
-const MUTED  = '#6b7280'
-const GREEN  = '#22c55e'
-const RED    = '#ef4444'
-const PURPLE = '#a78bfa'
+const BG     = 'var(--bg)'
+const CARD   = 'var(--card)'
+const CARD2  = 'var(--card2)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const GOLD   = 'var(--gold)'
+const SILVER = '#64748B'
+const BRONZE = '#92400E'
+const TEXT   = 'var(--text)'
+const MUTED  = 'var(--muted)'
+const GREEN  = 'var(--win)'
+const RED    = '#DC2626'
+const PURPLE = '#7C3AED'
 
 function rankMedal(rank: number, size = 18): ReactNode {
   const color = rank === 1 ? GOLD : rank === 2 ? SILVER : BRONZE
@@ -60,8 +60,8 @@ const ANIMS = `
     50%      { box-shadow: 0 0 0 3px #cd7f32, 0 0 22px rgba(205,127,50,0.7); }
   }
   @keyframes pulseBlue {
-    0%,100% { box-shadow: 0 0 0 2px #3b82f6, 0 0 12px rgba(59,130,246,0.45); }
-    50%      { box-shadow: 0 0 0 2px #3b82f6, 0 0 20px rgba(59,130,246,0.7); }
+    0%,100% { box-shadow: 0 0 0 2px #DC2626, 0 0 12px rgba(220,38,38,0.35); }
+    50%      { box-shadow: 0 0 0 2px #DC2626, 0 0 20px rgba(220,38,38,0.55); }
   }
   @keyframes floatUp {
     0%,100% { transform: translateY(0); }
@@ -75,7 +75,7 @@ const ANIMS = `
     0%   { background-position: -200% center; }
     100% { background-position: 200% center; }
   }
-  .lb-row:hover { background: rgba(59,130,246,0.06) !important; }
+  .lb-row:hover { background: rgba(220,38,38,0.05) !important; }
   @media (max-width: 520px) {
     .lb-table-header, .lb-row {
       grid-template-columns: 28px 1fr 30px 30px 30px 46px 62px !important;
@@ -91,8 +91,8 @@ const ANIMS = `
     to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes cmpGlowA {
-    0%,100% { box-shadow: 0 0 0 3px #3b82f6, 0 0 22px rgba(59,130,246,0.45); }
-    50%     { box-shadow: 0 0 0 3px #3b82f6, 0 0 36px rgba(59,130,246,0.7); }
+    0%,100% { box-shadow: 0 0 0 3px #DC2626, 0 0 22px rgba(220,38,38,0.35); }
+    50%     { box-shadow: 0 0 0 3px #DC2626, 0 0 36px rgba(220,38,38,0.55); }
   }
   @keyframes cmpGlowB {
     0%,100% { box-shadow: 0 0 0 3px #ef4444, 0 0 22px rgba(239,68,68,0.45); }
@@ -152,7 +152,11 @@ function Avatar({
     animation: anim,
   }
   if (url) {
-    return <img src={url} alt={name} width={size} height={size} style={{ ...base, objectFit: 'cover' }} />
+    return (
+      <div style={{ ...base, width: size, height: size, background: 'var(--card)', overflow: 'hidden' }}>
+        <img src={url} alt={name} width={size} height={size} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      </div>
+    )
   }
   return (
     <div style={{
@@ -173,7 +177,7 @@ function WinBar({ rate }: { rate: number }) {
   const color = pct >= 60 ? GREEN : pct >= 40 ? GOLD : RED
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
-      <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.07)', borderRadius: 99, overflow: 'hidden', minWidth: 16 }}>
+      <div style={{ flex: 1, height: 4, background: 'rgba(var(--rgb-overlay),0.04)', borderRadius: 99, overflow: 'hidden', minWidth: 16 }}>
         <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99 }} />
       </div>
       <span style={{ fontSize: 11, color, fontWeight: 700, minWidth: 26, textAlign: 'right' }}>{pct}%</span>
@@ -185,6 +189,13 @@ function WinBar({ rate }: { rate: number }) {
 
 function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPodiumEntry[]; currentUserId: string }) {
   const { t } = useTranslation()
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 480)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
   if (entries.length < 2) return null
   // Visual order: 2nd left, 1st center, 3rd right
   const ordered = [entries[1], entries[0], entries[2]] as Array<LastChampionshipPodiumEntry | undefined>
@@ -209,9 +220,9 @@ function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPo
           const isMe    = entry.playerId === currentUserId
           const isFirst = rank === 1
           const ri      = rank - 1
-          const cardW   = isFirst ? 160 : 132
-          const stepH   = isFirst ? 80 : rank === 2 ? 58 : 42
-          const avSize  = isFirst ? 72 : 56
+          const cardW   = isMobile ? (isFirst ? 108 : 88) : (isFirst ? 160 : 132)
+          const stepH   = isFirst ? (isMobile ? 50 : 80) : rank === 2 ? (isMobile ? 36 : 58) : (isMobile ? 26 : 42)
+          const avSize  = isMobile ? (isFirst ? 52 : 40) : (isFirst ? 72 : 56)
           const rgb     = RANK_RGBS[ri]
           const winRate = entry.played > 0 ? entry.wins / entry.played : 0
 
@@ -231,7 +242,7 @@ function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPo
               </div>
 
               <Link href={`/players/${entry.playerId}`} style={{
-                fontSize: isFirst ? 14 : 12, fontWeight: 700,
+                fontSize: isMobile ? (isFirst ? 11 : 10) : (isFirst ? 14 : 12), fontWeight: 700,
                 color: RANK_COLORS[ri], textDecoration: 'none',
                 textAlign: 'center', maxWidth: '100%',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -241,7 +252,7 @@ function PodiumSection({ entries, currentUserId }: { entries: LastChampionshipPo
                 {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: MUTED, fontWeight: 400 }}>{t('common.youSmall')}</span>}
               </Link>
 
-              <div style={{ fontSize: isFirst ? 28 : 20, fontWeight: 900, color: RANK_COLORS[ri], lineHeight: 1 }}>
+              <div style={{ fontSize: isMobile ? (isFirst ? 20 : 16) : (isFirst ? 28 : 20), fontWeight: 900, color: RANK_COLORS[ri], lineHeight: 1 }}>
                 {entry.points}
               </div>
               <div style={{ fontSize: 10, color: MUTED, marginBottom: 8 }}>{t('common.pts')}</div>
@@ -297,8 +308,8 @@ function MyStatsCard({ player, rank, total, players }: {
 
   return (
     <div style={{
-      background: 'linear-gradient(135deg,rgba(59,130,246,0.08),rgba(139,92,246,0.08))',
-      border: `1px solid rgba(59,130,246,0.28)`,
+      background: 'linear-gradient(135deg,rgba(220,38,38,0.06),rgba(139,92,246,0.08))',
+      border: `1px solid rgba(220,38,38,0.2)`,
       borderRadius: 14, padding: '16px 18px', marginBottom: 24,
       animation: 'fadeInUp 0.4s ease',
     }}>
@@ -352,7 +363,7 @@ function MyStatsCard({ player, rank, total, players }: {
           },
         ].map(({ label, value, sub, color }) => (
           <div key={label} style={{
-            background: 'rgba(255,255,255,0.04)', borderRadius: 10,
+            background: 'rgba(var(--rgb-overlay),0.025)', borderRadius: 10,
             padding: '10px 12px', border: `1px solid ${BORDER}`,
           }}>
             <div style={{ fontSize: 19, fontWeight: 800, color, lineHeight: 1, marginBottom: 3 }}>{value}</div>
@@ -403,7 +414,7 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
       {
         icon: <Shield size={22} />, title: t('lb.insights.ironWall'), sub: t('lb.insights.ironWallSub'),
         player: p3, value: p3 ? `${(p3.goalsAgainst / p3.matchesPlayed).toFixed(2)} GA/g` : '-',
-        color: ACCENT, faint: 'rgba(59,130,246,0.08)',
+        color: ACCENT, faint: 'rgba(220,38,38,0.06)',
       },
       {
         icon: <Activity size={22} />, title: t('lb.insights.workhorse'), sub: t('lb.insights.workhorseSub'),
@@ -511,7 +522,7 @@ function InsightsTab({ players, currentUserId }: { players: NamedPlayerStats[]; 
                 </div>
                 <div style={{
                   fontSize: 16, fontWeight: 800, color: card.color,
-                  background: 'rgba(255,255,255,0.05)', borderRadius: 6,
+                  background: 'rgba(var(--rgb-overlay),0.03)', borderRadius: 6,
                   padding: '5px 10px', display: 'inline-block',
                 }}>
                   {card.value}
@@ -585,7 +596,7 @@ function SortBtn({ label, active, asc, onClick }: { label: string; active: boole
       padding: '4px 10px',
       border: `1px solid ${active ? ACCENT : BORDER}`,
       borderRadius: 6,
-      background: active ? 'rgba(59,130,246,0.12)' : CARD2,
+      background: active ? 'rgba(220,38,38,0.08)' : CARD2,
       color: active ? ACCENT : MUTED,
       fontSize: 12, fontWeight: 600, cursor: 'pointer',
       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -714,7 +725,7 @@ function PlayerTable({
             ? `rgba(${RANK_RGBS[1]},0.06)`
             : rank === 3
             ? `rgba(${RANK_RGBS[2]},0.06)`
-            : isMe ? 'rgba(59,130,246,0.07)'
+            : isMe ? 'rgba(220,38,38,0.05)'
             : CARD
 
           return (
@@ -817,7 +828,7 @@ function RivalryWinnersTab({ winners, currentUserId }: { winners: RivalryWinner[
           const isMe   = w.playerId === currentUserId
           const isTop3 = rank <= 3
           const ri     = rank - 1
-          const rowBg  = rank === 1 ? `rgba(${RANK_RGBS[0]},0.07)` : isMe ? 'rgba(59,130,246,0.07)' : CARD
+          const rowBg  = rank === 1 ? `rgba(${RANK_RGBS[0]},0.07)` : isMe ? 'rgba(220,38,38,0.05)' : CARD
           return (
             <div key={w.playerId} className="lb-row" style={{
               display: 'grid', gridTemplateColumns: '32px 1fr 110px',
@@ -883,7 +894,7 @@ function ChampionshipsTab({ leaders }: { leaders: ChampionshipLeader[] }) {
               <span style={{
                 fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 99,
                 textTransform: 'uppercase', letterSpacing: '0.05em',
-                background: cl.isActive ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
+                background: cl.isActive ? 'rgba(220,38,38,0.1)' : 'rgba(var(--rgb-overlay),0.03)',
                 color: cl.isActive ? ACCENT : MUTED,
                 border: `1px solid ${cl.isActive ? ACCENT + '44' : BORDER}`,
               }}>
@@ -976,7 +987,7 @@ function P4PScoreDial({ score, rank, size = 68 }: { score: number; rank: number;
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="5" />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(var(--rgb-overlay),0.04)" strokeWidth="5" />
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5"
           strokeDasharray={`${pct * circ} ${circ}`} strokeLinecap="round"
           style={{ filter: `drop-shadow(0 0 5px ${color})` }} />
@@ -1016,7 +1027,7 @@ function P4PPillarBars({ p4p }: { p4p: P4PRankedPlayer['p4p'] }) {
             textTransform: 'uppercase', letterSpacing: '0.07em',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{row.label}</span>
-          <div style={{ height: 5, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+          <div style={{ height: 5, borderRadius: 99, background: 'rgba(var(--rgb-overlay),0.04)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', borderRadius: 99, background: row.color,
               boxShadow: `0 0 5px ${row.color}66`,
@@ -1057,6 +1068,7 @@ function P4PTopCard({ player, rank, currentUserId }: { player: P4PRankedPlayer; 
         {/* Avatar */}
         <div style={{
           width: avSize, height: avSize, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+          background: 'var(--card)',
           animation: `${glowAnim}${rank === 1 ? ', p4pFloat 4s ease-in-out infinite' : ''}`,
         }}>
           {player.avatarUrl
@@ -1295,7 +1307,7 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
                 display: 'grid', gridTemplateColumns: '32px 1fr 80px 100px',
                 padding: '10px 14px', gap: 8, alignItems: 'center',
                 borderBottom: i < rest.length - 1 ? `1px solid ${BORDER}` : 'none',
-                background: isMe ? 'rgba(59,130,246,0.07)' : CARD,
+                background: isMe ? 'rgba(220,38,38,0.05)' : CARD,
                 transition: 'background 0.15s',
               }}>
                 <span style={{ fontSize: 12, color: MUTED, fontWeight: 600 }}>{rank}</span>
@@ -1362,7 +1374,7 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
 
 // ─── Compare tab ───────────────────────────────────────────────────────────────
 
-const CMP_A = '#3b82f6'
+const CMP_A = '#DC2626'
 const CMP_B = '#ef4444'
 
 function HeroAvatar({ player, accentColor, glowAnim }: {
@@ -1374,6 +1386,7 @@ function HeroAvatar({ player, accentColor, glowAnim }: {
   return (
     <div style={{
       width: 76, height: 76, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+      background: 'var(--card)',
       border: `3px solid ${accentColor}`,
       animation: glowAnim,
     }}>
@@ -1424,6 +1437,7 @@ function PlayerSlot({ player, side, isActive, isMe, onClick }: {
         <>
           <div style={{
             width: 60, height: 60, borderRadius: '50%', overflow: 'hidden',
+            background: 'var(--card)',
             border: `2.5px solid ${accent}`,
             boxShadow: `0 0 16px ${accent}55`,
             flexShrink: 0,
@@ -1496,7 +1510,7 @@ function H2HCompareDisplay({ playerA, playerB, h2h, accentA, accentB }: {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: accentA, minWidth: 24, textAlign: 'right' }}>{aWins}</span>
-        <div style={{ flex: 1, height: 10, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden', display: 'flex' }}>
+        <div style={{ flex: 1, height: 10, borderRadius: 99, background: 'rgba(var(--rgb-overlay),0.04)', overflow: 'hidden', display: 'flex' }}>
           {aWins > 0 && (
             <div style={{ width: `${aPct}%`, background: accentA, borderRadius: aWins === totalMatches ? 99 : '99px 0 0 99px',
               transformOrigin: 'left', animation: 'cmpBarGrow 0.6s ease both' }} />
@@ -1657,7 +1671,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
       <div style={{
         display: 'flex', alignItems: 'center',
         padding: '20px 12px',
-        background: `linear-gradient(135deg, rgba(59,130,246,0.1) 0%, rgba(12,20,34,0) 50%, rgba(239,68,68,0.1) 100%)`,
+        background: `linear-gradient(135deg, rgba(220,38,38,0.07) 0%, rgba(241,245,249,0) 50%, rgba(239,68,68,0.1) 100%)`,
         border: `1px solid ${BORDER}`, borderRadius: 16,
         marginBottom: 16, gap: 8,
       }}>
@@ -1672,7 +1686,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
           </div>
           <div style={{
             fontSize: 11, fontWeight: 700, color: aLeads > bLeads ? CMP_A : MUTED,
-            background: aLeads > bLeads ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
+            background: aLeads > bLeads ? 'rgba(220,38,38,0.1)' : 'rgba(var(--rgb-overlay),0.025)',
             border: `1px solid ${aLeads > bLeads ? CMP_A + '44' : BORDER}`,
             borderRadius: 99, padding: '3px 10px',
           }}>
@@ -1703,7 +1717,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
           </div>
           <div style={{
             fontSize: 11, fontWeight: 700, color: bLeads > aLeads ? CMP_B : MUTED,
-            background: bLeads > aLeads ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)',
+            background: bLeads > aLeads ? 'rgba(239,68,68,0.15)' : 'rgba(var(--rgb-overlay),0.025)',
             border: `1px solid ${bLeads > aLeads ? CMP_B + '44' : BORDER}`,
             borderRadius: 99, padding: '3px 10px',
           }}>
@@ -1749,7 +1763,7 @@ function ComparisonView({ playerA, playerB, h2h, h2hLoading, currentUserId }: {
                 <div style={{ fontSize: 8, color: MUTED, marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2, wordBreak: 'break-word' }}>
                   {s.label}
                 </div>
-                <div style={{ display: 'flex', height: 4, borderRadius: 99, overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', height: 4, borderRadius: 99, overflow: 'hidden', background: 'rgba(var(--rgb-overlay),0.03)' }}>
                   {!tied ? (
                     <>
                       <div style={{
@@ -1901,7 +1915,7 @@ function CompareTab({ players, currentUserId }: { players: NamedPlayerStats[]; c
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: '100%', padding: '8px 10px',
-                background: 'rgba(255,255,255,0.06)',
+                background: 'rgba(var(--rgb-overlay),0.035)',
                 border: `1px solid ${BORDER}`,
                 borderRadius: 8, color: TEXT, fontSize: 13,
                 outline: 'none', boxSizing: 'border-box',
@@ -1961,6 +1975,263 @@ function CompareTab({ players, currentUserId }: { players: NamedPlayerStats[]; c
   )
 }
 
+// ─── Roster tab (UFC-style athlete grid) ──────────────────────────────────────
+
+const ROSTER_ANIMS = `
+  @keyframes rosterCardIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes rosterShimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .roster-card:hover .roster-photo-overlay { opacity: 1 !important; }
+  .roster-card:hover .roster-photo-img     { transform: scale(1.04); }
+  .roster-card:hover                       { border-color: rgba(255,255,255,0.18) !important; }
+`
+
+function RosterCard({ player, rank, currentUserId, delay }: {
+  player: NamedPlayerStats
+  rank: number
+  currentUserId: string
+  delay: number
+}) {
+  const isMe     = player.id === currentUserId
+  const isTop3   = rank <= 3
+  const photoUrl = player.avatarUrl ?? player.heroPhotoUrl
+  const initials = player.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const rankColor = rank === 1 ? GOLD : rank === 2 ? SILVER : rank === 3 ? BRONZE : null
+
+  return (
+    <div
+      className="roster-card"
+      style={{
+        background: CARD,
+        border: `1px solid ${BORDER}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        animation: `rosterCardIn 0.45s ${delay}s ease both`,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        transition: 'border-color 0.2s',
+      }}
+    >
+      {/* ── Photo area (clickable → profile) ── */}
+      <Link
+        href={`/players/${player.id}`}
+        style={{ display: 'block', position: 'relative', textDecoration: 'none', flexShrink: 0 }}
+      >
+        {/* Photo / fallback */}
+        <div style={{ position: 'relative', paddingBottom: '130%', overflow: 'hidden', background: '#080e1a' }}>
+          {photoUrl ? (
+            <img
+              className="roster-photo-img"
+              src={photoUrl}
+              alt={player.name}
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: 'top center', display: 'block',
+                transition: 'transform 0.4s ease',
+              }}
+            />
+          ) : (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: `linear-gradient(160deg, #0d1626 0%, #111e35 100%)`,
+            }}>
+              {/* Silhouette placeholder */}
+              <div style={{
+                width: '55%', aspectRatio: '1/1.4',
+                background: 'linear-gradient(180deg, #1a2840 0%, #0d1626 100%)',
+                borderRadius: '50% 50% 0 0 / 40% 40% 0 0',
+                opacity: 0.6,
+                position: 'relative',
+              }}>
+                <div style={{
+                  position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)',
+                  width: '42%', aspectRatio: '1/1', borderRadius: '50%',
+                  background: '#1a2840',
+                }} />
+              </div>
+              <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{
+                  fontSize: 48, fontWeight: 900, color: 'rgba(var(--rgb-overlay),0.04)',
+                  fontFamily: 'system-ui',
+                }}>
+                  {initials}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom gradient fade */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: '25%',
+            background: `linear-gradient(to top, ${CARD} 0%, rgba(12,20,34,0.3) 60%, transparent 100%)`,
+            pointerEvents: 'none',
+          }} />
+
+          {/* Rank badge */}
+          {isTop3 && (
+            <div style={{
+              position: 'absolute', top: 10, left: 10,
+              width: 30, height: 30, borderRadius: '50%',
+              background: `radial-gradient(circle, ${rankColor}33, transparent)`,
+              border: `1.5px solid ${rankColor}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {rankMedal(rank, 16)}
+            </div>
+          )}
+
+          {/* "ME" badge */}
+          {isMe && (
+            <div style={{
+              position: 'absolute', top: 10, right: 10,
+              background: ACCENT, color: '#fff',
+              fontSize: 8, fontWeight: 800, padding: '2px 7px', borderRadius: 99,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              YOU
+            </div>
+          )}
+
+          {/* Hover overlay */}
+          <div
+            className="roster-photo-overlay"
+            style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(220,38,38,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              opacity: 0, transition: 'opacity 0.2s',
+            }}
+          >
+            <div style={{
+              background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              borderRadius: 20, padding: '6px 14px',
+              fontSize: 11, fontWeight: 700, color: '#fff',
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              VIEW PROFILE
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* ── Info section ── */}
+      <div style={{ padding: '12px 14px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Rank number for non-top3 */}
+        {!isTop3 && (
+          <div style={{ fontSize: 10, color: MUTED, fontWeight: 700, letterSpacing: '0.06em' }}>
+            #{rank}
+          </div>
+        )}
+
+        {/* Name */}
+        <Link href={`/players/${player.id}`} style={{ textDecoration: 'none' }}>
+          <div style={{
+            fontSize: 15, fontWeight: 900, color: isTop3 ? (rankColor ?? TEXT) : TEXT,
+            textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.15,
+            ...(isTop3 && rank === 1 ? {
+              background: 'linear-gradient(90deg,#f59e0b,#fcd34d,#f97316,#f59e0b)',
+              backgroundSize: '200% auto',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              animation: 'rosterShimmer 3s linear infinite',
+            } : {}),
+          }}>
+            {player.name}
+          </div>
+        </Link>
+
+        {/* Record */}
+        <div style={{ fontSize: 11, color: MUTED, fontWeight: 600, marginTop: 2 }}>
+          <span style={{ color: GREEN }}>{player.wins}</span>
+          <span style={{ color: BORDER, margin: '0 3px' }}>-</span>
+          <span style={{ color: RED }}>{player.losses}</span>
+          <span style={{ color: BORDER, margin: '0 3px' }}>-</span>
+          <span style={{ color: MUTED }}>{player.draws}</span>
+          <span style={{ color: BORDER, marginLeft: 5, fontSize: 9 }}>(W-L-D)</span>
+        </div>
+
+        {/* Win rate */}
+        <div style={{ marginTop: 4 }}>
+          <WinBar rate={player.winRate} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RosterTab({ players, currentUserId }: { players: NamedPlayerStats[]; currentUserId: string }) {
+  const [search, setSearch] = useState('')
+
+  const sorted = useMemo(
+    () => [...players].sort((a, b) => b.wins - a.wins || b.goalDiff - a.goalDiff || b.goalsFor - a.goalsFor),
+    [players],
+  )
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return sorted
+    const q = search.toLowerCase()
+    return sorted.filter((p) => p.name.toLowerCase().includes(q))
+  }, [sorted, search])
+
+  return (
+    <div style={{ animation: 'fadeInUp 0.35s ease' }}>
+      <style dangerouslySetInnerHTML={{ __html: ROSTER_ANIMS }} />
+
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: TEXT, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+          {filtered.length} <span style={{ color: MUTED }}>ATHLETES</span>
+        </div>
+        <input
+          type="text"
+          placeholder="Search athletes…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            padding: '7px 12px',
+            background: CARD2, border: `1px solid ${BORDER}`,
+            borderRadius: 8, color: TEXT, fontSize: 13,
+            outline: 'none', minWidth: 180,
+          }}
+        />
+      </div>
+
+      {/* Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+        gap: 12,
+      }}>
+        {filtered.map((player, i) => (
+          <RosterCard
+            key={player.id}
+            player={player}
+            rank={sorted.indexOf(player) + 1}
+            currentUserId={currentUserId}
+            delay={Math.min(i * 0.03, 0.3)}
+          />
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div style={{ padding: '48px 0', textAlign: 'center', color: MUTED, fontSize: 14 }}>
+          No athletes found
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Tabs config ───────────────────────────────────────────────────────────────
 
 function SI({ children }: { children: ReactNode }) {
@@ -1978,6 +2249,7 @@ function SI({ children }: { children: ReactNode }) {
 export function LeaderboardClient({ players, rivalryWinners, championshipLeaders, p4pRanked, lastChampionshipPodium, currentUserId }: Props) {
   const { t } = useTranslation()
   const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+    { id: 'roster',        label: 'Roster',                icon: <SI><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></SI> },
     { id: 'overall',       label: t('lb.tab.overall'),     icon: <SI><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></SI> },
     { id: 'compare',       label: t('lb.tab.compare'),     icon: <SI><circle cx="8" cy="12" r="4"/><circle cx="16" cy="12" r="4"/><line x1="12" y1="8" x2="12" y2="16"/></SI> },
     { id: 'p4p',           label: t('lb.tab.p4p'),         icon: <SI><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></SI> },
@@ -1987,7 +2259,7 @@ export function LeaderboardClient({ players, rivalryWinners, championshipLeaders
     { id: 'championships', label: t('lb.tab.championships'), icon: <SI><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></SI> },
     { id: 'insights',      label: t('lb.tab.insights'),    icon: <SI><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></SI> },
   ]
-  const [tab, setTab] = useState<Tab>('overall')
+  const [tab, setTab] = useState<Tab>('roster')
 
   const [overallSort, setOverallSort] = useState<SortKey>('wins')
   const [overallAsc,  setOverallAsc]  = useState(false)
@@ -2005,40 +2277,38 @@ export function LeaderboardClient({ players, rivalryWinners, championshipLeaders
   }, [players, currentUserId])
 
   return (
-    <div style={{
+    <div className="app-page" style={{
       minHeight: '100svh', background: BG,
       fontFamily: 'system-ui,-apple-system,sans-serif',
-      color: TEXT, padding: '32px 16px 72px',
+      color: TEXT, padding: '32px 16px', paddingBottom: 'var(--nav-h)',
     }}>
       <style dangerouslySetInnerHTML={{ __html: ANIMS }} />
 
-      <div style={{ maxWidth: 840, margin: '0 auto' }}>
+      <div className="page-content-wide" style={{ margin: '0 auto' }}>
 
         {/* ── Header ── */}
         <div style={{ marginBottom: 28, textAlign: 'center' }}>
-          <div style={{ fontSize: 12, color: MUTED, marginBottom: 6, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-            iSport FC
-          </div>
-          <h1 style={{
-            margin: '0 0 6px', fontSize: 36, fontWeight: 900, letterSpacing: '-0.02em',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          }}>
-            <Trophy size={30} style={{ color: GOLD, filter: `drop-shadow(0 0 10px ${GOLD}88)` }} />
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
             <span style={{
-              background: `linear-gradient(90deg, ${GOLD}, #f97316, ${GOLD})`,
-              backgroundSize: '200% auto',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              animation: 'shimmerBg 3s linear infinite',
-            }}>{t('lb.title')}</span>
-          </h1>
+              fontSize: 48,
+              fontWeight: 900,
+              color: GOLD,
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+              filter: `drop-shadow(0 0 12px ${GOLD}66)`,
+              fontFamily: 'var(--font-heading, sans-serif)',
+              userSelect: 'none',
+            }}>
+              FC26
+            </span>
+          </div>
           <div style={{ fontSize: 13, color: MUTED }}>
             {t('lb.subtitle', { n: players.length, players: t(players.length !== 1 ? 'lb.subtitlePlayers.many' : 'lb.subtitlePlayers.one') })}
           </div>
         </div>
 
         {/* ── Personal stats card ── */}
-        {myPlayer && myRank > 0 && (
+        {tab !== 'roster' && myPlayer && myRank > 0 && (
           <MyStatsCard player={myPlayer} rank={myRank} total={players.length} players={players} />
         )}
 
@@ -2068,6 +2338,9 @@ export function LeaderboardClient({ players, rivalryWinners, championshipLeaders
         </div>
 
         {/* ── Tab content ── */}
+        {tab === 'roster' && (
+          <RosterTab players={players} currentUserId={currentUserId} />
+        )}
         {tab === 'overall' && (
           <PlayerTable rows={players} mode="overall"
             sortKey={overallSort} setSortKey={setOverallSort}

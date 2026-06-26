@@ -16,18 +16,18 @@ import type { MarketRow } from '@/lib/odds/markets'
 import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
-const BG     = '#050911'
-const CARD   = '#0c1422'
-const CARD2  = '#111d2e'
-const CARD3  = '#162035'
-const BORDER = '#1a2840'
-const ACCENT = '#3b82f6'
-const TEXT   = '#f8fafc'
-const TEXT2  = '#94a3b8'
-const MUTED  = '#4b5a73'
-const GOLD   = '#f59e0b'
-const WIN    = '#10b981'
-const PINK   = '#e91e8c'
+const BG     = 'var(--bg)'
+const CARD   = 'var(--card)'
+const CARD2  = 'var(--card2)'
+const CARD3  = 'var(--card3)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const TEXT   = 'var(--text)'
+const TEXT2  = 'var(--text2)'
+const MUTED  = 'var(--muted)'
+const GOLD   = 'var(--gold)'
+const WIN    = 'var(--win)'
+const PINK   = '#DB2777'
 
 // ─── Market classification ────────────────────────────────────────────────────
 
@@ -776,11 +776,11 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
 
   if (isDesktop) {
     return (
-      <div style={{ height: '100dvh', overflow: 'hidden', background: BG, display: 'flex', flexDirection: 'column' }}>
+      <div className="app-page" style={{ height: '100dvh', overflow: 'hidden', background: BG, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <div style={{
           height: HEADER_H, flexShrink: 0,
-          background: 'rgba(12,20,34,0.98)', backdropFilter: 'blur(16px)',
+          background: 'var(--card)', backdropFilter: 'blur(16px)',
           borderBottom: `1px solid ${BORDER}`,
           padding: '0 20px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -896,11 +896,11 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
   const showingMarkets = selectedMatch !== null
 
   return (
-    <div style={{ minHeight: '100dvh', background: BG }}>
+    <div className="app-page" style={{ minHeight: '100dvh', background: BG }}>
       {/* Mobile header */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 30,
-        background: 'rgba(12,20,34,0.96)', backdropFilter: 'blur(16px)',
+        background: 'var(--card)', backdropFilter: 'blur(16px)',
         borderBottom: `1px solid ${BORDER}`,
         padding: '10px 52px 10px 16px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -939,7 +939,7 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
       </div>
 
       {/* Mobile content */}
-      <div style={{ paddingBottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+      <div style={{ paddingBottom: 'var(--nav-h)' }}>
         {showingMarkets ? (
           <MatchMarketsView
             key={selectedMatch.matchId}

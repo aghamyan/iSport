@@ -82,7 +82,11 @@ function AvatarBubble({
     border: ring ? `2.5px solid ${ring}` : 'none',
   }
   if (url) {
-    return <img src={url} alt={name} width={size} height={size} style={{ ...base, objectFit: 'cover' }} />
+    return (
+      <div style={{ ...base, background: 'var(--card)' }}>
+        <img src={url} alt={name} width={size} height={size} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      </div>
+    )
   }
   return (
     <div style={{

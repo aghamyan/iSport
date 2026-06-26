@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 350 200" fill="none">
+  <!-- F — bold italic via skewX -->
+  <g transform="skewX(-8)">
+    <rect x="36" y="14" width="32" height="172" fill="#DC2626"/>
+    <rect x="36" y="14" width="112" height="30" fill="#DC2626"/>
+    <rect x="36" y="88" width="86" height="26" fill="#DC2626"/>
+  </g>
+  <!-- C — bold italic arc (±35° opening on right) -->
+  <g transform="skewX(-8)">
+    <path d="M 306,71 L 335,51 A 86,86 0 1 1 335,149 L 306,129 A 50,50 0 1 0 306,71" fill="#DC2626"/>
+  </g>
+</svg>

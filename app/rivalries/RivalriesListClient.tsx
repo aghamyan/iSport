@@ -4,8 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Trophy } from 'lucide-react'
 import { CreateRivalryModal, type PlayerOption } from './CreateRivalryModal'
-import { BottomNav } from '@/app/components/BottomNav'
 import { useTranslation } from '@/lib/i18n/context'
+import { BottomNav } from '@/app/components/BottomNav'
 
 type RivalryItem = {
   id: string
@@ -47,19 +47,19 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
   )
 
   return (
-    <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 16px', fontFamily: 'system-ui, sans-serif' }}>
+    <div className="app-page page-content-wide" style={{ padding: '32px 16px', paddingBottom: 'var(--nav-h)', fontFamily: 'system-ui, sans-serif' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: '#111827' }}>{t('rivalry.title')}</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: 'var(--text)' }}>{t('rivalry.title')}</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--muted)' }}>
             {t(rivalries.length !== 1 ? 'rivalry.count.many' : 'rivalry.count.one', { n: rivalries.length })}
           </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
           style={{
-            padding: '9px 18px', background: '#2563eb', color: '#fff',
+            padding: '9px 18px', background: 'var(--accent)', color: '#fff',
             border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600,
           }}
         >
@@ -76,8 +76,8 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
             style={{
               padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer',
               fontSize: 13, fontWeight: 600,
-              background: filter === f ? '#111827' : '#f3f4f6',
-              color: filter === f ? '#fff' : '#6b7280',
+              background: filter === f ? 'var(--text)' : 'var(--card3)',
+              color: filter === f ? 'var(--card)' : 'var(--muted)',
             }}
           >
             {t(`rivalry.filter.${f}` as 'rivalry.filter.all' | 'rivalry.filter.active' | 'rivalry.filter.completed')}
@@ -87,11 +87,11 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
 
       {/* List */}
       {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#9ca3af', fontSize: 15 }}>
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted2)', fontSize: 15 }}>
           {t('rivalry.noRivalriesYet')}{' '}
           <button
             onClick={() => setShowCreate(true)}
-            style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: 15, padding: 0 }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 15, padding: 0 }}
           >
             {t('rivalry.startFirst')}
           </button>
@@ -105,9 +105,9 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
               <Link key={r.id} href={`/rivalries/${r.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                 <div
                   style={{
-                    border: `1px solid ${isMine ? '#bfdbfe' : '#e5e7eb'}`,
+                    border: `1px solid ${isMine ? 'rgba(var(--rgb-accent),0.25)' : 'var(--border)'}`,
                     borderRadius: 12, padding: '14px 18px',
-                    background: isMine ? '#eff6ff' : '#fff',
+                    background: isMine ? 'rgba(var(--rgb-accent),0.06)' : 'var(--card)',
                     boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                     cursor: 'pointer',
                   }}
@@ -115,15 +115,17 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                   {/* Players + score row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                     {/* Player 1 */}
-                    <div style={{ flex: 1, textAlign: 'right' }}>
+                    <div style={{ flex: 1, textAlign: 'right', minWidth: 0 }}>
                       <span
                         style={{
-                          fontSize: 15, fontWeight: 700, color: '#111827',
-                          ...(r.winnerId === r.player1Id ? { color: '#d97706' } : {}),
+                          fontSize: 15, fontWeight: 700, color: 'var(--text)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          display: 'block',
+                          ...(r.winnerId === r.player1Id ? { color: 'var(--gold)' } : {}),
                         }}
                       >
+                        {r.winnerId === r.player1Id && <Trophy size={13} style={{ color: 'var(--gold)', marginRight: 4, verticalAlign: 'middle' }} />}
                         {r.player1Name}
-                        {r.winnerId === r.player1Id && <Trophy size={13} style={{ color: '#d97706', marginLeft: 4, verticalAlign: 'middle' }} />}
                       </span>
                     </div>
 
@@ -134,24 +136,26 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                         minWidth: 80, justifyContent: 'center',
                       }}
                     >
-                      <span style={{ fontSize: 22, fontWeight: 800, color: '#111827', minWidth: 24, textAlign: 'right' }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', minWidth: 24, textAlign: 'right' }}>
                         {r.player1Wins}
                       </span>
-                      <span style={{ color: '#9ca3af', fontWeight: 700, fontSize: 16 }}>–</span>
-                      <span style={{ fontSize: 22, fontWeight: 800, color: '#111827', minWidth: 24, textAlign: 'left' }}>
+                      <span style={{ color: 'var(--muted2)', fontWeight: 700, fontSize: 16 }}>–</span>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', minWidth: 24, textAlign: 'left' }}>
                         {r.player2Wins}
                       </span>
                     </div>
 
                     {/* Player 2 */}
-                    <div style={{ flex: 1, textAlign: 'left' }}>
+                    <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                       <span
                         style={{
-                          fontSize: 15, fontWeight: 700, color: '#111827',
-                          ...(r.winnerId === r.player2Id ? { color: '#d97706' } : {}),
+                          fontSize: 15, fontWeight: 700, color: 'var(--text)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          display: 'block',
+                          ...(r.winnerId === r.player2Id ? { color: 'var(--gold)' } : {}),
                         }}
                       >
-                        {r.winnerId === r.player2Id && <Trophy size={13} style={{ color: '#d97706', marginRight: 4, verticalAlign: 'middle' }} />}
+                        {r.winnerId === r.player2Id && <Trophy size={13} style={{ color: 'var(--gold)', marginRight: 4, verticalAlign: 'middle' }} />}
                         {r.player2Name}
                       </span>
                     </div>
@@ -161,7 +165,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                   <div
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      fontSize: 12, color: '#6b7280',
+                      fontSize: 12, color: 'var(--muted)',
                     }}
                   >
                     <span>{t('rivalry.scoreMeta', { target: r.bestOf, played: totalMatches })}</span>
@@ -169,7 +173,7 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
                       style={{
                         padding: '2px 9px', borderRadius: 20, fontWeight: 700, fontSize: 11,
                         textTransform: 'uppercase', letterSpacing: '0.05em',
-                        background: '#dcfce7', color: '#16a34a',
+                        background: 'rgba(34,197,94,0.12)', color: 'var(--win)',
                       }}
                     >
                       {t('rivalry.activeBadge')}

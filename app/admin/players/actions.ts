@@ -191,3 +191,20 @@ export async function deletePlayerAction(userId: string) {
   await logAdminAction('delete_player', 'player', userId, { name: user?.name })
   revalidatePath('/admin/players')
 }
+
+export async function updateSocialLinksAction(userId: string, instagramUrl: string | null, naviCoords: string | null) {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('users')
+    .update({ instagram_url: instagramUrl || null, navi_coords: naviCoords || null })
+    .eq('id', userId)
+
+  if (error) throw new Error(error.message)
+
+  await logAdminAction('update_social_links', 'player', userId, { instagramUrl, naviCoords })
+  revalidatePath('/admin/players')
+  revalidatePath(`/players/${userId}`)
+}

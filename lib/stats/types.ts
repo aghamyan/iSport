@@ -66,6 +66,7 @@ export type PlayerStatsRow = {
 export type NamedPlayerStats = PlayerStatsRow & {
   name: string
   avatarUrl: string | null
+  heroPhotoUrl: string | null
 }
 
 // Player who has won one or more rivalries

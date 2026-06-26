@@ -34,8 +34,8 @@ import { ScoreModal } from '../ScoreModal'
 import { MatchPreviewModal } from '../MatchPreviewModal'
 import { ChampionshipWinnerOdds } from '../ChampionshipWinnerOdds'
 import { AddMatchModal } from '../AddMatchModal'
-import { BottomNav } from '@/app/components/BottomNav'
 import { useTranslation } from '@/lib/i18n/context'
+import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ function getInitials(name: string): string {
 }
 
 const AVATAR_COLORS = [
-  '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
+  'var(--accent)', '#8b5cf6', '#ec4899', '#f59e0b',
   '#10b981', '#ef4444', '#06b6d4', '#84cc16',
 ]
 
@@ -149,15 +149,18 @@ function Avatar({
 
   if (url) {
     return (
-      <img
-        src={url}
-        alt={name}
-        style={{
-          ...sharedStyle,
-          objectFit: 'cover',
-          border: '2px solid rgba(255,255,255,0.15)',
-        }}
-      />
+      <div style={{
+        ...sharedStyle,
+        background: 'var(--card)',
+        border: '2px solid rgba(var(--rgb-overlay),0.08)',
+        overflow: 'hidden',
+      }}>
+        <img
+          src={url}
+          alt={name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
     )
   }
   return (
@@ -171,7 +174,7 @@ function Avatar({
         fontSize,
         fontWeight: 800,
         color: '#fff',
-        border: '2px solid rgba(255,255,255,0.1)',
+        border: '2px solid rgba(var(--rgb-overlay),0.05)',
         letterSpacing: '-0.5px',
       }}
     >
@@ -180,7 +183,7 @@ function Avatar({
   )
 }
 
-// ─── MatchCard (replaces MatchRow) ────────────────────────────────────────────
+// ─── MatchCard ────────────────────────────────────────────────────────────────
 
 function MatchCard({
   match,
@@ -191,6 +194,8 @@ function MatchCard({
   championshipId,
   championshipIsActive,
   badge,
+  variant = 'card',
+  isMobile = false,
 }: {
   match: ChampionshipMatch
   playerMap: Map<string, string>
@@ -200,6 +205,8 @@ function MatchCard({
   championshipId: string
   championshipIsActive: boolean
   badge?: React.ReactNode
+  variant?: 'card' | 'row'
+  isMobile?: boolean
 }) {
   const [showScore, setShowScore] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
@@ -216,191 +223,20 @@ function MatchCard({
   const canEdit =
     championshipIsActive && match.status === 'confirmed' && (isParticipant || isAdmin)
   const hasScore = match.homeScore !== null && match.awayScore !== null
-
   const homeWon = hasScore && match.homeScore! > match.awayScore!
   const awayWon = hasScore && match.awayScore! > match.homeScore!
 
-  return (
+  const boutLabel = (() => {
+    if (match.round === 'final') return 'GRAND FINAL'
+    if (match.round === 'final_penalty') return 'FINAL · PENS'
+    if (match.round === 'semi') return 'SEMI-FINAL'
+    if (match.round === 'penalty') return 'PENALTIES'
+    if (match.round === 'group' && match.groupLabel) return `GROUP ${match.groupLabel}`
+    return null
+  })()
+
+  const modals = (
     <>
-      <div
-        style={{
-          borderRadius: 10,
-          border: '1px solid #1a2840',
-          background: '#0c1422',
-          overflow: 'hidden',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          transition: 'box-shadow 0.15s',
-        }}
-      >
-        {/* Main match row — click the player/score area to open preview */}
-        <div
-          onClick={() => setShowPreview(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '10px 14px',
-            gap: 8,
-            background: match.status === 'pending' ? '#0a1220' : '#0c1422',
-            cursor: 'pointer',
-          }}
-        >
-          {badge && <div style={{ flexShrink: 0 }}>{badge}</div>}
-
-          {/* Home player */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 8,
-              minWidth: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: homeWon ? 800 : 600,
-                color: homeWon ? '#f8fafc' : awayWon ? '#4b5563' : '#e2e8f0',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {homeName}
-            </span>
-            <Avatar url={homeAvatar} name={homeName} size={30} />
-          </div>
-
-          {/* Score bubble */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              flexShrink: 0,
-              minWidth: 70,
-              justifyContent: 'center',
-            }}
-          >
-            {hasScore ? (
-              <>
-                <span
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 800,
-                    color: homeWon ? '#f8fafc' : '#4b5563',
-                    minWidth: 20,
-                    textAlign: 'right',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {match.homeScore}
-                </span>
-                <span style={{ color: '#cbd5e1', fontWeight: 700, fontSize: 16, padding: '0 1px' }}>
-                  :
-                </span>
-                <span
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 800,
-                    color: awayWon ? '#f8fafc' : '#4b5563',
-                    minWidth: 20,
-                    textAlign: 'left',
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {match.awayScore}
-                </span>
-              </>
-            ) : (
-              <span
-                style={{
-                  fontSize: 11,
-                  color: '#94a3b8',
-                  fontWeight: 700,
-                  background: '#0f1a2e',
-                  padding: '4px 10px',
-                  borderRadius: 20,
-                  letterSpacing: '0.05em',
-                  border: '1px solid #1a2840',
-                }}
-              >
-                VS
-              </span>
-            )}
-          </div>
-
-          {/* Away player */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              gap: 8,
-              minWidth: 0,
-            }}
-          >
-            <Avatar url={awayAvatar} name={awayName} size={30} />
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: awayWon ? 800 : 600,
-                color: awayWon ? '#f8fafc' : homeWon ? '#4b5563' : '#e2e8f0',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {awayName}
-            </span>
-          </div>
-
-          {/* Actions — stopPropagation so they don't trigger the preview */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}
-          >
-            {canRecord && (
-              <button
-                onClick={() => setShowScore(true)}
-                style={{
-                  padding: '4px 10px',
-                  background: '#2563eb',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {t('champ.recordBtn')}
-              </button>
-            )}
-            {canEdit && (
-              <button
-                onClick={() => setShowScore(true)}
-                style={{
-                  padding: '4px 10px',
-                  background: '#0f1a2e',
-                  color: '#94a3b8',
-                  border: '1px solid #1a2840',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              >
-                {t('champ.editBtn')}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {showScore && (
         <ScoreModal
           championshipId={championshipId}
@@ -412,7 +248,6 @@ function MatchCard({
           onClose={() => setShowScore(false)}
         />
       )}
-
       {showPreview && (
         <MatchPreviewModal
           homePlayerId={match.homePlayerId}
@@ -421,9 +256,321 @@ function MatchCard({
           awayName={awayName}
           homeAvatarUrl={homeAvatar}
           awayAvatarUrl={awayAvatar}
+          boutLabel={boutLabel ?? undefined}
           onClose={() => setShowPreview(false)}
         />
       )}
+    </>
+  )
+
+  // ── ROW variant: compact rows inside knockout containers ──────────────────
+  if (variant === 'row') {
+    return (
+      <>
+        <div
+          onClick={() => setShowPreview(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '11px 14px',
+            gap: 8,
+            background: 'var(--card)',
+            cursor: 'pointer',
+            transition: 'background 0.12s',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--text)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = '#ffffff' }}
+        >
+          {badge && <div style={{ flexShrink: 0 }}>{badge}</div>}
+
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: homeWon ? 800 : 500, color: homeWon ? 'var(--text)' : awayWon ? 'var(--muted2)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {homeName}
+            </span>
+            <Avatar url={homeAvatar} name={homeName} size={30} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 70, justifyContent: 'center' }}>
+            {hasScore ? (
+              <>
+                <span style={{ fontSize: 22, fontWeight: 900, color: homeWon ? 'var(--text)' : '#d1d5db', minWidth: 20, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {match.homeScore}
+                </span>
+                <span style={{ color: 'var(--muted2)', fontWeight: 600, fontSize: 14, padding: '0 2px' }}>:</span>
+                <span style={{ fontSize: 22, fontWeight: 900, color: awayWon ? 'var(--text)' : '#d1d5db', minWidth: 20, textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
+                  {match.awayScore}
+                </span>
+              </>
+            ) : (
+              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, background: 'var(--card3)', padding: '4px 10px', borderRadius: 20, letterSpacing: '0.06em', border: '1px solid #e5e7eb' }}>
+                VS
+              </span>
+            )}
+          </div>
+
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 8, minWidth: 0 }}>
+            <Avatar url={awayAvatar} name={awayName} size={30} />
+            <span style={{ fontSize: 13, fontWeight: awayWon ? 800 : 500, color: awayWon ? 'var(--text)' : homeWon ? 'var(--muted2)' : 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {awayName}
+            </span>
+          </div>
+
+          <div onClick={(e) => e.stopPropagation()} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+            {canRecord && (
+              <button onClick={() => setShowScore(true)} style={{ padding: '5px 11px', background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                {t('champ.recordBtn')}
+              </button>
+            )}
+            {canEdit && (
+              <button onClick={() => setShowScore(true)} style={{ padding: '4px 10px', background: 'transparent', color: 'var(--muted)', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                {t('champ.editBtn')}
+              </button>
+            )}
+          </div>
+        </div>
+        {modals}
+      </>
+    )
+  }
+
+  // ── CARD variant: UFC Fight Night style — large photos flush at edges ─────────
+  const PHOTO_W = isMobile ? 76 : 120
+
+  function CardPhoto({ url, name, side }: { url?: string | null; name: string; side: 'home' | 'away' }) {
+    const bg = nameToColor(name)
+    const initials = getInitials(name)
+    const isHome = side === 'home'
+    return (
+      <div style={{ width: PHOTO_W, alignSelf: 'stretch', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
+        {url ? (
+          <img
+            src={url}
+            alt={name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, fontWeight: 900, color: '#fff' }}>
+            {initials}
+          </div>
+        )}
+        {/* edge fade toward center — starts late so face stays clear */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: isHome
+            ? 'linear-gradient(to right, transparent 72%, rgba(255,255,255,0.92))'
+            : 'linear-gradient(to left, transparent 72%, rgba(255,255,255,0.92))',
+          pointerEvents: 'none',
+        }} />
+        {/* winner badge */}
+        {((isHome && homeWon) || (!isHome && awayWon)) && (
+          <div style={{
+            position: 'absolute', bottom: 6, left: isHome ? 6 : undefined, right: isHome ? undefined : 6,
+            background: 'var(--win)', color: '#fff', fontSize: 9, fontWeight: 900,
+            padding: '2px 6px', borderRadius: 3, letterSpacing: '0.06em',
+          }}>
+            WIN
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div
+        onClick={() => setShowPreview(true)}
+        style={{
+          borderRadius: 4,
+          overflow: 'hidden',
+          background: 'var(--card)',
+          boxShadow: '0 1px 3px rgba(var(--rgb-overlay),0.08), 0 4px 16px rgba(var(--rgb-overlay),0.06)',
+          cursor: 'pointer',
+          border: '1px solid #e5e7eb',
+          transition: 'box-shadow 0.15s, border-color 0.15s',
+          animation: 'matchFadeIn 0.3s ease both',
+        }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget as HTMLElement
+          el.style.boxShadow = '0 4px 14px rgba(var(--rgb-overlay),0.12), 0 10px 32px rgba(var(--rgb-overlay),0.08)'
+          el.style.borderColor = '#d1d5db'
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as HTMLElement
+          el.style.boxShadow = '0 1px 3px rgba(var(--rgb-overlay),0.08), 0 4px 16px rgba(var(--rgb-overlay),0.06)'
+          el.style.borderColor = 'var(--border)'
+        }}
+      >
+        {/* BOUT TYPE — top center */}
+        <div style={{
+          textAlign: 'center',
+          padding: '9px 16px 0',
+          fontSize: 9,
+          fontWeight: 700,
+          color: 'var(--muted2)',
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+        }}>
+          <span>{boutLabel ?? (match.cycle > 0 ? `CYCLE ${match.cycle}` : 'MATCH')}</span>
+          {badge}
+        </div>
+
+        {/* Main row: Photo | Name · VS · Name | Photo */}
+        <div style={{ display: 'flex', alignItems: 'stretch', minHeight: isMobile ? 100 : 148 }}>
+
+          {/* LEFT PHOTO */}
+          <CardPhoto url={homeAvatar} name={homeName} side="home" />
+
+          {/* CENTER: name VS name */}
+          <div style={{
+            flex: 1,
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            alignItems: 'center',
+            padding: '10px 8px',
+            gap: 8,
+            minWidth: 0,
+          }}>
+            {/* Home name */}
+            <div style={{ minWidth: 0 }}>
+              <div style={{
+                fontSize: isMobile ? 13 : 18,
+                fontWeight: 900,
+                color: hasScore && awayWon ? 'var(--muted2)' : 'var(--text)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.01em',
+                lineHeight: 1.2,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word',
+              }}>
+                {homeName}
+              </div>
+            </div>
+
+            {/* VS / Score + button */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 5 : 8, flexShrink: 0 }}>
+              {hasScore ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{
+                    fontSize: isMobile ? 22 : 30,
+                    fontWeight: 900,
+                    color: homeWon ? 'var(--text)' : '#d1d5db',
+                    fontVariantNumeric: 'tabular-nums',
+                    lineHeight: 1,
+                  }}>
+                    {match.homeScore}
+                  </span>
+                  <span style={{ fontSize: isMobile ? 11 : 14, color: 'var(--muted2)', fontWeight: 600 }}>–</span>
+                  <span style={{
+                    fontSize: isMobile ? 22 : 30,
+                    fontWeight: 900,
+                    color: awayWon ? 'var(--text)' : '#d1d5db',
+                    fontVariantNumeric: 'tabular-nums',
+                    lineHeight: 1,
+                  }}>
+                    {match.awayScore}
+                  </span>
+                </div>
+              ) : (
+                <div style={{
+                  fontSize: isMobile ? 15 : 20,
+                  fontWeight: 900,
+                  color: 'var(--text)',
+                  letterSpacing: '0.12em',
+                  lineHeight: 1,
+                  fontStyle: 'italic',
+                }}>
+                  VS
+                </div>
+              )}
+
+              <div onClick={(e) => e.stopPropagation()}>
+                {canRecord && (
+                  <button
+                    onClick={() => setShowScore(true)}
+                    style={{
+                      padding: '5px 14px',
+                      background: 'var(--text)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t('champ.recordBtn')}
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    onClick={() => setShowScore(true)}
+                    style={{
+                      padding: '4px 12px',
+                      background: 'transparent',
+                      color: 'var(--muted)',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 600,
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {t('champ.editBtn')}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Away name */}
+            <div style={{ minWidth: 0, textAlign: 'right' }}>
+              <div style={{
+                fontSize: isMobile ? 13 : 18,
+                fontWeight: 900,
+                color: hasScore && homeWon ? 'var(--muted2)' : 'var(--text)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.01em',
+                lineHeight: 1.2,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                wordBreak: 'break-word',
+              }}>
+                {awayName}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT PHOTO */}
+          <CardPhoto url={awayAvatar} name={awayName} side="away" />
+        </div>
+
+        {/* BOTTOM STATUS ROW */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderTop: '1px solid #f3f4f6',
+          padding: '6px 16px 8px',
+        }}>
+          <span style={{ fontSize: 10, color: 'var(--muted2)', letterSpacing: '0.12em', fontWeight: 600, textTransform: 'uppercase' }}>
+            {match.status === 'pending' ? 'UPCOMING' : match.status === 'confirmed' ? 'RESULT' : 'FINAL'}
+          </span>
+        </div>
+      </div>
+      {modals}
     </>
   )
 }
@@ -461,12 +608,12 @@ function StandingsTable({
     <div style={{ overflowX: 'auto' }}>
       <div
         style={{
-          border: '1px solid #1a2840',
-          borderRadius: 10,
+          border: '1px solid #e5e7eb',
+          borderRadius: 6,
           overflow: 'hidden',
-          background: '#0c1422',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          minWidth: 400,
+          background: 'var(--card)',
+          boxShadow: '0 1px 3px rgba(var(--rgb-overlay),0.06)',
+          minWidth: 360,
         }}
       >
         {/* Header */}
@@ -474,14 +621,14 @@ function StandingsTable({
           style={{
             display: 'grid',
             gridTemplateColumns: STANDING_COLS,
-            padding: '8px 12px',
-            background: '#0a1220',
-            borderBottom: '1px solid #1a2840',
+            padding: '9px 14px',
+            background: 'var(--card3)',
+            borderBottom: '1px solid #e5e7eb',
             fontSize: 10,
-            fontWeight: 700,
-            color: '#64748b',
+            fontWeight: 800,
+            color: 'var(--muted2)',
             textTransform: 'uppercase',
-            letterSpacing: '0.07em',
+            letterSpacing: '0.1em',
             gap: 4,
             alignItems: 'center',
           }}
@@ -492,10 +639,10 @@ function StandingsTable({
           <span style={{ textAlign: 'center' }}>W</span>
           <span style={{ textAlign: 'center' }}>D</span>
           <span style={{ textAlign: 'center' }}>L</span>
-          <span style={{ textAlign: 'center', color: '#f59e0b' }}>GF</span>
-          <span style={{ textAlign: 'center', color: '#ef4444' }}>GA</span>
+          <span style={{ textAlign: 'center', color: 'var(--win)' }}>GF</span>
+          <span style={{ textAlign: 'center', color: 'var(--accent)' }}>GA</span>
           <span style={{ textAlign: 'center' }}>GD</span>
-          <span style={{ textAlign: 'center' }}>Pts</span>
+          <span style={{ textAlign: 'center', color: 'var(--text)' }}>PTS</span>
         </div>
 
         {standings.map((row, idx) => {
@@ -510,67 +657,55 @@ function StandingsTable({
               style={{
                 display: 'grid',
                 gridTemplateColumns: STANDING_COLS,
-                padding: '8px 12px',
-                borderBottom: idx < standings.length - 1 ? '1px solid #111e30' : 'none',
+                padding: '10px 14px',
+                borderBottom: idx < standings.length - 1 ? '1px solid #f3f4f6' : 'none',
                 borderLeft: advances
-                  ? '3px solid #22c55e'
+                  ? '3px solid #16a34a'
                   : isFirst
-                  ? '3px solid #f59e0b'
+                  ? '3px solid #d97706'
                   : '3px solid transparent',
-                background: advances ? 'rgba(34,197,94,0.06)' : isFirst ? 'rgba(245,158,11,0.07)' : '#0c1422',
+                background: advances ? '#f0fdf4' : isFirst ? '#fffbeb' : '#ffffff',
                 fontSize: 13,
                 gap: 4,
                 alignItems: 'center',
               }}
             >
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: advances ? '#22c55e' : isFirst ? '#f59e0b' : '#94a3b8',
-                }}
-              >
+              <span style={{ fontSize: 11, fontWeight: 700, color: advances ? 'var(--win)' : isFirst ? 'var(--gold)' : 'var(--muted2)' }}>
                 {idx + 1}
               </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                <Avatar url={avatar} name={name} size={22} rank={idx + 1} />
-                <span
-                  style={{
-                    fontWeight: advances || isFirst ? 700 : 500,
-                    color: '#e2e8f0',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    fontSize: 12,
-                  }}
-                >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Avatar url={avatar} name={name} size={26} rank={idx + 1} />
+                <span style={{
+                  fontWeight: advances || isFirst ? 700 : 500,
+                  color: 'var(--text)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: 13,
+                }}>
                   {name}
                 </span>
               </div>
-              <span style={{ textAlign: 'center', color: '#64748b', fontSize: 12 }}>{row.played}</span>
-              <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.wins}</span>
-              <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.draws}</span>
-              <span style={{ textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>{row.losses}</span>
-              <span style={{ textAlign: 'center', color: '#f59e0b', fontWeight: 600, fontSize: 12 }}>{row.goalsFor}</span>
-              <span style={{ textAlign: 'center', color: '#ef444488', fontSize: 12 }}>{row.goalsAgainst}</span>
-              <span
-                style={{
-                  textAlign: 'center',
-                  color: row.goalDiff > 0 ? '#22c55e' : row.goalDiff < 0 ? '#ef4444' : '#94a3b8',
-                  fontWeight: 700,
-                  fontSize: 12,
-                }}
-              >
+              <span style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{row.played}</span>
+              <span style={{ textAlign: 'center', color: 'var(--text2)', fontSize: 12, fontWeight: 600 }}>{row.wins}</span>
+              <span style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{row.draws}</span>
+              <span style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>{row.losses}</span>
+              <span style={{ textAlign: 'center', color: 'var(--win)', fontWeight: 600, fontSize: 12 }}>{row.goalsFor}</span>
+              <span style={{ textAlign: 'center', color: 'var(--accent)', fontSize: 12 }}>{row.goalsAgainst}</span>
+              <span style={{
+                textAlign: 'center',
+                color: row.goalDiff > 0 ? 'var(--win)' : row.goalDiff < 0 ? 'var(--accent)' : 'var(--muted)',
+                fontWeight: 700,
+                fontSize: 12,
+              }}>
                 {row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}
               </span>
-              <span
-                style={{
-                  textAlign: 'center',
-                  fontWeight: 800,
-                  color: advances ? '#22c55e' : isFirst ? '#f59e0b' : '#f8fafc',
-                  fontSize: 14,
-                }}
-              >
+              <span style={{
+                textAlign: 'center',
+                fontWeight: 900,
+                color: advances ? 'var(--win)' : isFirst ? 'var(--gold)' : 'var(--text)',
+                fontSize: 15,
+              }}>
                 {row.points}
               </span>
             </div>
@@ -632,7 +767,7 @@ function KnockoutSection({
         style={{
           padding: '28px 0',
           textAlign: 'center',
-          color: '#94a3b8',
+          color: 'var(--muted2)',
           fontSize: 13,
           fontStyle: 'italic',
         }}
@@ -663,7 +798,7 @@ function KnockoutSection({
           >
             {t('champ.generateSemis')}
           </button>
-          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+          <p style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>
             {t('champ.top2Advance')}
           </p>
         </div>
@@ -717,7 +852,7 @@ function KnockoutSection({
                 key={key}
                 style={{
                   marginBottom: 16,
-                  border: '1px solid #1a2840',
+                  border: '1px solid #E5E7EB',
                   borderRadius: 12,
                   overflow: 'hidden',
                   boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
@@ -749,15 +884,15 @@ function KnockoutSection({
                     >
                       {t('champ.semiN', { n: tieIdx + 1 })}
                     </span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>
                       {playerMap.get(p1) ?? '?'} vs {playerMap.get(p2) ?? '?'}
                     </span>
                   </div>
                   {allLegsPlayed && (
-                    <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--muted2)', display: 'flex', gap: 8, alignItems: 'center' }}>
                       <span>
                         {t('champ.aggregate')}{' '}
-                        <strong style={{ color: '#e2e8f0' }}>
+                        <strong style={{ color: 'var(--text2)' }}>
                           {p1Goals}–{p2Goals}
                         </strong>
                       </span>
@@ -816,14 +951,15 @@ function KnockoutSection({
                           isAdmin={isAdmin}
                           championshipId={championshipId}
                           championshipIsActive={championshipIsActive}
+                          variant="row"
                           badge={
                             <span
                               style={{
                                 fontSize: 9,
                                 fontWeight: 700,
-                                color: '#64748b',
-                                background: '#0f1a2e',
-                                border: '1px solid #1a2840',
+                                color: 'var(--muted)',
+                                background: 'var(--card3)',
+                                border: '1px solid #e5e7eb',
                                 padding: '2px 6px',
                                 borderRadius: 4,
                                 textTransform: 'uppercase',
@@ -849,13 +985,15 @@ function KnockoutSection({
                           isAdmin={isAdmin}
                           championshipId={championshipId}
                           championshipIsActive={championshipIsActive}
+                          variant="row"
                           badge={
                             <span
                               style={{
                                 fontSize: 9,
                                 fontWeight: 700,
-                                color: '#a855f7',
-                                background: 'rgba(168,85,247,0.08)',
+                                color: '#7c3aed',
+                                background: 'rgba(124,58,237,0.04)',
+                                border: '1px solid #ddd6fe',
                                 padding: '2px 6px',
                                 borderRadius: 4,
                                 textTransform: 'uppercase',
@@ -871,15 +1009,15 @@ function KnockoutSection({
                 </div>
 
                 {tieResult?.needsPenalty && !hasPenalty && isAdmin && (
-                  <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(168,85,247,0.2)', background: 'rgba(168,85,247,0.08)' }}>
+                  <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(124,58,237,0.2)', background: 'rgba(124,58,237,0.06)' }}>
                     <button
                       onClick={() => onGeneratePenalty(p1, p2)}
                       style={{
                         padding: '6px 16px',
-                        background: '#9333ea',
+                        background: '#7c3aed',
                         color: '#fff',
                         border: 'none',
-                        borderRadius: 7,
+                        borderRadius: 4,
                         cursor: 'pointer',
                         fontSize: 12,
                         fontWeight: 700,
@@ -945,10 +1083,11 @@ function KnockoutSection({
 
           <div
             style={{
-              border: '2px solid #fbbf24',
-              borderRadius: 12,
+              border: '2px solid #d97706',
+              borderRadius: 6,
               overflow: 'hidden',
-              boxShadow: '0 4px 16px rgba(251,191,36,0.15)',
+              boxShadow: '0 2px 12px rgba(217,119,6,0.12)',
+              background: 'var(--card)',
             }}
           >
             <MatchCard
@@ -959,10 +1098,11 @@ function KnockoutSection({
               isAdmin={isAdmin}
               championshipId={championshipId}
               championshipIsActive={championshipIsActive}
+              variant="row"
             />
 
             {finalPenaltyMatch && (
-              <div style={{ borderTop: '1px solid rgba(245,158,11,0.2)' }}>
+              <div style={{ borderTop: '1px solid #fde68a' }}>
                 <MatchCard
                   match={finalPenaltyMatch}
                   playerMap={playerMap}
@@ -971,6 +1111,7 @@ function KnockoutSection({
                   isAdmin={isAdmin}
                   championshipId={championshipId}
                   championshipIsActive={championshipIsActive}
+                  variant="row"
                   badge={
                     <span
                       style={{
@@ -1002,10 +1143,10 @@ function KnockoutSection({
                   onClick={onGenerateFinalPenalty}
                   style={{
                     padding: '7px 16px',
-                    background: '#9333ea',
+                    background: '#7c3aed',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: 7,
+                    borderRadius: 4,
                     cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: 700,
@@ -1013,7 +1154,7 @@ function KnockoutSection({
                 >
                   Record Penalty Shootout
                 </button>
-                <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                   {t('champ.finalLevel')}
                 </span>
               </div>
@@ -1095,7 +1236,7 @@ function PlayoffKnockoutSection({
 
   if (!hasSemis && !groupStageDone) {
     return (
-      <div style={{ padding: '28px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13, fontStyle: 'italic' }}>
+      <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--muted2)', fontSize: 13, fontStyle: 'italic' }}>
         {t('champ.playoffUnlocks')}
       </div>
     )
@@ -1134,7 +1275,7 @@ function PlayoffKnockoutSection({
           >
             {t('champ.generatePlayoffs')}
           </button>
-          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>{t('champ.top4Advance')}</p>
+          <p style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 6 }}>{t('champ.top4Advance')}</p>
         </div>
       )}
 
@@ -1181,16 +1322,18 @@ function PlayoffKnockoutSection({
                 key={key}
                 style={{
                   marginBottom: 16,
-                  border: '1px solid #1a2840',
-                  borderRadius: 12,
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 6,
                   overflow: 'hidden',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+                  boxShadow: '0 1px 4px rgba(var(--rgb-overlay),0.06)',
+                  background: 'var(--card)',
                 }}
               >
                 <div
                   style={{
                     padding: '10px 14px',
-                    background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+                    background: 'var(--card3)',
+                    borderBottom: '1px solid #e5e7eb',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -1200,36 +1343,36 @@ function PlayoffKnockoutSection({
                     <span
                       style={{
                         fontSize: 10,
-                        fontWeight: 700,
-                        color: '#38bdf8',
-                        background: 'rgba(56,189,248,0.1)',
-                        border: '1px solid rgba(56,189,248,0.2)',
+                        fontWeight: 800,
+                        color: '#1d4ed8',
+                        background: 'rgba(var(--rgb-accent),0.06)',
+                        border: '1px solid #bfdbfe',
                         padding: '2px 7px',
                         borderRadius: 4,
                         textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
+                        letterSpacing: '0.08em',
                       }}
                     >
                       {t('champ.semiN', { n: tieIdx + 1 })}
                     </span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>
                       {playerMap.get(p1) ?? '?'} vs {playerMap.get(p2) ?? '?'}
                     </span>
                   </div>
                   {allLegsPlayed && (
-                    <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <span>
                         {t('champ.aggregate')}{' '}
-                        <strong style={{ color: '#e2e8f0' }}>
+                        <strong style={{ color: 'var(--text)' }}>
                           {p1Goals}–{p2Goals}
                         </strong>
                       </span>
                       {tieResult?.winner && (
                         <span
                           style={{
-                            background: 'rgba(34,197,94,0.15)',
-                            color: '#22c55e',
-                            border: '1px solid rgba(34,197,94,0.3)',
+                            background: 'rgba(34,197,94,0.06)',
+                            color: 'var(--win)',
+                            border: '1px solid #bbf7d0',
                             padding: '2px 8px',
                             borderRadius: 4,
                             fontSize: 11,
@@ -1242,9 +1385,9 @@ function PlayoffKnockoutSection({
                       {tieResult?.needsPenalty && !hasPenalty && (
                         <span
                           style={{
-                            background: 'rgba(245,158,11,0.15)',
-                            color: '#f59e0b',
-                            border: '1px solid rgba(245,158,11,0.3)',
+                            background: 'rgba(245,158,11,0.08)',
+                            color: 'var(--gold)',
+                            border: '1px solid #fde68a',
                             padding: '2px 8px',
                             borderRadius: 4,
                             fontSize: 11,
@@ -1267,7 +1410,7 @@ function PlayoffKnockoutSection({
                         style={{
                           borderBottom:
                             i < semiLegs.length - 1 || hasPenalty
-                              ? '1px solid #1a2840'
+                              ? '1px solid #E5E7EB'
                               : 'none',
                         }}
                       >
@@ -1279,14 +1422,15 @@ function PlayoffKnockoutSection({
                           isAdmin={isAdmin}
                           championshipId={championshipId}
                           championshipIsActive={championshipIsActive}
+                          variant="row"
                           badge={
                             <span
                               style={{
                                 fontSize: 9,
                                 fontWeight: 700,
-                                color: '#64748b',
-                                background: '#0f1a2e',
-                                border: '1px solid #1a2840',
+                                color: 'var(--muted)',
+                                background: 'var(--card3)',
+                                border: '1px solid #e5e7eb',
                                 padding: '2px 6px',
                                 borderRadius: 4,
                                 textTransform: 'uppercase',
@@ -1302,7 +1446,7 @@ function PlayoffKnockoutSection({
                 </div>
 
                 {penaltyMatch && (
-                  <div style={{ borderTop: '1px solid #1a2840' }}>
+                  <div style={{ borderTop: '1px solid #E5E7EB' }}>
                     <MatchCard
                       match={penaltyMatch}
                       playerMap={playerMap}
@@ -1311,6 +1455,7 @@ function PlayoffKnockoutSection({
                       isAdmin={isAdmin}
                       championshipId={championshipId}
                       championshipIsActive={championshipIsActive}
+                      variant="row"
                       badge={
                         <span
                           style={{
@@ -1332,15 +1477,15 @@ function PlayoffKnockoutSection({
                 )}
 
                 {tieResult?.needsPenalty && !hasPenalty && isAdmin && (
-                  <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(168,85,247,0.2)', background: 'rgba(168,85,247,0.08)' }}>
+                  <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(124,58,237,0.2)', background: 'rgba(124,58,237,0.06)' }}>
                     <button
                       onClick={() => onGeneratePenalty(p1, p2)}
                       style={{
                         padding: '6px 16px',
-                        background: '#9333ea',
+                        background: '#7c3aed',
                         color: '#fff',
                         border: 'none',
-                        borderRadius: 7,
+                        borderRadius: 4,
                         cursor: 'pointer',
                         fontSize: 12,
                         fontWeight: 700,
@@ -1382,10 +1527,11 @@ function PlayoffKnockoutSection({
           <SectionLabel gold>{t('champ.final')}</SectionLabel>
           <div
             style={{
-              border: '2px solid #fbbf24',
-              borderRadius: 12,
+              border: '2px solid #d97706',
+              borderRadius: 6,
               overflow: 'hidden',
-              boxShadow: '0 4px 16px rgba(251,191,36,0.15)',
+              boxShadow: '0 2px 12px rgba(217,119,6,0.12)',
+              background: 'var(--card)',
             }}
           >
             <MatchCard
@@ -1396,10 +1542,11 @@ function PlayoffKnockoutSection({
               isAdmin={isAdmin}
               championshipId={championshipId}
               championshipIsActive={championshipIsActive}
+              variant="row"
             />
 
             {finalPenaltyMatch && (
-              <div style={{ borderTop: '1px solid rgba(245,158,11,0.2)' }}>
+              <div style={{ borderTop: '1px solid #fde68a' }}>
                 <MatchCard
                   match={finalPenaltyMatch}
                   playerMap={playerMap}
@@ -1408,6 +1555,7 @@ function PlayoffKnockoutSection({
                   isAdmin={isAdmin}
                   championshipId={championshipId}
                   championshipIsActive={championshipIsActive}
+                  variant="row"
                   badge={
                     <span
                       style={{
@@ -1439,10 +1587,10 @@ function PlayoffKnockoutSection({
                   onClick={onGenerateFinalPenalty}
                   style={{
                     padding: '7px 16px',
-                    background: '#9333ea',
+                    background: '#7c3aed',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: 7,
+                    borderRadius: 4,
                     cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: 700,
@@ -1450,7 +1598,7 @@ function PlayoffKnockoutSection({
                 >
                   Record Penalty Shootout
                 </button>
-                <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                   {t('champ.finalLevel')}
                 </span>
               </div>
@@ -1501,7 +1649,7 @@ function SectionLabel({ children, gold }: { children: React.ReactNode; gold?: bo
           height: 3,
           width: 3,
           borderRadius: '50%',
-          background: gold ? '#f59e0b' : '#3b82f6',
+          background: gold ? '#f59e0b' : 'var(--accent)',
         }}
       />
       <h3
@@ -1509,14 +1657,14 @@ function SectionLabel({ children, gold }: { children: React.ReactNode; gold?: bo
           margin: 0,
           fontSize: 11,
           fontWeight: 800,
-          color: gold ? '#f59e0b' : '#64748b',
+          color: gold ? '#f59e0b' : 'var(--text2)',
           textTransform: 'uppercase',
           letterSpacing: '0.1em',
         }}
       >
         {children}
       </h3>
-      <div style={{ flex: 1, height: 1, background: gold ? 'rgba(245,158,11,0.3)' : '#1a2840' }} />
+      <div style={{ flex: 1, height: 1, background: gold ? '#fde68a' : 'var(--border)' }} />
     </div>
   )
 }
@@ -1528,20 +1676,21 @@ function ChampionBanner({ name, penalty }: { name: string; penalty?: boolean }) 
       style={{
         marginTop: 12,
         padding: '16px 20px',
-        background: 'linear-gradient(135deg, #92400e, #d97706, #fbbf24)',
-        borderRadius: 10,
+        background: 'rgba(245,158,11,0.08)',
+        border: '2px solid #d97706',
+        borderRadius: 6,
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        boxShadow: '0 4px 16px rgba(251,191,36,0.25)',
+        boxShadow: '0 2px 8px rgba(217,119,6,0.12)',
       }}
     >
-      <Trophy size={28} style={{ color: '#fbbf24', flexShrink: 0 }} />
+      <Trophy size={26} style={{ color: 'var(--gold)', flexShrink: 0 }} />
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 3 }}>
           {penalty ? t('champ.championPens') : t('champ.champion')}
         </div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>{name}</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text)' }}>{name}</div>
       </div>
     </div>
   )
@@ -1774,13 +1923,13 @@ export function ChampionshipDetail({
 
     return (
       <div
+        className="app-page page-content-wide"
         style={{
-          maxWidth: 900,
-          margin: '0 auto',
           padding: '0 0 40px',
           fontFamily: 'system-ui, -apple-system, sans-serif',
-          background: '#050911',
+          background: 'var(--bg)',
           minHeight: '100svh',
+          paddingBottom: 'var(--nav-h)',
         }}
       >
         <style dangerouslySetInnerHTML={{ __html: CHAMP_ANIMS }} />
@@ -1788,7 +1937,7 @@ export function ChampionshipDetail({
         <PageHeader
           name={championship.name}
           badge={t('champ.formatGroupKnockout')}
-          badgeColor="#3b82f6"
+          badgeColor="#DC2626"
           meta={`${t('champ.playerCount', { n: players.length })} · ${t(totalCycles !== 1 ? 'champ.groupCycles' : 'champ.groupCycle', { n: totalCycles })}`}
           extraBadge={
             groupStageDone ? { label: t('champ.groupStageDone'), color: '#22c55e' } : undefined
@@ -1801,6 +1950,7 @@ export function ChampionshipDetail({
           onSaveDate={handleSaveDate}
           isSavingDate={isSavingDate}
           dateError={dateError}
+          championshipId={championship.id}
         />
 
         <div style={{ padding: '20px 20px 0' }}>
@@ -1817,10 +1967,10 @@ export function ChampionshipDetail({
           )}
 
           {allGroupMatches.length === 0 && isAdmin && (
-            <div style={{ padding: '28px 20px', textAlign: 'center', border: '2px dashed #1a2840', borderRadius: 12, background: '#0a1220', marginBottom: 24 }}>
+            <div style={{ padding: '28px 20px', textAlign: 'center', border: '2px dashed #E5E7EB', borderRadius: 12, background: 'var(--card2)', marginBottom: 24 }}>
               <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>{t('champ.noMatchesYet')}</div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>{t('champ.matchesNotGenerated')}</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted2)', marginBottom: 6 }}>{t('champ.noMatchesYet')}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted2)', marginBottom: 16 }}>{t('champ.matchesNotGenerated')}</div>
               <button
                 onClick={handleRegenerate}
                 disabled={isRegenerating}
@@ -1874,7 +2024,7 @@ export function ChampionshipDetail({
                       margin: 0,
                       fontSize: 14,
                       fontWeight: 700,
-                      color: '#e2e8f0',
+                      color: 'var(--text2)',
                     }}
                   >
                     {t('champ.group', { label })}
@@ -1891,7 +2041,7 @@ export function ChampionshipDetail({
                           style={{
                             fontSize: 10,
                             fontWeight: 800,
-                            color: cycle === curCycle ? '#2563eb' : '#94a3b8',
+                            color: cycle === curCycle ? '#2563eb' : 'var(--muted2)',
                             marginBottom: 6,
                             display: 'flex',
                             alignItems: 'center',
@@ -1905,8 +2055,8 @@ export function ChampionshipDetail({
                             <span
                               style={{
                                 fontSize: 9,
-                                background: 'rgba(59,130,246,0.15)',
-                                color: '#60a5fa',
+                                background: 'rgba(220,38,38,0.1)',
+                                color: '#2563EB',
                                 padding: '1px 5px',
                                 borderRadius: 8,
                                 fontWeight: 700,
@@ -1943,6 +2093,7 @@ export function ChampionshipDetail({
                               isAdmin={isAdmin}
                               championshipId={championship.id}
                               championshipIsActive={championship.isActive}
+                              isMobile={isMobile}
                             />
                           ))}
                         </div>
@@ -1960,7 +2111,7 @@ export function ChampionshipDetail({
                       avatarMap={avatarMap}
                       highlightTop={2}
                     />
-                    <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8' }}>
+                    <div style={{ marginTop: 6, fontSize: 10, color: 'var(--muted2)' }}>
                       {t('champ.greenAdvances')}
                     </div>
                   </>
@@ -1972,16 +2123,16 @@ export function ChampionshipDetail({
           {/* Knockout */}
           <div
             style={{
-              background: '#0c1422',
+              background: 'var(--card)',
               borderRadius: 14,
-              border: '1px solid #1a2840',
+              border: '1px solid #E5E7EB',
               padding: '20px',
               boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
             }}
           >
             <SectionLabel>{t('champ.knockoutStage')}</SectionLabel>
             {isKnockoutPending ? (
-              <div style={{ color: '#94a3b8', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
+              <div style={{ color: 'var(--muted2)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
                 {t('champ.updating')}
               </div>
             ) : (
@@ -2041,13 +2192,13 @@ export function ChampionshipDetail({
 
     return (
       <div
+        className="app-page page-content-wide"
         style={{
-          maxWidth: 860,
-          margin: '0 auto',
           padding: '0 0 40px',
           fontFamily: 'system-ui, -apple-system, sans-serif',
-          background: '#050911',
+          background: 'var(--bg)',
           minHeight: '100svh',
+          paddingBottom: 'var(--nav-h)',
         }}
       >
         <style dangerouslySetInnerHTML={{ __html: CHAMP_ANIMS }} />
@@ -2065,32 +2216,24 @@ export function ChampionshipDetail({
           onSaveDate={handleSaveDate}
           isSavingDate={isSavingDate}
           dateError={dateError}
+          championshipId={championship.id}
         />
 
-        {isMobile && (
-          <div style={{ display: 'flex', borderBottom: '1px solid #1a2840', background: '#050911', position: 'sticky', top: 0, zIndex: 10 }}>
-            {(['schedule', 'standings'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setMobileTab(tab)}
-                style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? '#60a5fa' : '#64748b', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #3b82f6' : '2px solid transparent', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        )}
-        <div
-          style={{
-            padding: '20px',
-            display: isMobile ? 'block' : 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 320px)',
-            gap: 20,
-            alignItems: 'start',
-          }}
-        >
+        {/* Tab bar — always visible */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', background: 'var(--bg)', position: 'sticky', top: 'var(--fixed-nav-h)', zIndex: 10 }}>
+          {(['schedule', 'standings'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setMobileTab(tab)}
+              style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? 'var(--accent)' : 'var(--text2)', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #DC2626' : '2px solid transparent', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+            >
+              {tab === 'schedule' ? t('champ.schedule') : t('champ.standings')}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: '20px' }}>
           {/* Left: schedule + playoffs */}
-          <div style={{ display: isMobile && mobileTab !== 'schedule' ? 'none' : undefined }}>
+          <div style={{ display: mobileTab !== 'schedule' ? 'none' : undefined }}>
             {knockoutError && (
               <div style={{ marginBottom: 16, padding: '10px 16px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, color: '#f87171', fontSize: 13, border: '1px solid rgba(239,68,68,0.3)' }}>
                 {knockoutError}
@@ -2106,10 +2249,10 @@ export function ChampionshipDetail({
             <SectionLabel>{t('champ.groupStage')}</SectionLabel>
 
             {groupMatches.length === 0 && isAdmin ? (
-              <div style={{ padding: '28px 20px', textAlign: 'center', border: '2px dashed #1a2840', borderRadius: 12, background: '#0a1220', marginBottom: 24 }}>
+              <div style={{ padding: '28px 20px', textAlign: 'center', border: '2px dashed #E5E7EB', borderRadius: 12, background: 'var(--card2)', marginBottom: 24 }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>{t('champ.noMatchesYet')}</div>
-                <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>{t('champ.matchesNotGenerated')}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted2)', marginBottom: 6 }}>{t('champ.noMatchesYet')}</div>
+                <div style={{ fontSize: 12, color: 'var(--muted2)', marginBottom: 16 }}>{t('champ.matchesNotGenerated')}</div>
                 <button
                   onClick={handleRegenerate}
                   disabled={isRegenerating}
@@ -2127,7 +2270,7 @@ export function ChampionshipDetail({
                       style={{
                         fontSize: 10,
                         fontWeight: 800,
-                        color: cycle === curCycle ? '#2563eb' : '#94a3b8',
+                        color: cycle === curCycle ? '#2563eb' : 'var(--muted2)',
                         marginBottom: 8,
                         display: 'flex',
                         alignItems: 'center',
@@ -2138,7 +2281,7 @@ export function ChampionshipDetail({
                     >
                       Round {cycle}
                       {cycle === curCycle && (
-                        <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
+                        <span style={{ fontSize: 9, background: 'rgba(220,38,38,0.1)', color: '#2563EB', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
                           Live
                         </span>
                       )}
@@ -2159,6 +2302,7 @@ export function ChampionshipDetail({
                           isAdmin={isAdmin}
                           championshipId={championship.id}
                           championshipIsActive={championship.isActive}
+                          isMobile={isMobile}
                         />
                       ))}
                     </div>
@@ -2169,17 +2313,17 @@ export function ChampionshipDetail({
             {/* Playoff section */}
             <div
               style={{
-                background: '#0c1422',
-                borderRadius: 14,
-                border: '1px solid #1a2840',
+                background: 'var(--card)',
+                borderRadius: 6,
+                border: '1px solid #e5e7eb',
                 padding: '20px',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                boxShadow: '0 1px 4px rgba(var(--rgb-overlay),0.06)',
                 marginTop: 8,
               }}
             >
               <SectionLabel>{t('champ.playoffs')}</SectionLabel>
               {isKnockoutPending ? (
-                <div style={{ color: '#94a3b8', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>{t('champ.updating')}</div>
+                <div style={{ color: 'var(--muted2)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>{t('champ.updating')}</div>
               ) : (
                 <PlayoffKnockoutSection
                   matches={playoffMatches}
@@ -2199,9 +2343,8 @@ export function ChampionshipDetail({
             </div>
           </div>
 
-          {/* Right: standings (sticky) */}
-          <div style={{ position: isMobile ? undefined : 'sticky', top: 20, display: isMobile && mobileTab !== 'standings' ? 'none' : undefined }}>
-            <SectionLabel>{t('champ.standings')}</SectionLabel>
+          {/* Standings tab */}
+          <div style={{ display: mobileTab !== 'standings' ? 'none' : undefined }}>
             <StandingsTable
               playerIds={playerIds}
               matches={groupMatches}
@@ -2209,7 +2352,7 @@ export function ChampionshipDetail({
               avatarMap={avatarMap}
               highlightTop={4}
             />
-            <div style={{ marginTop: 6, fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
+            <div style={{ marginTop: 8, fontSize: 10, color: 'var(--muted2)', lineHeight: 1.5 }}>
               {t('champ.greenAdvancesPlay')}
             </div>
             <ChampionshipWinnerOdds
@@ -2270,13 +2413,13 @@ export function ChampionshipDetail({
 
   return (
     <div
+      className="app-page page-content-wide"
       style={{
-        maxWidth: 860,
-        margin: '0 auto',
         padding: '0 0 40px',
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        background: '#050911',
+        background: 'var(--bg)',
         minHeight: '100svh',
+        paddingBottom: 'var(--nav-h)',
       }}
     >
       <style dangerouslySetInnerHTML={{ __html: CHAMP_ANIMS }} />
@@ -2294,32 +2437,24 @@ export function ChampionshipDetail({
         onSaveDate={handleSaveDate}
         isSavingDate={isSavingDate}
         dateError={dateError}
+        championshipId={championship.id}
       />
 
-      {isMobile && (
-        <div style={{ display: 'flex', borderBottom: '1px solid #1a2840', background: '#050911', position: 'sticky', top: 0, zIndex: 10 }}>
-          {(['schedule', 'standings'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setMobileTab(tab)}
-              style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? '#60a5fa' : '#64748b', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #3b82f6' : '2px solid transparent', cursor: 'pointer', letterSpacing: '0.08em' }}
-            >
-              {tab === 'schedule' ? t('champ.schedule') : t('champ.standings')}
-            </button>
-          ))}
-        </div>
-      )}
-      <div
-        style={{
-          padding: '20px',
-          display: isMobile ? 'block' : 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 320px)',
-          gap: 20,
-          alignItems: 'start',
-        }}
-      >
+      {/* Tab bar — always visible */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', background: 'var(--bg)', position: 'sticky', top: 'var(--fixed-nav-h)', zIndex: 10 }}>
+        {(['schedule', 'standings'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setMobileTab(tab)}
+            style={{ flex: 1, padding: '12px', fontSize: 12, fontWeight: 700, color: mobileTab === tab ? 'var(--accent)' : 'var(--text2)', background: 'none', border: 'none', borderBottom: mobileTab === tab ? '2px solid #DC2626' : '2px solid transparent', cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          >
+            {tab === 'schedule' ? t('champ.schedule') : t('champ.standings')}
+          </button>
+        ))}
+      </div>
+      <div style={{ padding: '20px' }}>
         {/* Schedule */}
-        <div style={{ display: isMobile && mobileTab !== 'schedule' ? 'none' : undefined }}>
+        <div style={{ display: mobileTab !== 'schedule' ? 'none' : undefined }}>
           <SectionLabel>{t('champ.schedule')}</SectionLabel>
 
           {regenError && (
@@ -2339,16 +2474,16 @@ export function ChampionshipDetail({
               style={{
                 padding: '32px 20px',
                 textAlign: 'center',
-                border: '2px dashed #1a2840',
+                border: '2px dashed #E5E7EB',
                 borderRadius: 12,
-                background: '#0a1220',
+                background: 'var(--card2)',
               }}
             >
               <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#94a3b8', marginBottom: 6 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted2)', marginBottom: 6 }}>
                 {t('champ.noMatchesYet')}
               </div>
-              <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: isAdmin ? 16 : 0 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted2)', marginBottom: isAdmin ? 16 : 0 }}>
                 {t('champ.matchesNotGenerated')}
               </div>
               {isAdmin && (
@@ -2381,7 +2516,7 @@ export function ChampionshipDetail({
                       style={{
                         fontSize: 10,
                         fontWeight: 800,
-                        color: cycle === curCycle ? '#2563eb' : '#94a3b8',
+                        color: cycle === curCycle ? '#2563eb' : 'var(--muted2)',
                         marginBottom: 8,
                         display: 'flex',
                         alignItems: 'center',
@@ -2392,7 +2527,7 @@ export function ChampionshipDetail({
                     >
                       Round {cycle}
                       {cycle === curCycle && (
-                        <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
+                        <span style={{ fontSize: 9, background: 'rgba(220,38,38,0.1)', color: '#2563EB', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>
                           Live
                         </span>
                       )}
@@ -2413,6 +2548,7 @@ export function ChampionshipDetail({
                           isAdmin={isAdmin}
                           championshipId={championship.id}
                           championshipIsActive={championship.isActive}
+                          isMobile={isMobile}
                         />
                       ))}
                     </div>
@@ -2420,7 +2556,7 @@ export function ChampionshipDetail({
                 ))}
 
               {canGenerateNextCycle && (
-                <div style={{ marginTop: 8, paddingTop: 16, borderTop: '1px dashed #1a2840', textAlign: 'center' }}>
+                <div style={{ marginTop: 8, paddingTop: 16, borderTop: '1px dashed #E5E7EB', textAlign: 'center' }}>
                   <button
                     onClick={handleGenerateNextCycle}
                     disabled={isGeneratingCycle}
@@ -2445,15 +2581,14 @@ export function ChampionshipDetail({
         </div>
 
         {/* Standings */}
-        <div style={{ position: isMobile ? undefined : 'sticky', top: 20, display: isMobile && mobileTab !== 'standings' ? 'none' : undefined }}>
-          <SectionLabel>Standings</SectionLabel>
+        <div style={{ display: mobileTab !== 'standings' ? 'none' : undefined }}>
           <StandingsTable
             playerIds={playerIds}
             matches={matches}
             playerMap={playerMap}
             avatarMap={avatarMap}
           />
-          <div style={{ marginTop: 8, fontSize: 10, color: '#94a3b8', lineHeight: 1.5 }}>
+          <div style={{ marginTop: 8, fontSize: 10, color: 'var(--muted2)', lineHeight: 1.5 }}>
             {t('champ.sortedBy')}
           </div>
 
@@ -2462,28 +2597,28 @@ export function ChampionshipDetail({
             <div
               style={{
                 marginTop: 14,
-                padding: '12px 14px',
-                background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(251,191,36,0.08))',
-                border: '1px solid rgba(245,158,11,0.3)',
-                borderRadius: 10,
+                padding: '14px 16px',
+                background: 'rgba(245,158,11,0.08)',
+                border: '1px solid #fde68a',
+                borderRadius: 6,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
+                gap: 12,
               }}
             >
               <Avatar
                 url={avatarMap.get(standings[0].playerId)}
                 name={playerMap.get(standings[0].playerId) ?? '?'}
-                size={36}
+                size={38}
               />
               <div>
-                <div style={{ fontSize: 10, color: '#fbbf24', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                <div style={{ fontSize: 10, color: 'var(--gold)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                   {t('champ.leading')}
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: '#f8fafc' }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>
                   {playerMap.get(standings[0].playerId)}
                 </div>
-                <div style={{ fontSize: 11, color: '#f59e0b' }}>
+                <div style={{ fontSize: 11, color: '#92400e', fontWeight: 600, marginTop: 1 }}>
                   {standings[0].points} pts ·{' '}
                   {standings[0].goalDiff >= 0 ? '+' : ''}
                   {standings[0].goalDiff} GD
@@ -2540,6 +2675,7 @@ function PageHeader({
   onSaveDate,
   isSavingDate,
   dateError,
+  championshipId,
 }: {
   name: string
   badge: string
@@ -2554,10 +2690,20 @@ function PageHeader({
   onSaveDate: (v: string | null) => void
   isSavingDate: boolean
   dateError: string | null
+  championshipId: string
 }) {
   const { t } = useTranslation()
   const [editingDate, setEditingDate] = useState(false)
   const [localDate, setLocalDate] = useState(dateValue)
+  const [headerMobile, setHeaderMobile] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
+
+  useEffect(() => {
+    const check = () => setHeaderMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   function handleSave() {
     onDateChange(localDate)
@@ -2574,198 +2720,142 @@ function PageHeader({
     day: 'numeric', month: 'short', year: 'numeric',
   })
 
+  const showControls = isHovering || editingDate
+
+  // championshipId is kept in props for future use
+  void championshipId
+
   return (
     <div
       style={{
+        position: 'relative',
+        overflow: 'hidden',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e293b 100%)',
-        padding: '24px 24px 22px',
         marginBottom: 0,
       }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
     >
-      <div style={{ marginBottom: 14 }}>
-        <a
-          href="/championships"
-          style={{
-            fontSize: 11,
-            color: 'rgba(148,163,184,0.7)',
-            textDecoration: 'none',
-            fontWeight: 600,
-            letterSpacing: '0.04em',
-          }}
-        >
-          {t('champ.back')}
-        </a>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 16,
-        }}
-      >
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <h1
+      {/* Content layer */}
+      <div style={{ position: 'relative', zIndex: 2, padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', minHeight: 160, justifyContent: 'space-between' }}>
+        {/* Top row: back link + admin buttons (fade in on hover) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <a
+            href="/championships"
             style={{
-              margin: '0 0 8px',
-              fontSize: 26,
-              fontWeight: 900,
-              color: '#f8fafc',
-              letterSpacing: '-0.5px',
+              fontSize: 11,
+              color: 'rgba(148,163,184,0.7)',
+              textDecoration: 'none',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
             }}
           >
-            {name}
-          </h1>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                padding: '3px 9px',
-                borderRadius: 20,
-                background: `${badgeColor}25`,
-                color: badgeColor,
-                border: `1px solid ${badgeColor}40`,
-                textTransform: 'uppercase',
-                letterSpacing: '0.07em',
-              }}
-            >
-              {badge}
-            </span>
-            {extraBadge && (
-              <span
+            {t('champ.back')}
+          </a>
+
+          {isAdmin && (
+            <div style={{
+              display: 'flex', gap: 8, flexShrink: 0,
+              opacity: showControls ? 1 : 0,
+              transition: 'opacity 0.2s ease',
+              pointerEvents: showControls ? 'auto' : 'none',
+            }}>
+              <button
+                onClick={onAddMatch}
                 style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '3px 9px',
-                  borderRadius: 20,
-                  background: `${extraBadge.color}20`,
-                  color: extraBadge.color,
-                  border: `1px solid ${extraBadge.color}40`,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.07em',
+                  padding: '7px 14px',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 7,
+                  background: 'rgba(0,0,0,0.35)',
+                  backdropFilter: 'blur(8px)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#cbd5e1',
                 }}
               >
-                {extraBadge.label}
-              </span>
-            )}
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>{meta}</span>
-          </div>
-
-          {/* Date row */}
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {editingDate ? (
-              <>
-                <input
-                  type="date"
-                  value={localDate}
-                  onChange={(e) => setLocalDate(e.target.value)}
-                  style={{
-                    padding: '4px 8px',
-                    background: '#0f1a2e',
-                    border: '1px solid #2563eb',
-                    borderRadius: 6,
-                    color: '#e2e8f0',
-                    fontSize: 12,
-                    outline: 'none',
-                  }}
-                />
-                <button
-                  onClick={handleSave}
-                  disabled={isSavingDate}
-                  style={{
-                    padding: '4px 10px',
-                    background: '#2563eb',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 6,
-                    cursor: isSavingDate ? 'wait' : 'pointer',
-                    fontSize: 11,
-                    fontWeight: 700,
-                  }}
-                >
-                  {isSavingDate ? '…' : t('champ.saveDate')}
-                </button>
-                <button
-                  onClick={handleCancel}
-                  style={{
-                    padding: '4px 10px',
-                    background: 'transparent',
-                    color: '#94a3b8',
-                    border: '1px solid #1a2840',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t('common.cancel')}
-                </button>
-                {dateError && (
-                  <span style={{ fontSize: 11, color: '#f87171' }}>{dateError}</span>
-                )}
-              </>
-            ) : (
-              <>
-                <span style={{ fontSize: 12, color: '#64748b' }}>{displayDate}</span>
-                {isAdmin && (
-                  <button
-                    onClick={() => setEditingDate(true)}
-                    style={{
-                      padding: '2px 8px',
-                      background: 'rgba(255,255,255,0.05)',
-                      color: '#64748b',
-                      border: '1px solid #1a2840',
-                      borderRadius: 5,
-                      cursor: 'pointer',
-                      fontSize: 10,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {t('champ.editDate')}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
+                {t('champ.addMatch')}
+              </button>
+              <button
+                onClick={onDelete}
+                style={{
+                  padding: '7px 14px',
+                  border: '1px solid rgba(239,68,68,0.35)',
+                  borderRadius: 7,
+                  background: 'rgba(239,68,68,0.15)',
+                  backdropFilter: 'blur(8px)',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#f87171',
+                }}
+              >
+                {t('common.delete')}
+              </button>
+            </div>
+          )}
         </div>
 
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button
-              onClick={onAddMatch}
-              style={{
-                padding: '7px 14px',
-                border: '1px solid rgba(255,255,255,0.15)',
-                borderRadius: 7,
-                background: 'rgba(255,255,255,0.08)',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#cbd5e1',
-                backdropFilter: 'blur(4px)',
-              }}
-            >
-              {t('champ.addMatch')}
-            </button>
-            <button
-              onClick={onDelete}
-              style={{
-                padding: '7px 14px',
-                border: '1px solid rgba(239,68,68,0.3)',
-                borderRadius: 7,
-                background: 'rgba(239,68,68,0.08)',
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#f87171',
-              }}
-            >
-              {t('common.delete')}
-            </button>
+        {/* Bottom: title + badges + date */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h1 style={{
+              margin: '0 0 5px',
+              fontSize: headerMobile ? 20 : 26,
+              fontWeight: 900,
+              color: '#f1f5f9',
+              letterSpacing: '-0.5px',
+            }}>
+              {name}
+            </h1>
+
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+                background: `${badgeColor}25`, color: badgeColor, border: `1px solid ${badgeColor}40`,
+                textTransform: 'uppercase', letterSpacing: '0.07em',
+              }}>{badge}</span>
+              {extraBadge && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+                  background: `${extraBadge.color}20`, color: extraBadge.color, border: `1px solid ${extraBadge.color}40`,
+                  textTransform: 'uppercase', letterSpacing: '0.07em',
+                }}>{extraBadge.label}</span>
+              )}
+              <span style={{ fontSize: 12, color: 'rgba(148,163,184,0.8)' }}>{meta}</span>
+            </div>
+
+            {/* Date row */}
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {editingDate ? (
+                <>
+                  <input
+                    type="date"
+                    value={localDate}
+                    onChange={(e) => setLocalDate(e.target.value)}
+                    style={{ padding: '4px 8px', background: 'rgba(15,23,42,0.6)', border: '1px solid var(--accent)', borderRadius: 6, color: '#f1f5f9', fontSize: 12, outline: 'none' }}
+                  />
+                  <button onClick={handleSave} disabled={isSavingDate} style={{ padding: '4px 10px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, cursor: isSavingDate ? 'wait' : 'pointer', fontSize: 11, fontWeight: 700 }}>
+                    {isSavingDate ? '…' : t('champ.saveDate')}
+                  </button>
+                  <button onClick={handleCancel} style={{ padding: '4px 10px', background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                    {t('common.cancel')}
+                  </button>
+                  {dateError && <span style={{ fontSize: 11, color: '#f87171' }}>{dateError}</span>}
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 12, color: 'rgba(203,213,225,0.85)' }}>{displayDate}</span>
+                  {isAdmin && (
+                    <button onClick={() => setEditingDate(true)} style={{ padding: '2px 8px', background: 'rgba(255,255,255,0.06)', color: 'rgba(203,213,225,0.8)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer', fontSize: 10, fontWeight: 600, opacity: showControls ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: showControls ? 'auto' : 'none' }}>
+                      {t('champ.editDate')}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
@@ -2803,19 +2893,19 @@ function DeleteConfirmModal({
     >
       <div
         style={{
-          background: '#0c1422',
+          background: 'var(--card)',
           borderRadius: 14,
           padding: 28,
           width: 380,
           maxWidth: '95vw',
-          border: '1px solid #1a2840',
+          border: '1px solid #E5E7EB',
           boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
         }}
       >
-        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: '#f8fafc' }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
           {t('champ.deleteTitle')}
         </h2>
-        <p style={{ margin: '0 0 20px', fontSize: 14, color: '#94a3b8' }}>
+        <p style={{ margin: '0 0 20px', fontSize: 14, color: 'var(--muted2)' }}>
           {t('champ.deleteDesc', { name: championship.name })}
         </p>
         {deleteError && (
@@ -2827,12 +2917,12 @@ function DeleteConfirmModal({
             disabled={isDeleting}
             style={{
               padding: '8px 18px',
-              border: '1px solid #1a2840',
+              border: '1px solid #E5E7EB',
               borderRadius: 8,
-              background: '#0f1a2e',
+              background: 'var(--card2)',
               cursor: 'pointer',
               fontSize: 14,
-              color: '#94a3b8',
+              color: 'var(--muted2)',
             }}
           >
             {t('common.cancel')}
@@ -2842,7 +2932,7 @@ function DeleteConfirmModal({
             disabled={isDeleting}
             style={{
               padding: '8px 22px',
-              background: isDeleting ? 'rgba(239,68,68,0.4)' : '#dc2626',
+              background: isDeleting ? 'rgba(239,68,68,0.4)' : 'var(--accent)',
               color: '#fff',
               border: 'none',
               borderRadius: 8,

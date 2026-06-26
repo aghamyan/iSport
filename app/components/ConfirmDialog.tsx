@@ -35,19 +35,20 @@ export function ConfirmDialog({
     >
       <div
         style={{
-          background: '#fff',
+          background: 'var(--card)',
           borderRadius: 12,
           padding: 28,
           width: 400,
           maxWidth: '90vw',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          boxShadow: 'var(--shadow-card)',
+          border: '1px solid var(--border)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: '#111827' }}>
+        <h2 style={{ margin: '0 0 10px', fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
           {title}
         </h2>
-        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#4b5563', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: 'var(--muted)', lineHeight: 1.5 }}>
           {message}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -55,13 +56,13 @@ export function ConfirmDialog({
             onClick={onCancel}
             style={{
               padding: '8px 18px',
-              background: '#f3f4f6',
-              border: 'none',
+              background: 'var(--card3)',
+              border: '1px solid var(--border)',
               borderRadius: 8,
               cursor: 'pointer',
               fontSize: 14,
               fontWeight: 600,
-              color: '#374151',
+              color: 'var(--text2)',
             }}
           >
             {t('common.cancel')}
@@ -70,7 +71,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             style={{
               padding: '8px 18px',
-              background: danger ? '#dc2626' : '#2563eb',
+              background: danger ? 'var(--accent)' : 'var(--accent)',
               border: 'none',
               borderRadius: 8,
               cursor: 'pointer',

@@ -9,13 +9,19 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@react-three/postprocessing": "^3.0.4",
     "@supabase/supabase-js": "^2.50.0",
+    "@types/three": "^0.185.0",
+    "gsap": "^3.15.0",
     "jose": "^5.9.6",
     "lucide-react": "^1.17.0",
     "motion": "^12.40.0",
     "next": "^16.2.7",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "three": "^0.185.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

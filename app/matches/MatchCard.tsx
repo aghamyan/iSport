@@ -129,11 +129,11 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
   return (
     <div
       style={{
-        border: '1px solid #e5e7eb',
+        border: '1px solid var(--border)',
         borderRadius: 12,
         padding: 16,
-        background: '#fff',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        background: 'var(--card)',
+        boxShadow: '0 1px 4px rgba(var(--rgb-overlay),0.06)',
         display: 'flex',
         flexDirection: 'column',
         gap: 12,
@@ -150,12 +150,12 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, fontWeight: 500 }}>{match.homePlayerName}</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{match.homeScore ?? '–'}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{match.homeScore ?? '–'}</div>
         </div>
         <div style={{ fontSize: 16, color: '#d1d5db', fontWeight: 700 }}>VS</div>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4, fontWeight: 500 }}>{match.awayPlayerName}</div>
-          <div style={{ fontSize: 32, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{match.awayScore ?? '–'}</div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text)', lineHeight: 1 }}>{match.awayScore ?? '–'}</div>
         </div>
       </div>
 
@@ -180,8 +180,8 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
               style={{
                 marginLeft: 'auto',
                 fontSize: 10, fontWeight: 700, padding: '2px 7px',
-                borderRadius: 4, border: '1px solid #e5e7eb',
-                background: '#f9fafb', color: '#6b7280', cursor: 'pointer',
+                borderRadius: 4, border: '1px solid var(--border)',
+                background: '#f9fafb', color: 'var(--muted)', cursor: 'pointer',
                 flexShrink: 0,
               }}
             >
@@ -224,7 +224,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
 
       {/* ── Notes ── */}
       {match.notes && (
-        <p style={{ margin: 0, fontSize: 12, color: '#6b7280', fontStyle: 'italic' }}>{match.notes}</p>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', fontStyle: 'italic' }}>{match.notes}</p>
       )}
 
       {/* ── Action buttons ── */}
@@ -251,19 +251,19 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
 
       {/* ── Inline confirm form ── */}
       {showConfirmForm && (
-        <div style={{ padding: '12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+        <div style={{ padding: '12px', background: '#f9fafb', borderRadius: 8, border: '1px solid var(--border)' }}>
           <p style={{ margin: '0 0 8px', fontSize: 13, fontWeight: 600 }}>{t('match.enterScoresToConfirm')}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <input
               type="number" min={0} max={99} placeholder={t('common.homeLabel')}
               value={confirmHome} onChange={(e) => setConfirmHome(e.target.value)}
-              style={{ width: 60, padding: '6px', border: '1px solid #d1d5db', borderRadius: 6, textAlign: 'center', fontSize: 16, fontWeight: 700 }}
+              style={{ width: 60, padding: '6px', border: '1px solid var(--border)', borderRadius: 6, textAlign: 'center', fontSize: 16, fontWeight: 700 }}
             />
             <span style={{ color: '#9ca3af', fontWeight: 700 }}>:</span>
             <input
               type="number" min={0} max={99} placeholder={t('common.awayLabel')}
               value={confirmAway} onChange={(e) => setConfirmAway(e.target.value)}
-              style={{ width: 60, padding: '6px', border: '1px solid #d1d5db', borderRadius: 6, textAlign: 'center', fontSize: 16, fontWeight: 700 }}
+              style={{ width: 60, padding: '6px', border: '1px solid var(--border)', borderRadius: 6, textAlign: 'center', fontSize: 16, fontWeight: 700 }}
             />
             <button
               onClick={handleConfirmSubmit} disabled={isPending}
@@ -273,7 +273,7 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
             </button>
             <button
               onClick={() => { setShowCF(false); setConfirmError(null) }}
-              style={{ padding: '6px 12px', border: '1px solid #d1d5db', borderRadius: 6, background: '#fff', cursor: 'pointer', fontSize: 13 }}
+              style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--card)', cursor: 'pointer', fontSize: 13 }}
             >
               {t('common.cancel')}
             </button>
@@ -301,8 +301,8 @@ export function MatchCard({ match: initial, currentUserId, isAdmin }: Props) {
 function OddsChipSmall({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div style={{ flex: 1, textAlign: 'center', padding: '5px 4px', background: color, borderRadius: 6 }}>
-      <div style={{ fontSize: 9, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginTop: 2 }}>{value}</div>
+      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 2 }}>{value}</div>
     </div>
   )
 }
@@ -325,7 +325,7 @@ function FactorsColumn({ name, factors, side }: { name: string; factors: OddsFac
               </span>
             )}
           </div>
-          <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{f.description}</div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{f.description}</div>
         </div>
       ))}
     </div>

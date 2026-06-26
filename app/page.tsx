@@ -59,6 +59,7 @@ export default async function HomePage() {
   const [
     myStats, leaderboard, recentForm, champPlacements, champLeaders,
     currentChampion, pRes, rRes, champOnlyStats, myUserRes, allPendingRes,
+    heroBannerRes,
   ] = await Promise.all([
     getPlayerStats(session.sub),
     getLeaderboard(),
@@ -81,6 +82,7 @@ export default async function HomePage() {
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(20),
+    supabase.from('system_settings').select('value').eq('key', 'homepage_hero_url').maybeSingle(),
   ])
 
   const rank   = leaderboard.findIndex((p) => p.id === session.sub) + 1
@@ -212,6 +214,11 @@ export default async function HomePage() {
     topScorerAvatarUrl:  topScorer?.avatarUrl ?? null,
   }
 
+  const heroBannerRaw = heroBannerRes.data?.value
+  const heroBannerUrl = typeof heroBannerRaw === 'string'
+    ? heroBannerRaw.replace(/^"|"$/g, '')
+    : null
+
   return (
     <HomeLoggedIn
       userId={session.sub}
@@ -230,6 +237,7 @@ export default async function HomePage() {
       players={players}
       pendingMatches={pendingMatches}
       globalStats={globalStats}
+      heroBannerUrl={heroBannerUrl || null}
     />
   )
 }

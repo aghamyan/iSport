@@ -9,10 +9,9 @@ import supabase from '@/lib/supabase/client'
 import { CreateMatchModal } from '@/app/matches/CreateMatchModal'
 import type { ActivePlayer } from '@/app/matches/CreateMatchModal'
 import type { PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader, CurrentChampion } from '@/lib/stats/types'
-import { BottomNav } from '@/app/components/BottomNav'
 import { BetNotificationCenter } from '@/app/components/BetNotificationCenter'
+import { BottomNav } from '@/app/components/BottomNav'
 import { NumberTicker } from '@/app/components/magicui/number-ticker'
-import { Meteors } from '@/app/components/magicui/meteors'
 import { ShimmerButton } from '@/app/components/magicui/shimmer-button'
 import { logoutAction } from '@/lib/auth/actions'
 import { confirmMatchAction, deleteMatchAction } from '@/app/matches/actions'
@@ -79,21 +78,22 @@ type Props = {
   players: ActivePlayer[]
   pendingMatches: HomeMatchItem[]
   globalStats: GlobalStats
+  heroBannerUrl?: string | null
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
-const BG     = '#050911'
-const CARD   = '#0c1422'
-const BORDER = '#1a2840'
-const ACCENT = '#3b82f6'
-const GOLD   = '#f59e0b'
-const TEXT   = '#f8fafc'
-const TEXT2  = '#94a3b8'
-const MUTED  = '#4b5a73'
-const WIN    = '#10b981'
-const LOSS   = '#ef4444'
-const DRAW   = '#f59e0b'
+const BG     = 'var(--bg)'
+const CARD   = 'var(--card)'
+const BORDER = 'var(--border)'
+const ACCENT = 'var(--accent)'
+const GOLD   = 'var(--gold)'
+const TEXT   = 'var(--text)'
+const TEXT2  = 'var(--text2)'
+const MUTED  = 'var(--muted)'
+const WIN    = 'var(--win)'
+const LOSS   = 'var(--accent)'
+const DRAW   = 'var(--draw)'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -111,9 +111,9 @@ function computeStreak(form: FormEntry[]): { type: 'W' | 'L' | 'D' | null; count
 function getTierKey(rank: number, total: number): { labelKey: string; color: string; icon: ReactNode } | null {
   if (rank <= 0 || total <= 0) return null
   if (rank === 1) return { labelKey: 'home.tier.p4pNo1', color: GOLD, icon: <Crown size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
-  if (rank === 2) return { labelKey: 'home.tier.runnerUp', color: '#94a3b8', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank === 2) return { labelKey: 'home.tier.runnerUp', color: '#64748B', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
   if (rank === 3) return { labelKey: 'home.tier.thirdPlace', color: '#cd7c3a', icon: <Medal size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
-  if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { labelKey: 'home.tier.elite', color: '#60a5fa', icon: <Zap size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
+  if (rank <= Math.max(4, Math.ceil(total * 0.4))) return { labelKey: 'home.tier.elite', color: '#2563EB', icon: <Zap size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
   return { labelKey: 'home.tier.contender', color: MUTED, icon: <Target size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> }
 }
 
@@ -122,7 +122,7 @@ function getTierKey(rank: number, total: number): { labelKey: string; color: str
 export function HomeLoggedIn({
   userId, isAdmin, myName, myAvatarUrl, myStats, rank, p4pRank, totalPlayers,
   recentForm, champPlacements, champLeaders, currentChampion, rivalries, players,
-  pendingMatches, globalStats,
+  pendingMatches, globalStats, heroBannerUrl,
 }: Props) {
   const router = useRouter()
   const { t } = useTranslation()
@@ -196,22 +196,10 @@ export function HomeLoggedIn({
   }, [userId, router])
 
   return (
-    <div style={{ minHeight: '100svh', background: BG, fontFamily: 'system-ui, sans-serif', color: TEXT, paddingBottom: 80 }}>
+    <div className="app-page" style={{ minHeight: '100svh', background: BG, fontFamily: 'system-ui, sans-serif', color: TEXT, paddingBottom: 'var(--nav-h)' }}>
 
       {/* ── CSS animations ──────────────────────────────────────────── */}
       <style>{`
-        @keyframes hero-shift {
-          0%,100% { background-position: 0% 50%; }
-          50%      { background-position: 100% 50%; }
-        }
-        @keyframes ring-blue {
-          0%,100% { box-shadow: 0 0 0 3px rgba(59,130,246,0.45), 0 0 22px rgba(59,130,246,0.2); }
-          50%      { box-shadow: 0 0 0 3px rgba(59,130,246,0.85), 0 0 32px rgba(59,130,246,0.45); }
-        }
-        @keyframes ring-gold {
-          0%,100% { box-shadow: 0 0 0 3px rgba(245,158,11,0.55), 0 0 22px rgba(245,158,11,0.25); }
-          50%      { box-shadow: 0 0 0 3px rgba(245,158,11,0.95), 0 0 38px rgba(245,158,11,0.5); }
-        }
         @keyframes fire-bounce {
           0%,100% { transform: scale(1); }
           40%      { transform: scale(1.18) rotate(-6deg); }
@@ -225,256 +213,226 @@ export function HomeLoggedIn({
           0%,100% { opacity:1; }
           50%      { opacity:0.35; }
         }
-        .stat-tile { transition: transform .15s ease, box-shadow .15s ease; }
-        .stat-tile:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        @keyframes mosaic-reveal {
+          from { opacity:0; transform:scale(1.05); }
+          to   { opacity:1; transform:scale(1); }
+        }
+        .mosaic-cell { animation: mosaic-reveal .55s ease both; overflow: hidden; }
+        .mosaic-cell:nth-child(1) { animation-delay:.00s; }
+        .mosaic-cell:nth-child(2) { animation-delay:.06s; }
+        .mosaic-cell:nth-child(3) { animation-delay:.12s; }
+        .mosaic-cell:nth-child(4) { animation-delay:.18s; }
+        .mosaic-cell:nth-child(5) { animation-delay:.24s; }
+        .mosaic-cell:nth-child(6) { animation-delay:.30s; }
+        .mosaic-cell:nth-child(7) { animation-delay:.36s; }
         .champ-card { animation: slide-up .4s ease both; }
         .champ-card:nth-child(2) { animation-delay:.06s; }
         .champ-card:nth-child(3) { animation-delay:.12s; }
         .rival-card { animation: slide-up .4s ease both; }
         .rival-card:nth-child(2) { animation-delay:.06s; }
         .rival-card:nth-child(3) { animation-delay:.12s; }
-        .nav-card { transition: transform .15s ease, border-color .15s ease, background .15s ease; cursor: pointer; }
-        .nav-card:hover { transform: translateY(-2px); border-color: rgba(59,130,246,0.4) !important; background: rgba(20,35,60,0.9) !important; }
-        .nav-card:active { transform: scale(0.96); opacity: 0.85; }
+        .nav-card { transition: opacity .15s ease; cursor: pointer; }
+        .nav-card:hover { opacity: 0.82; }
+        .nav-card:active { opacity: 0.65; }
+        .nav-icon { transition: transform .2s ease; }
+        .nav-card:hover .nav-icon { transform: scale(1.08); }
         .champ-past-row { transition: background .15s ease; }
-        .champ-past-row:hover { background: rgba(28,44,70,0.9) !important; }
+        .champ-past-row:hover { background: rgba(var(--rgb-overlay),0.04) !important; }
         .champ-past-row:active { opacity: 0.8; }
         .rival-link-row { transition: filter .15s ease; }
-        .rival-link-row:hover { filter: brightness(1.08); }
-        .rival-link-row:active { filter: brightness(0.9); }
-        .header-btn { transition: background .15s ease, color .15s ease; }
-        .header-btn:hover { background: rgba(255,255,255,0.1) !important; color: #cbd5e1 !important; }
+        .rival-link-row:hover { filter: brightness(0.97); }
+        .rival-link-row:active { filter: brightness(0.93); }
+        .event-card-btn { transition: opacity .15s ease; }
+        .event-card-btn:hover { opacity: 0.85; }
       `}</style>
-
-      {/* ── Sticky header ─────────────────────────────────────────── */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(5,9,17,0.88)', backdropFilter: 'blur(14px)',
-        borderBottom: `1px solid ${BORDER}`,
-        padding: '12px 20px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em' }}>
-          <span style={{ color: TEXT }}>i</span>
-          <span style={{
-            background: 'linear-gradient(90deg,#3b82f6,#8b5cf6)',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-          }}>Sport</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <BetNotificationCenter />
-          {isAdmin && (
-            <button
-              onClick={() => setShowAdminPrompt(true)}
-              className="header-btn"
-              style={{
-                fontSize: 12, color: MUTED, background: 'rgba(255,255,255,0.05)',
-                padding: '8px 12px', border: `1px solid ${BORDER}`, borderRadius: 8,
-                cursor: 'pointer', minHeight: 36,
-              }}
-            >
-              {t('common.admin')}
-            </button>
-          )}
-          <form action={logoutAction}>
-            <button type="submit" className="header-btn" style={{
-              fontSize: 12, color: MUTED, background: 'none',
-              border: `1px solid ${BORDER}`, borderRadius: 8,
-              padding: '8px 12px', cursor: 'pointer', minHeight: 36,
-            }}>
-              {t('common.signOut')}
-            </button>
-          </form>
-        </div>
-      </div>
 
       {/* ── Toast ─────────────────────────────────────────────────── */}
       {toast && (
         <div style={{
-          position: 'fixed', top: 66, left: '50%', transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg,#1e3a5f,#1a1a3e)',
-          border: `1px solid ${ACCENT}`,
-          borderRadius: 12, padding: '10px 20px',
+          position: 'fixed', top: 70, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--card)',
+          border: `1px solid ${BORDER}`,
+          borderLeft: `3px solid ${ACCENT}`,
+          borderRadius: 10, padding: '10px 20px',
           fontSize: 13, fontWeight: 700, color: TEXT,
-          boxShadow: `0 4px 24px rgba(59,130,246,0.35)`,
+          boxShadow: '0 4px 20px rgba(var(--rgb-overlay),0.12)',
           zIndex: 100, whiteSpace: 'nowrap',
         }}>
           {toast}
         </div>
       )}
 
-      {/* ── HERO ──────────────────────────────────────────────────── */}
-      <div style={{
-        padding: '28px 20px 24px',
-        background: 'linear-gradient(135deg,#0d2348 0%,#1a0a3e 45%,#0a1e3c 75%,#071830 100%)',
-        backgroundSize: '300% 300%',
-        animation: 'hero-shift 9s ease infinite',
-        borderBottom: `1px solid ${BORDER}`,
-        position: 'relative',
-        overflow: 'hidden',
-      }}>
-        <Meteors number={14} />
-        <div style={{ maxWidth: 480, margin: '0 auto' }}>
+      {/* ── HERO BANNER / MOSAIC ──────────────────────────────────── */}
+      <div>
+        {heroBannerUrl
+          ? <HeroBanner url={heroBannerUrl} />
+          : <PhotoMosaic myName={myName} myAvatarUrl={myAvatarUrl} players={players} userId={userId} />
+        }
 
-          {/* Avatar + name */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 22 }}>
-            <div style={{
-              borderRadius: '50%',
-              animation: p4pRank === 1 ? 'ring-gold 2.8s ease-in-out infinite' : 'ring-blue 2.8s ease-in-out infinite',
-              flexShrink: 0,
-            }}>
-              <PlayerAvatar name={myName} avatarUrl={myAvatarUrl} size={62} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: 24, fontWeight: 900, letterSpacing: '-0.03em',
-                lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {myName}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
-                {tier && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                    background: `${tier.color}18`, color: tier.color,
-                    borderRadius: 6, border: `1px solid ${tier.color}40`,
-                    textTransform: 'uppercase', letterSpacing: '0.07em',
-                  }}>
-                    {tier.icon} {t(tier.labelKey)}
-                  </span>
-                )}
-                {p4pRank > 0 && (
-                  <span style={{ fontSize: 11, color: TEXT2, fontWeight: 600 }}>
-                    #{p4pRank} {t('lb.ofPlayers', { n: totalPlayers })}
-                  </span>
-                )}
-                {hotStreak && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                    background: 'rgba(249,115,22,0.15)', color: '#fb923c',
-                    borderRadius: 6, border: '1px solid rgba(249,115,22,0.3)',
-                    display: 'inline-flex', alignItems: 'center', gap: 3,
-                    animation: 'fire-bounce 1.6s ease infinite',
-                  }}>
-                    <Flame size={11} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> {t('home.streak.inARow', { n: streak.count })}
-                  </span>
-                )}
-                {!hotStreak && streak.type === 'W' && streak.count >= 2 && (
-                  <span style={{ fontSize: 11, color: WIN, fontWeight: 600 }}>{t('home.streak.wStreak', { n: streak.count })}</span>
-                )}
-                {streak.type === 'L' && streak.count >= 2 && (
-                  <span style={{ fontSize: 11, color: LOSS, fontWeight: 600 }}>{t('home.streak.lStreak', { n: streak.count })}</span>
-                )}
-              </div>
-            </div>
+        {/* ── Editorial info ─────────────────────────────────────── */}
+        <div style={{ background: '#0C0C0C', padding: '20px 20px 24px' }}>
+
+          {/* Label row */}
+          <div style={{
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
+            textTransform: 'uppercase', marginBottom: 10,
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+          }}>
+            {tier && (
+              <span style={{ color: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                {tier.icon} {t(tier.labelKey)}
+              </span>
+            )}
+            {p4pRank > 0 && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.18)' }}>|</span>
+                <span style={{ color: 'rgba(255,255,255,0.45)' }}>#{p4pRank} {t('lb.ofPlayers', { n: totalPlayers })}</span>
+              </>
+            )}
+            {hotStreak && (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.18)' }}>|</span>
+                <span style={{ color: '#fb923c', animation: 'fire-bounce 1.6s ease infinite', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Flame size={10} style={{ display: 'inline-block', verticalAlign: 'middle' }} />
+                  {t('home.streak.inARow', { n: streak.count })}
+                </span>
+              </>
+            )}
+            {!hotStreak && streak.type === 'W' && streak.count >= 2 && (
+              <span style={{ color: '#22c55e' }}>{t('home.streak.wStreak', { n: streak.count })}</span>
+            )}
+            {streak.type === 'L' && streak.count >= 2 && (
+              <span style={{ color: '#f87171' }}>{t('home.streak.lStreak', { n: streak.count })}</span>
+            )}
           </div>
 
-          {/* Stat tiles */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 12 }}>
+          {/* Player name — editorial large */}
+          <h1 style={{
+            fontSize: 34, fontWeight: 900, color: '#FFFFFF',
+            letterSpacing: '-0.02em', textTransform: 'uppercase',
+            lineHeight: 1, margin: '0 0 18px',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {myName}
+          </h1>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', marginBottom: 18 }}>
             {([
-              { label: t('common.wins'),   value: stats.wins,     color: WIN,       bg: 'rgba(16,185,129,0.1)',  bd: 'rgba(16,185,129,0.25)' },
-              { label: t('common.losses'), value: stats.losses,   color: LOSS,      bg: 'rgba(239,68,68,0.1)',   bd: 'rgba(239,68,68,0.25)'  },
-              { label: t('common.draws'),  value: stats.draws,    color: DRAW,      bg: 'rgba(245,158,11,0.1)',  bd: 'rgba(245,158,11,0.25)' },
-              { label: t('common.goals'),  value: stats.goalsFor, color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', bd: 'rgba(96,165,250,0.25)' },
-            ]).map(({ label, value, color, bg, bd }) => (
-              <div key={label} className="stat-tile" style={{
-                background: bg, border: `1px solid ${bd}`,
-                borderRadius: 12, padding: '12px 4px', textAlign: 'center',
+              { label: t('common.wins'),   value: stats.wins,     color: '#22C55E' },
+              { label: t('common.losses'), value: stats.losses,   color: '#f87171' },
+              { label: t('common.draws'),  value: stats.draws,    color: '#FBBF24' },
+              { label: t('common.goals'),  value: stats.goalsFor, color: '#60a5fa' },
+            ] as { label: string; value: number; color: string }[]).map(({ label, value, color }, i, arr) => (
+              <div key={label} style={{
+                flex: 1, textAlign: 'center',
+                borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none',
               }}>
                 <NumberTicker value={value} style={{ fontSize: 28, fontWeight: 900, color, lineHeight: 1, display: 'block' }} />
-                <div style={{ fontSize: 9, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 5 }}>
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginTop: 4 }}>
                   {label}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Win-rate bar + goal diff */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{
-              flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10,
-              padding: '10px 14px', border: `1px solid ${BORDER}`,
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  {t('common.winRate')}
-                </span>
-                <span style={{ fontSize: 14, fontWeight: 900, color: winRate >= 60 ? WIN : winRate >= 40 ? DRAW : TEXT2, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                  <NumberTicker value={winRate} style={{ color: 'inherit' }} />%
-                </span>
-              </div>
-              <div style={{ height: 5, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', borderRadius: 3, width: `${winRate}%`,
-                  background: winRate >= 60
-                    ? `linear-gradient(90deg,${WIN},#34d399)`
-                    : winRate >= 40
-                      ? `linear-gradient(90deg,${DRAW},#fbbf24)`
-                      : 'linear-gradient(90deg,#6b7280,#9ca3af)',
-                }} />
-              </div>
+          {/* Win rate bar */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                {t('common.winRate')}
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 900, color: winRate >= 60 ? '#22c55e' : winRate >= 40 ? '#FBBF24' : 'rgba(255,255,255,0.35)' }}>
+                {winRate}%
+              </span>
             </div>
-            <div style={{
-              background: 'rgba(255,255,255,0.04)', borderRadius: 10,
-              padding: '10px 14px', border: `1px solid ${BORDER}`,
-              textAlign: 'center', minWidth: 72,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
-                GD
-              </div>
+            <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
               <div style={{
-                fontSize: 20, fontWeight: 900,
-                color: stats.goalDiff > 0 ? WIN : stats.goalDiff < 0 ? LOSS : TEXT2,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
-              }}>
-                {stats.goalDiff > 0 && <span>+</span>}
-                <NumberTicker value={stats.goalDiff} style={{ color: 'inherit' }} />
-              </div>
+                height: '100%', borderRadius: 2, width: `${winRate}%`,
+                background: winRate >= 60
+                  ? 'linear-gradient(90deg,#16A34A,#22c55e)'
+                  : winRate >= 40
+                    ? 'linear-gradient(90deg,#D97706,#FBBF24)'
+                    : '#4B5563',
+              }} />
             </div>
+          </div>
+
+          {/* CTA buttons */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <ShimmerButton
+              onClick={() => setShowAddMatch(true)}
+              background="linear-gradient(135deg,#DC2626 0%,#B91C1C 100%)"
+              style={{
+                flex: 1, padding: '13px',
+                color: '#fff', fontSize: 12, fontWeight: 800, letterSpacing: '0.07em',
+                textTransform: 'uppercase',
+                boxShadow: '0 4px 24px rgba(220,38,38,0.4)',
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 17, lineHeight: 1 }}>+</span>
+              {t('home.recordMatch')}
+            </ShimmerButton>
+            <Link href={`/players/${userId}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+              <div style={{
+                padding: '13px 18px',
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.28)',
+                borderRadius: 100, color: 'rgba(255,255,255,0.8)',
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.07em',
+                textTransform: 'uppercase', cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {t('common.viewAll')}
+              </div>
+            </Link>
           </div>
         </div>
       </div>
 
       {/* ── Main content ──────────────────────────────────────────── */}
-      <div style={{ maxWidth: 480, margin: '0 auto', padding: '20px' }}>
+      <div className="page-content" style={{ padding: '0 20px 20px' }}>
 
         {/* ── Community pulse ─────────────────────────────────────── */}
         {(globalStats.totalMatches > 0 || globalStats.totalGoals > 0) && (
           <div style={{
-            background: 'linear-gradient(135deg,rgba(59,130,246,0.07),rgba(139,92,246,0.07))',
-            border: `1px solid rgba(59,130,246,0.18)`,
-            borderRadius: 12, padding: '11px 16px', marginBottom: 20,
-            display: 'flex', alignItems: 'center', gap: 10,
+            background: CARD,
+            border: `1px solid ${BORDER}`,
+            borderRadius: 16, marginBottom: 18,
+            overflow: 'hidden', position: 'relative',
           }}>
-            <Zap size={15} style={{ color: '#60a5fa', flexShrink: 0 }} />
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 12, color: TEXT2, flexWrap: 'wrap', flex: 1 }}>
-              <span>
-                <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalMatches}</strong> {t('home.community.matches')}
-              </span>
-              <span style={{ color: BORDER }}>·</span>
-              <span>
-                <strong style={{ color: TEXT, fontWeight: 800 }}>{globalStats.totalGoals}</strong> {t('home.community.goals')}
-              </span>
-              {globalStats.topScorerName && globalStats.topScorerGoals > 0 && (
-                <>
-                  <span style={{ color: BORDER }}>·</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    {globalStats.topScorerAvatarUrl
-                      ? (
-                        <img
-                          src={globalStats.topScorerAvatarUrl}
-                          alt={globalStats.topScorerName}
-                          width={18} height={18}
-                          style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                        />
-                      )
-                      : <Trophy size={16} style={{ color: GOLD }} />
-                    }
-                    <strong style={{ color: GOLD, fontWeight: 700 }}>{globalStats.topScorerName}</strong>
-                    <span style={{ color: MUTED }}>{t('home.community.topScorer', { n: globalStats.topScorerGoals })}</span>
-                  </span>
-                </>
-              )}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: ACCENT }} />
+            <div style={{ padding: '14px 18px 15px' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Zap size={11} style={{ color: ACCENT }} />
+                Community
+              </div>
+              <div style={{ display: 'flex' }}>
+                <div style={{ flex: 1, textAlign: 'center', borderRight: `1px solid ${BORDER}`, paddingRight: 12 }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: TEXT, lineHeight: 1 }}>{globalStats.totalMatches}</div>
+                  <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginTop: 3 }}>{t('home.community.matches')}</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', paddingLeft: 12, ...(globalStats.topScorerName && globalStats.topScorerGoals > 0 ? { borderRight: `1px solid ${BORDER}`, paddingRight: 12 } : {}) }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: TEXT, lineHeight: 1 }}>{globalStats.totalGoals}</div>
+                  <div style={{ fontSize: 10, color: MUTED, fontWeight: 600, marginTop: 3 }}>{t('home.community.goals')}</div>
+                </div>
+                {globalStats.topScorerName && globalStats.topScorerGoals > 0 && (
+                  <div style={{ flex: 1.4, textAlign: 'center', paddingLeft: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 2 }}>
+                      {globalStats.topScorerAvatarUrl
+                        ? <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--card)', border: '1px solid rgba(var(--rgb-overlay),0.1)', overflow: 'hidden', flexShrink: 0 }}><img src={globalStats.topScorerAvatarUrl} alt={globalStats.topScorerName} width={20} height={20} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /></div>
+                        : <Trophy size={14} style={{ color: GOLD }} />
+                      }
+                      <span style={{ fontSize: 14, fontWeight: 800, color: GOLD, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 72 }}>
+                        {globalStats.topScorerName.split(' ')[0]}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: MUTED, fontWeight: 600 }}>{t('home.community.topScorer', { n: globalStats.topScorerGoals })}</div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -487,35 +445,32 @@ export function HomeLoggedIn({
           />
         )}
 
-        {/* ── Add match CTA ─────────────────────────────────────── */}
-        <ShimmerButton
-          onClick={() => setShowAddMatch(true)}
-          style={{
-            width: '100%', padding: '16px',
-            color: '#fff', fontSize: 16, fontWeight: 800, letterSpacing: '-0.01em',
-            boxShadow: '0 4px 30px rgba(37,99,235,0.45)',
-            marginBottom: 16,
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
-          {t('home.recordMatch')}
-        </ShimmerButton>
-
-        {/* ── Quick nav ─────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 30 }}>
+        {/* ── Quick nav (UFC card style) ─────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', marginBottom: 28, overflow: 'hidden', borderRadius: 16, border: `1px solid ${BORDER}` }}>
           {([
-            { label: t('home.quickNav.leaderboard'),   href: '/leaderboard',   icon: <BarChart3 size={22} style={{ color: ACCENT }} /> },
-            { label: t('home.quickNav.championships'), href: '/championships', icon: <Trophy    size={22} style={{ color: GOLD  }} /> },
-            { label: t('home.quickNav.rivalries'),     href: '/rivalries',     icon: <Swords   size={22} style={{ color: '#a78bfa' }} /> },
-          ] as { label: string; href: string; icon: ReactNode }[]).map((item) => (
+            { label: t('home.quickNav.leaderboard'),   href: '/leaderboard',   icon: <BarChart3 size={22} style={{ color: ACCENT }} />,   accentColor: ACCENT   },
+            { label: t('home.quickNav.championships'), href: '/championships', icon: <Trophy    size={22} style={{ color: GOLD   }} />,   accentColor: GOLD     },
+            { label: t('home.quickNav.rivalries'),     href: '/rivalries',     icon: <Swords   size={22} style={{ color: '#a78bfa' }} />, accentColor: '#a78bfa' },
+          ] as { label: string; href: string; icon: ReactNode; accentColor: string }[]).map((item, i) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
               <div className="nav-card" style={{
-                background: CARD, border: `1px solid ${BORDER}`,
-                borderRadius: 12, padding: '14px 8px', textAlign: 'center',
+                background: CARD,
+                borderRight: i < 2 ? `1px solid ${BORDER}` : 'none',
+                padding: '18px 8px 16px', textAlign: 'center',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 5, height: 26 }}>{item.icon}</div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: TEXT2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <div style={{
+                  width: 3, height: 3, borderRadius: '50%',
+                  background: item.accentColor,
+                  margin: '0 auto 10px',
+                  boxShadow: `0 0 8px ${item.accentColor}`,
+                }} />
+                <div className="nav-icon" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 10,
+                }}>
+                  {item.icon}
+                </div>
+                <div style={{ fontSize: 9, fontWeight: 800, color: TEXT2, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                   {item.label}
                 </div>
               </div>
@@ -639,11 +594,11 @@ export function HomeLoggedIn({
                   }}>
                     <div style={{
                       width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                      background: c.rank === 1 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
+                      background: c.rank === 1 ? 'rgba(245,158,11,0.15)' : 'rgba(var(--rgb-overlay),0.025)',
                       border: `1px solid ${c.rank === 1 ? 'rgba(245,158,11,0.35)' : BORDER}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: c.rank <= 3 ? 16 : 12, fontWeight: 900,
-                      color: c.rank === 1 ? GOLD : c.rank === 2 ? '#94a3b8' : c.rank === 3 ? '#cd7c3a' : MUTED,
+                      color: c.rank === 1 ? GOLD : c.rank === 2 ? '#64748B' : c.rank === 3 ? '#cd7c3a' : MUTED,
                     }}>
                       {c.rank === 1 ? <Trophy size={16} /> : c.rank === 2 ? <Medal size={15} /> : c.rank === 3 ? <Medal size={14} /> : `#${c.rank}`}
                     </div>
@@ -670,7 +625,7 @@ export function HomeLoggedIn({
         {/* ── Empty state ───────────────────────────────────────── */}
         {stats.matchesPlayed === 0 && (
           <div style={{
-            background: 'linear-gradient(135deg,#0c1422 0%,#0d1b30 100%)',
+            background: 'linear-gradient(135deg,#F8FAFC 0%,#F1F5F9 100%)',
             border: `1px solid ${BORDER}`,
             borderRadius: 16, padding: '40px 24px', textAlign: 'center',
             marginTop: 8,
@@ -684,12 +639,13 @@ export function HomeLoggedIn({
             </div>
             <ShimmerButton
               onClick={() => setShowAddMatch(true)}
+              background="linear-gradient(135deg,#DC2626 0%,#B91C1C 100%)"
               borderRadius="10px"
               style={{
                 padding: '12px 32px',
                 color: '#fff',
                 fontSize: 15, fontWeight: 800,
-                boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
+                boxShadow: '0 4px 20px rgba(220,38,38,0.3)',
               }}
             >
               {t('home.recordFirstMatch')}
@@ -698,7 +654,6 @@ export function HomeLoggedIn({
         )}
       </div>
 
-      {/* ── Bottom nav ────────────────────────────────────────────── */}
       <BottomNav userId={userId} />
 
       {/* ── Modals ───────────────────────────────────────────────── */}
@@ -793,8 +748,12 @@ function AdminPasswordModal({ onSuccess, onClose }: { onSuccess: () => void; onC
 function Section({ title, children, action, icon }: { title: string; children: ReactNode; action?: ReactNode; icon?: ReactNode }) {
   return (
     <div style={{ marginBottom: 28 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 5 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 14, paddingBottom: 10,
+        borderBottom: `2px solid ${ACCENT}`,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: TEXT, textTransform: 'uppercase', letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 6 }}>
           {icon}
           {title}
         </span>
@@ -809,13 +768,20 @@ function PlayerAvatar({ name, avatarUrl, size }: { name: string; avatarUrl?: str
   const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   if (avatarUrl) {
     return (
-      <img
-        src={avatarUrl}
-        alt={name}
-        width={size}
-        height={size}
-        style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(255,255,255,0.15)' }}
-      />
+      <div style={{
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        background: 'var(--card)',
+        border: '2px solid rgba(var(--rgb-overlay),0.08)',
+        overflow: 'hidden',
+      }}>
+        <img
+          src={avatarUrl}
+          alt={name}
+          width={size}
+          height={size}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      </div>
     )
   }
   return (
@@ -824,7 +790,7 @@ function PlayerAvatar({ name, avatarUrl, size }: { name: string; avatarUrl?: str
       background: 'linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: size * 0.34, fontWeight: 900, color: '#fff',
-      border: '2px solid rgba(255,255,255,0.1)',
+      border: '2px solid rgba(var(--rgb-overlay),0.05)',
     }}>
       {initials}
     </div>
@@ -839,20 +805,42 @@ function HomeMatchesList({ matches, userId }: {
 }) {
   const { t } = useTranslation()
   return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>
-        {t('home.matchesLabel', { n: matches.length })}
+    <div style={{
+      marginBottom: 20,
+      background: '#0C0C0C',
+      borderRadius: 16,
+      overflow: 'hidden',
+      border: `1px solid rgba(255,255,255,0.06)`,
+    }}>
+      {/* Header row */}
+      <div style={{
+        padding: '12px 16px 10px',
+        display: 'flex', alignItems: 'center', gap: 6,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+      }}>
+        <span style={{
+          display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+          background: ACCENT, animation: 'live-dot 1.5s ease infinite',
+          flexShrink: 0,
+        }} />
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.14em' }}>
+          {t('home.matchesLabel', { n: matches.length })}
+        </span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {matches.map((match) => (
-          <HomeMatchCard key={match.id} match={match} userId={userId} />
+      {/* Card grid — 2 columns for 2+ matches, 1 col for single */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: matches.length === 1 ? '1fr' : 'repeat(2,1fr)',
+      }}>
+        {matches.map((match, i) => (
+          <HomeMatchCard key={match.id} match={match} userId={userId} colIndex={i} totalCount={matches.length} />
         ))}
       </div>
     </div>
   )
 }
 
-function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string }) {
+function HomeMatchCard({ match, userId, colIndex, totalCount }: { match: HomeMatchItem; userId: string; colIndex: number; totalCount: number }) {
   const router = useRouter()
   const { t } = useTranslation()
   const [showForm, setShowForm] = useState(false)
@@ -902,84 +890,105 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
   const myShort   = myPlayer.length  > 10 ? myPlayer.slice(0, 9)  + '…' : myPlayer
   const oppShort  = oppPlayer.length > 10 ? oppPlayer.slice(0, 9) + '…' : oppPlayer
 
-  return (
-    <div style={{ background: CARD, border: `1px solid ${BORDER}`, borderRadius: 14, overflow: 'hidden' }}>
+  const isRightCol = totalCount > 1 && colIndex % 2 === 1
+  const hasMoreBelow = totalCount > 2 && colIndex < totalCount - 2
 
-      {/* VS row */}
-      <div style={{ padding: '13px 14px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flex: 1, minWidth: 0 }}>
-          <PlayerAvatar name={match.homePlayerName} avatarUrl={match.homePlayerAvatarUrl} size={28} />
+  return (
+    <div style={{
+      borderRight: !isRightCol && totalCount > 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+      borderBottom: hasMoreBelow ? '1px solid rgba(255,255,255,0.07)' : 'none',
+      overflow: 'hidden',
+    }}>
+
+      {/* Player avatars — UFC promo style */}
+      <div style={{ padding: '14px 14px 0', display: 'flex', gap: 8, marginBottom: 12 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <PlayerAvatar name={match.homePlayerName} avatarUrl={match.homePlayerAvatarUrl} size={40} />
           <span style={{
-            fontSize: 12, fontWeight: 700, color: match.homePlayerId === userId ? ACCENT : TEXT,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
+            fontSize: 9, fontWeight: 700, color: match.homePlayerId === userId ? ACCENT : 'rgba(255,255,255,0.55)',
+            textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center',
+            maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {match.homePlayerId === userId ? t('common.you') : match.homePlayerName.split(' ')[0]}
           </span>
-          <span style={{ fontSize: 11, color: MUTED, fontWeight: 700, flexShrink: 0 }}>vs</span>
-          <PlayerAvatar name={match.awayPlayerName} avatarUrl={match.awayPlayerAvatarUrl} size={28} />
+        </div>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.25)',
+          letterSpacing: '0.05em', flexShrink: 0, paddingBottom: 18,
+        }}>VS</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <PlayerAvatar name={match.awayPlayerName} avatarUrl={match.awayPlayerAvatarUrl} size={40} />
           <span style={{
-            fontSize: 12, fontWeight: 700, color: match.awayPlayerId === userId ? ACCENT : TEXT,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90,
+            fontSize: 9, fontWeight: 700, color: match.awayPlayerId === userId ? ACCENT : 'rgba(255,255,255,0.55)',
+            textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center',
+            maxWidth: 56, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {match.awayPlayerId === userId ? t('common.you') : match.awayPlayerName.split(' ')[0]}
           </span>
         </div>
-        <span style={{
-          fontSize: 9, fontWeight: 700, padding: '2px 7px',
-          background: 'rgba(245,158,11,0.1)', color: GOLD,
-          border: '1px solid rgba(245,158,11,0.25)', borderRadius: 5,
-          textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0,
-        }}>{t('home.friendly')}</span>
+      </div>
+
+      {/* Event label + match title */}
+      <div style={{ padding: '0 14px 4px' }}>
+        <div style={{ fontSize: 8, fontWeight: 800, color: ACCENT, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 3 }}>
+          {t('home.friendly')} · {t('home.matchesLabel', { n: 1 }).split(' ')[0]}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 900, color: '#fff', textTransform: 'uppercase', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+          {match.homePlayerName.split(' ')[0]} VS {match.awayPlayerName.split(' ')[0]}
+        </div>
       </div>
 
       {/* Probability bar */}
-      <div style={{ display: 'flex', height: 3, margin: '0 14px', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${match.homeWinPct}%`, background: ACCENT }} />
-        <div style={{ width: `${match.drawPct}%`, background: '#334155' }} />
-        <div style={{ width: `${match.awayWinPct}%`, background: LOSS }} />
+      <div style={{ display: 'flex', height: 2, margin: '10px 14px 0' }}>
+        <div style={{ width: `${match.homeWinPct}%`, background: '#2563EB' }} />
+        <div style={{ width: `${match.drawPct}%`, background: 'rgba(255,255,255,0.15)' }} />
+        <div style={{ width: `${match.awayWinPct}%`, background: ACCENT }} />
       </div>
 
       {/* Odds chips */}
-      <div style={{ padding: '10px 14px', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '8px 14px 0', display: 'flex', gap: 4 }}>
         {[
-          { label: '1',   value: match.homeWinOdds.toFixed(2), c: '#60a5fa', bg: 'rgba(37,99,235,0.12)' },
-          { label: 'X',   value: match.drawOdds.toFixed(2),    c: TEXT2,     bg: 'rgba(71,85,105,0.2)'  },
-          { label: '2',   value: match.awayWinOdds.toFixed(2), c: '#f87171', bg: 'rgba(220,38,38,0.12)' },
-          { label: 'HDP', value: hdpLabel(match.homeHandicap), c: '#a78bfa', bg: 'rgba(139,92,246,0.12)' },
-          ...(match.ouLine ? [{ label: 'O/U', value: match.ouLine, c: GOLD, bg: 'rgba(245,158,11,0.1)' }] : []),
+          { label: '1',   value: match.homeWinOdds.toFixed(2), c: '#60a5fa' },
+          { label: 'X',   value: match.drawOdds.toFixed(2),    c: 'rgba(255,255,255,0.4)' },
+          { label: '2',   value: match.awayWinOdds.toFixed(2), c: '#f87171' },
+          { label: 'HDP', value: hdpLabel(match.homeHandicap), c: '#a78bfa' },
+          ...(match.ouLine ? [{ label: 'O/U', value: match.ouLine, c: GOLD }] : []),
         ].map((chip) => (
           <div key={chip.label} style={{
-            flex: 1, textAlign: 'center', padding: '6px 3px',
-            background: chip.bg, borderRadius: 8, border: `1px solid ${chip.c}33`,
+            flex: 1, textAlign: 'center', padding: '5px 2px',
+            background: 'rgba(255,255,255,0.04)', borderRadius: 5,
           }}>
-            <div style={{ fontSize: 7, fontWeight: 700, color: chip.c, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{chip.label}</div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: chip.c }}>{chip.value}</div>
+            <div style={{ fontSize: 6, fontWeight: 700, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 1 }}>{chip.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: chip.c }}>{chip.value}</div>
           </div>
         ))}
       </div>
 
-      {/* Footer: Set Score + Bet + Delete buttons */}
+      {/* Footer: action buttons */}
       {!showForm && !showDeleteConfirm && (
-        <div style={{ padding: '0 14px 12px', display: 'flex', gap: 8 }}>
+        <div style={{ padding: '10px 14px 14px', display: 'flex', gap: 6 }}>
           <button
             onClick={() => setShowForm(true)}
+            className="event-card-btn"
             style={{
-              flex: 1, padding: '9px',
+              flex: 1, padding: '8px 6px',
               background: 'linear-gradient(135deg,#059669,#10b981)',
-              color: '#fff', border: 'none', borderRadius: 9,
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 2px 12px rgba(16,185,129,0.3)',
+              color: '#fff', border: 'none', borderRadius: 7,
+              fontSize: 11, fontWeight: 800, cursor: 'pointer',
+              textTransform: 'uppercase', letterSpacing: '0.05em',
             }}
           >
             {t('home.setScore')}
           </button>
           <button
             onClick={() => setShowBetModal(true)}
+            className="event-card-btn"
             style={{
-              padding: '9px 14px',
-              background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.35)',
-              borderRadius: 9, color: '#60a5fa',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              padding: '8px 10px',
+              background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)',
+              borderRadius: 7, color: '#60a5fa',
+              fontSize: 11, fontWeight: 800, cursor: 'pointer',
               flexShrink: 0,
             }}
           >
@@ -987,15 +996,16 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
           </button>
           <button
             onClick={() => setShowDeleteConfirm(true)}
+            className="event-card-btn"
             style={{
-              padding: '9px 14px',
-              background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)',
-              borderRadius: 9, color: '#f87171',
-              fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              padding: '8px 8px',
+              background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.2)',
+              borderRadius: 7, color: '#f87171',
+              fontSize: 11, fontWeight: 800, cursor: 'pointer',
               flexShrink: 0,
             }}
           >
-            {t('common.delete')}
+            ✕
           </button>
         </div>
       )}
@@ -1014,21 +1024,21 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
 
       {/* Inline delete confirmation */}
       {showDeleteConfirm && (
-        <div style={{ borderTop: `1px solid rgba(220,38,38,0.25)`, padding: '12px 14px 14px', background: 'rgba(220,38,38,0.06)' }}>
-          <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600, color: TEXT, textAlign: 'center' }}>
+        <div style={{ borderTop: '1px solid rgba(220,38,38,0.2)', padding: '12px 14px 14px', background: 'rgba(220,38,38,0.06)' }}>
+          <p style={{ margin: '0 0 8px', fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'center' }}>
             {t('home.removeMatchTitle')}
           </p>
-          <p style={{ margin: '0 0 14px', fontSize: 11, color: TEXT2, textAlign: 'center', lineHeight: 1.5 }}>
+          <p style={{ margin: '0 0 12px', fontSize: 10, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 1.5 }}>
             {t('home.removeMatchDesc')}
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={() => setShowDeleteConfirm(false)}
               disabled={isDeleting}
               style={{
-                flex: 1, padding: '9px',
-                background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
-                borderRadius: 8, color: TEXT2, fontSize: 13, fontWeight: 600,
+                flex: 1, padding: '8px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 7, color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600,
                 cursor: isDeleting ? 'not-allowed' : 'pointer',
               }}
             >
@@ -1038,12 +1048,11 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
               onClick={handleDelete}
               disabled={isDeleting}
               style={{
-                flex: 1, padding: '9px',
+                flex: 1, padding: '8px',
                 background: isDeleting ? 'rgba(220,38,38,0.3)' : 'linear-gradient(135deg,#b91c1c,#ef4444)',
-                border: 'none', borderRadius: 8, color: '#fff',
-                fontSize: 13, fontWeight: 700,
+                border: 'none', borderRadius: 7, color: '#fff',
+                fontSize: 12, fontWeight: 700,
                 cursor: isDeleting ? 'not-allowed' : 'pointer',
-                boxShadow: isDeleting ? 'none' : '0 2px 12px rgba(239,68,68,0.35)',
               }}
             >
               {isDeleting ? t('common.deleting') : t('home.yesDelete')}
@@ -1054,13 +1063,13 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
 
       {/* Inline score form */}
       {showForm && (
-        <div style={{ borderTop: `1px solid ${BORDER}`, padding: '12px 14px', background: '#07101e' }}>
-          <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '12px 14px 14px', background: 'rgba(255,255,255,0.02)' }}>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, marginBottom: 10, textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {t('home.enterFinalScore')}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: MUTED, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
                 {myShort}
               </div>
               <input
@@ -1069,14 +1078,14 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
                 onChange={(e) => isHome ? setHomeScore(e.target.value) : setAwayScore(e.target.value)}
                 style={{
                   width: 52, textAlign: 'center', padding: '8px 4px',
-                  background: 'rgba(255,255,255,0.07)', border: `1px solid ${BORDER}`,
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                   borderRadius: 8, fontSize: 22, fontWeight: 900, color: ACCENT, outline: 'none',
                 }}
               />
             </div>
-            <span style={{ fontSize: 18, color: MUTED, fontWeight: 700, marginTop: 16 }}>:</span>
+            <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.2)', fontWeight: 700, marginTop: 16 }}>:</span>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: MUTED, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
+              <div style={{ fontSize: 8, color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>
                 {oppShort}
               </div>
               <input
@@ -1085,22 +1094,22 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
                 onChange={(e) => isHome ? setAwayScore(e.target.value) : setHomeScore(e.target.value)}
                 style={{
                   width: 52, textAlign: 'center', padding: '8px 4px',
-                  background: 'rgba(255,255,255,0.07)', border: `1px solid ${BORDER}`,
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                   borderRadius: 8, fontSize: 22, fontWeight: 900, color: '#f87171', outline: 'none',
                 }}
               />
             </div>
           </div>
           {error && (
-            <p style={{ margin: '0 0 8px', fontSize: 11, color: LOSS, textAlign: 'center' }}>{error}</p>
+            <p style={{ margin: '0 0 8px', fontSize: 11, color: '#f87171', textAlign: 'center' }}>{error}</p>
           )}
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 6 }}>
             <button
               onClick={() => { setShowForm(false); setError(null); setHomeScore(''); setAwayScore('') }}
               style={{
-                flex: 1, padding: '9px',
-                background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`,
-                borderRadius: 8, color: TEXT2, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                flex: 1, padding: '8px',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 7, color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
               }}
             >
               {t('common.cancel')}
@@ -1109,10 +1118,10 @@ function HomeMatchCard({ match, userId }: { match: HomeMatchItem; userId: string
               onClick={handleConfirm}
               disabled={isPending}
               style={{
-                flex: 2, padding: '9px',
-                background: isPending ? MUTED : 'linear-gradient(135deg,#059669,#10b981)',
-                border: 'none', borderRadius: 8, color: '#fff',
-                fontSize: 13, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer',
+                flex: 2, padding: '8px',
+                background: isPending ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg,#059669,#10b981)',
+                border: 'none', borderRadius: 7, color: '#fff',
+                fontSize: 12, fontWeight: 700, cursor: isPending ? 'not-allowed' : 'pointer',
               }}
             >
               {isPending ? t('common.saving') : t('home.confirmScore')}
@@ -1167,7 +1176,7 @@ function ChampCard({
   const ptsBehind  = !isLeading && leader ? leader.points - placement.points : 0
   const rankColor  =
     placement.rank === 1 ? GOLD
-    : placement.rank === 2 ? '#94a3b8'
+    : placement.rank === 2 ? '#64748B'
     : placement.rank === 3 ? '#cd7c3a'
     : TEXT2
 
@@ -1208,8 +1217,8 @@ function ChampCard({
       {/* Leader's avatar + stats — the "champi picture" */}
       {leader ? (
         <div style={{
-          background: 'rgba(255,255,255,0.04)',
-          border: `1px solid rgba(255,255,255,0.07)`,
+          background: 'rgba(var(--rgb-overlay),0.025)',
+          border: `1px solid rgba(var(--rgb-overlay),0.04)`,
           borderRadius: 10, padding: '12px 14px', marginBottom: 12,
         }}>
           <div style={{ fontSize: 9, fontWeight: 700, color: isLeading ? GOLD : MUTED, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 9 }}>
@@ -1255,7 +1264,7 @@ function ChampCard({
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: progressPct > 0 ? 12 : 0 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 8, flexShrink: 0,
-            background: placement.rank <= 3 ? `${rankColor}18` : 'rgba(255,255,255,0.04)',
+            background: placement.rank <= 3 ? `${rankColor}18` : 'rgba(var(--rgb-overlay),0.025)',
             border: `1px solid ${placement.rank <= 3 ? `${rankColor}40` : BORDER}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: placement.rank <= 3 ? 16 : 13, fontWeight: 900, color: rankColor,
@@ -1285,7 +1294,7 @@ function ChampCard({
             <span style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{placement.played} {t('common.played')}</span>
             <span style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>{t('home.champCard.complete', { n: progressPct })}</span>
           </div>
-          <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+          <div style={{ height: 3, background: 'rgba(var(--rgb-overlay),0.035)', borderRadius: 2 }}>
             <div style={{
               height: '100%', borderRadius: 2, width: `${progressPct}%`,
               background: placement.rank === 1
@@ -1333,7 +1342,7 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
           <div style={{ fontSize: 10, color: TEXT2 }}>{t('home.rivalryCard.you')}</div>
         </div>
         <div style={{
-          padding: '4px 10px', background: 'rgba(255,255,255,0.06)',
+          padding: '4px 10px', background: 'rgba(var(--rgb-overlay),0.035)',
           borderRadius: 8, fontSize: 10, fontWeight: 800, color: MUTED,
           textTransform: 'uppercase', letterSpacing: '0.05em', flexShrink: 0,
         }}>
@@ -1352,7 +1361,7 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
         <span style={{ fontSize: 30, fontWeight: 900, color: isAhead ? WIN : TEXT, minWidth: 28, textAlign: 'right', lineHeight: 1 }}>
           {myWins}
         </span>
-        <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ flex: 1, height: 6, background: 'rgba(var(--rgb-overlay),0.04)', borderRadius: 3, overflow: 'hidden' }}>
           <div style={{
             height: '100%', borderRadius: 3,
             width: total > 0 ? `${myBarPct}%` : '50%',
@@ -1373,6 +1382,178 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
           BO{rivalry.bestOf} · {total} played
         </span>
       </div>
+    </div>
+  )
+}
+
+// ─── Hero Banner ──────────────────────────────────────────────────────────────
+
+function HeroBanner({ url }: { url: string }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: 216,
+      background: '#0C0C0C',
+      overflow: 'hidden',
+    }}>
+      {/* Full-bleed photo */}
+      <img
+        src={url}
+        alt="Hero banner"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center top',
+          display: 'block',
+        }}
+      />
+
+      {/* Cinematic gradient overlay — dark at bottom, subtle at top */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 40%, rgba(12,12,12,0.78) 100%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Subtle left-edge vignette */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(to right, rgba(0,0,0,0.22) 0%, transparent 40%)',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Red accent bar at bottom */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 3,
+        background: '#DC2626',
+      }} />
+    </div>
+  )
+}
+
+// ─── Photo Mosaic ─────────────────────────────────────────────────────────────
+
+const CELL_GRADIENTS = [
+  'linear-gradient(160deg,#1a0a2e 0%,#0e0618 100%)',
+  'linear-gradient(160deg,#0a1e2e 0%,#060e18 100%)',
+  'linear-gradient(160deg,#1a0a0a 0%,#0e0606 100%)',
+  'linear-gradient(160deg,#0a1a0a 0%,#060e06 100%)',
+  'linear-gradient(160deg,#1a1a0a 0%,#0e0e06 100%)',
+  'linear-gradient(160deg,#0a1a1a 0%,#060e0e 100%)',
+  'linear-gradient(160deg,#1a0e18 0%,#0a060e 100%)',
+]
+
+function MosaicCell({ name, avatarUrl, isMe, size }: {
+  name: string
+  avatarUrl?: string | null
+  isMe?: boolean
+  size: 'large' | 'small'
+}) {
+  const hash     = name ? (name.charCodeAt(0) + name.charCodeAt(name.length - 1)) % CELL_GRADIENTS.length : 0
+  const gradient = CELL_GRADIENTS[hash]
+  const initials = name ? name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase() : ''
+
+  return (
+    <div style={{
+      width: '100%', height: '100%',
+      background: gradient,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      position: 'relative',
+    }}>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl} alt={name || ''}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top center' }}
+        />
+      ) : initials ? (
+        <span style={{
+          fontSize: size === 'large' ? 42 : 20,
+          fontWeight: 900, color: 'rgba(255,255,255,0.35)',
+          letterSpacing: '-0.03em', userSelect: 'none',
+        }}>
+          {initials}
+        </span>
+      ) : (
+        <div style={{ width: '100%', height: '100%', background: '#111' }} />
+      )}
+      {/* Subtle vignette on every cell */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.22) 100%)',
+        pointerEvents: 'none',
+      }} />
+      {isMe && (
+        <div style={{
+          position: 'absolute', bottom: 5, left: 5,
+          background: 'rgba(220,38,38,0.9)',
+          color: '#fff', fontSize: 8, fontWeight: 800,
+          textTransform: 'uppercase', letterSpacing: '0.1em',
+          padding: '2px 6px', borderRadius: 3,
+        }}>
+          YOU
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PhotoMosaic({ myName, myAvatarUrl, players, userId }: {
+  myName: string
+  myAvatarUrl: string | null
+  players: ActivePlayer[]
+  userId: string
+}) {
+  const others = players.filter((p) => p.id !== userId).slice(0, 6)
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4,1fr)',
+      gridTemplateRows: '128px 88px',
+      gap: 2,
+      background: '#0C0C0C',
+    }}>
+      {/* Large cell — me */}
+      <div className="mosaic-cell" style={{ gridColumn: '1/3', gridRow: '1/2', position: 'relative' }}>
+        <MosaicCell name={myName} avatarUrl={myAvatarUrl} isMe size="large" />
+      </div>
+
+      {/* Row 1 — 2 small cells */}
+      {[0, 1].map((i) => (
+        <div key={`r1-${i}`} className="mosaic-cell" style={{ position: 'relative' }}>
+          <MosaicCell
+            name={others[i]?.displayName ?? ''}
+            avatarUrl={others[i]?.avatarUrl}
+            size="small"
+          />
+        </div>
+      ))}
+
+      {/* Row 2 — 4 small cells */}
+      {[2, 3, 4, 5].map((i) => (
+        <div key={`r2-${i}`} className="mosaic-cell" style={{ position: 'relative' }}>
+          <MosaicCell
+            name={others[i]?.displayName ?? ''}
+            avatarUrl={others[i]?.avatarUrl}
+            size="small"
+          />
+        </div>
+      ))}
+
+      {/* Red accent bar at bottom */}
+      <div style={{
+        gridColumn: '1/-1',
+        height: 3,
+        background: '#DC2626',
+      }} />
     </div>
   )
 }

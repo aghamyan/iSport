@@ -2,89 +2,302 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTransition, type ReactNode } from 'react'
-import { LogOut } from 'lucide-react'
+import { useTransition, useEffect, useState } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import {
+  Home, Ticket, BarChart2, Trophy, Swords, Newspaper,
+  ShoppingBag, User, Sun, Moon, LogOut, X,
+} from 'lucide-react'
 import { logoutAction } from '@/lib/auth/actions'
 import { useTranslation } from '@/lib/i18n/context'
+import { useTheme } from '@/lib/theme/useTheme'
 
-const BORDER = '#1a2840'
-const ACCENT = '#3b82f6'
-const MUTED  = '#4b5a73'
-
-function NI({ children }: { children: ReactNode }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      {children}
-    </svg>
-  )
-}
+const NAV_ITEMS = [
+  { key: 'home',    href: '/',              Icon: Home,        labelKey: 'nav.home' },
+  { key: 'bet',     href: '/betting',       Icon: Ticket,      labelKey: 'nav.bet' },
+  { key: 'stats',   href: '/leaderboard',   Icon: BarChart2,   labelKey: 'nav.stats' },
+  { key: 'champs',  href: '/championships', Icon: Trophy,      labelKey: 'nav.champs' },
+  { key: 'rivals',  href: '/rivalries',     Icon: Swords,      labelKey: 'nav.rivals' },
+  { key: 'news',    href: '/news',          Icon: Newspaper,   labelKey: 'nav.news' },
+  { key: 'shop',    href: '/shop',          Icon: ShoppingBag, labelKey: 'nav.shop' },
+  { key: 'profile', href: null,             Icon: User,        labelKey: 'nav.profile' },
+]
 
 export function BottomNav({ userId }: { userId: string }) {
   const pathname = usePathname()
-  const { t } = useTranslation()
+  const { locale, setLocale, t } = useTranslation()
   const [pending, startTransition] = useTransition()
+  const { theme, toggleTheme } = useTheme()
+  const [logoUrl, setLogoUrl] = useState('/fc-logo.svg')
+  const [open, setOpen] = useState(false)
 
-  const NAV_ITEMS: { label: string; href: string | null; icon: ReactNode }[] = [
-    { label: t('nav.home'),    href: '/',              icon: <NI><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9 21V12h6v9"/></NI> },
-    { label: t('nav.bet'),     href: '/betting',       icon: <NI><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></NI> },
-    { label: t('nav.stats'),   href: '/leaderboard',   icon: <NI><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></NI> },
-    { label: t('nav.champs'),  href: '/championships', icon: <NI><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></NI> },
-    { label: t('nav.rivals'),  href: '/rivalries',     icon: <NI><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="3" y2="21"/></NI> },
-    { label: t('nav.profile'), href: null,             icon: <NI><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></NI> },
-  ]
+  useEffect(() => {
+    fetch('/api/settings/logo')
+      .then(r => r.json())
+      .then(({ url }) => { if (url) setLogoUrl(url) })
+      .catch(() => {})
+  }, [])
+
+  // Close on navigation
+  useEffect(() => { setOpen(false) }, [pathname])
+
+  function isActive(href: string | null) {
+    const h = href ?? `/players/${userId}`
+    return h === '/' ? pathname === '/' : pathname.startsWith(h)
+  }
 
   return (
     <>
-      <button
-        onClick={() => startTransition(() => logoutAction())}
-        disabled={pending}
-        title={t('common.signOut')}
+      {/* Backdrop */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="bnav-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            onClick={() => setOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.48)',
+              backdropFilter: 'blur(5px)',
+              WebkitBackdropFilter: 'blur(5px)',
+              zIndex: 48,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Floating menu panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="bnav-menu"
+            initial={{ opacity: 0, y: 48, scale: 0.93 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 36, scale: 0.94 }}
+            transition={{ type: 'spring', damping: 24, stiffness: 370, mass: 0.85 }}
+            style={{
+              position: 'fixed',
+              bottom: 74,
+              left: 0,
+              right: 0,
+              margin: '0 auto',
+              width: 'min(360px, calc(100vw - 16px))',
+              background: 'var(--card)',
+              borderRadius: 22,
+              border: '1px solid var(--border)',
+              boxShadow: '0 16px 56px rgba(0,0,0,0.24), 0 4px 16px rgba(0,0,0,0.1)',
+              padding: '18px 14px 14px',
+              zIndex: 49,
+            }}
+          >
+            {/* 4×2 nav grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 6,
+              marginBottom: 12,
+            }}>
+              {NAV_ITEMS.map(({ key, href, Icon, labelKey }) => {
+                const h = href ?? `/players/${userId}`
+                const active = isActive(href)
+                return (
+                  <Link
+                    key={key}
+                    href={h}
+                    aria-label={key}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 4,
+                      padding: '10px 3px',
+                      borderRadius: 13,
+                      background: active
+                        ? 'rgba(var(--rgb-accent),0.11)'
+                        : 'var(--bg)',
+                      border: `1px solid ${active ? 'rgba(var(--rgb-accent),0.28)' : 'var(--border)'}`,
+                      color: active ? 'var(--accent)' : 'var(--muted)',
+                      textDecoration: 'none',
+                      transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                      minWidth: 0,
+                      overflow: 'hidden',
+                    }}
+                    className="bnav-menu-item"
+                  >
+                    <Icon size={18} strokeWidth={active ? 2.1 : 1.75} />
+                    <span style={{
+                      fontSize: 8,
+                      fontWeight: active ? 700 : 500,
+                      letterSpacing: 0,
+                      textAlign: 'center',
+                      lineHeight: 1.25,
+                      width: '100%',
+                      wordBreak: 'break-word',
+                      overflowWrap: 'break-word',
+                    }}>
+                      {t(labelKey)}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+
+            {/* Language + Sign out row */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: 11,
+              borderTop: '1px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                {(['en', 'ru'] as const).map((loc) => (
+                  <button
+                    key={loc}
+                    onClick={() => setLocale(loc)}
+                    style={{
+                      padding: '4px 11px',
+                      borderRadius: 8,
+                      border: `1px solid ${loc === locale ? 'var(--accent)' : 'var(--border)'}`,
+                      cursor: loc === locale ? 'default' : 'pointer',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: '0.07em',
+                      textTransform: 'uppercase',
+                      background: loc === locale ? 'var(--accent)' : 'transparent',
+                      color: loc === locale ? '#fff' : 'var(--muted)',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    {loc.toUpperCase()}
+                  </button>
+                ))}
+                <button
+                  onClick={toggleTheme}
+                  aria-label={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'transparent',
+                    color: 'var(--muted)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.12s',
+                  }}
+                >
+                  {theme === 'dark' ? <Sun size={13} strokeWidth={2} /> : <Moon size={13} strokeWidth={2} />}
+                </button>
+              </div>
+              <button
+                onClick={() => startTransition(() => logoutAction())}
+                disabled={pending}
+                aria-label="Sign out"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  padding: '4px 11px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: pending ? 'var(--border)' : 'var(--muted)',
+                  cursor: pending ? 'default' : 'pointer',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  opacity: pending ? 0.5 : 1,
+                }}
+              >
+                <LogOut size={12} strokeWidth={1.75} />
+                Sign out
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bottom bar — logo toggle button */}
+      <nav
         style={{
-          position: 'fixed', top: 10, right: 12, zIndex: 51,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 40, height: 40, borderRadius: '50%',
-          background: 'rgba(12,20,34,0.85)', backdropFilter: 'blur(10px)',
-          border: `1px solid ${BORDER}`,
-          color: pending ? '#2a3a52' : MUTED,
-          opacity: pending ? 0.5 : 1,
-          cursor: pending ? 'default' : 'pointer',
-          transition: 'color 0.15s, opacity 0.15s',
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 58,
+          background: 'var(--nav-bg)',
+          borderTop: '1px solid var(--nav-border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+          boxShadow: '0 -1px 8px rgba(0,0,0,0.06)',
+          overflow: 'visible',
         }}
       >
-        <LogOut size={15} strokeWidth={1.75} />
-      </button>
-
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0,
-        background: 'rgba(12,20,34,0.96)', backdropFilter: 'blur(16px)',
-        borderTop: `1px solid ${BORDER}`,
-        display: 'flex', zIndex: 50,
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}>
-        {NAV_ITEMS.map((item) => {
-          const href = item.href ?? `/players/${userId}`
-          const isActive = item.href === '/'
-            ? pathname === '/'
-            : pathname.startsWith(item.href ?? `/players/${userId}`)
-          return (
-            <Link key={item.label} href={href} style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              padding: '10px 4px 8px', textDecoration: 'none', gap: 2,
-              borderTop: `2px solid ${isActive ? ACCENT : 'transparent'}`,
-              color: isActive ? ACCENT : MUTED,
-            }}>
-              {item.icon}
-              <span style={{
-                fontSize: 9, fontWeight: 700,
-                color: isActive ? ACCENT : MUTED,
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-              }}>
-                {item.label}
-              </span>
-            </Link>
-          )
-        })}
+        <button
+          onClick={() => setOpen(o => !o)}
+          aria-label={open ? 'Close navigation' : 'Open navigation'}
+          style={{
+            position: 'relative',
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: open ? 'var(--accent)' : 'var(--nav-bg)',
+            border: '2.5px solid var(--accent)',
+            boxShadow: open
+              ? '0 6px 22px rgba(220,38,38,0.55)'
+              : '0 4px 18px rgba(220,38,38,0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            transform: 'translateY(-14px)',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            padding: 6,
+            zIndex: 51,
+            transition: 'background 0.2s, box-shadow 0.2s',
+          }}
+        >
+          {/* Logo — visible when menu is closed */}
+          <span
+            style={{
+              position: 'absolute',
+              opacity: open ? 0 : 1,
+              transform: open ? 'scale(0.5) rotate(90deg)' : 'scale(1) rotate(0deg)',
+              transition: 'opacity 0.15s, transform 0.15s',
+              fontFamily: 'var(--font-heading, sans-serif)',
+              fontWeight: 900,
+              fontSize: 13,
+              letterSpacing: '0.04em',
+              color: 'var(--accent)',
+              lineHeight: 1,
+              userSelect: 'none',
+            }}
+          >
+            FC26
+          </span>
+          {/* X icon — visible when menu is open */}
+          <X
+            size={22}
+            color={open ? '#fff' : 'transparent'}
+            strokeWidth={2.5}
+            style={{
+              position: 'absolute',
+              opacity: open ? 1 : 0,
+              transform: open ? 'scale(1) rotate(0deg)' : 'scale(0.5) rotate(-90deg)',
+              transition: 'opacity 0.15s, transform 0.15s',
+            }}
+          />
+        </button>
       </nav>
     </>
   )
