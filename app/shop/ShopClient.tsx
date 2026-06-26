@@ -237,7 +237,7 @@ export function ShopClient({ products, userId }: { products: ProductRow[]; userI
                 lineHeight: 1,
                 margin: 0,
               }}>
-                iSport Store
+                FC Store
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

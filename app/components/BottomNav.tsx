@@ -247,8 +247,8 @@ export function BottomNav({ userId }: { userId: string }) {
           aria-label={open ? 'Close navigation' : 'Open navigation'}
           style={{
             position: 'relative',
-            width: 52,
-            height: 52,
+            width: 62,
+            height: 62,
             borderRadius: '50%',
             background: open ? 'var(--accent)' : 'var(--nav-bg)',
             border: '2.5px solid var(--accent)',
@@ -259,7 +259,7 @@ export function BottomNav({ userId }: { userId: string }) {
             alignItems: 'center',
             justifyContent: 'center',
             flexShrink: 0,
-            transform: 'translateY(-14px)',
+            transform: 'translateY(-16px)',
             cursor: 'pointer',
             overflow: 'hidden',
             padding: 6,
@@ -276,7 +276,7 @@ export function BottomNav({ userId }: { userId: string }) {
               transition: 'opacity 0.15s, transform 0.15s',
               fontFamily: 'var(--font-heading, sans-serif)',
               fontWeight: 900,
-              fontSize: 13,
+              fontSize: 15,
               letterSpacing: '0.04em',
               color: 'var(--accent)',
               lineHeight: 1,
@@ -287,7 +287,7 @@ export function BottomNav({ userId }: { userId: string }) {
           </span>
           {/* X icon — visible when menu is open */}
           <X
-            size={22}
+            size={24}
             color={open ? '#fff' : 'transparent'}
             strokeWidth={2.5}
             style={{
