@@ -159,13 +159,18 @@ export function HomeLoggedOut({ players, champLeaders, rivalries }: Props) {
         }
 
         /* ── Interactive hover states ────────────────── */
-        .fc-btn-primary  { transition: transform 0.18s ease, box-shadow 0.18s ease !important; }
+        .fc-btn-primary  { transition: transform 0.18s ease, box-shadow 0.18s ease !important; cursor: pointer !important; }
         .fc-btn-primary:hover  { transform: scale(1.04) !important; box-shadow: 0 8px 40px rgba(220,38,38,0.6) !important; }
+        .fc-btn-ghost    { cursor: pointer !important; }
         .fc-btn-ghost:hover    { background: rgba(255,255,255,0.07) !important; border-color: rgba(255,255,255,0.3) !important; }
+        .fc-player-row   { cursor: pointer !important; }
         .fc-player-row:hover   { background: rgba(255,255,255,0.04) !important; }
         .fc-player-row-1:hover { background: rgba(220,38,38,0.1) !important; }
+        .fc-rivalry      { cursor: pointer !important; }
         .fc-rivalry:hover      { background: rgba(255,255,255,0.03) !important; border-color: rgba(220,38,38,0.28) !important; }
+        .fc-champ-card   { cursor: pointer !important; }
         .fc-champ-card:hover   { border-color: rgba(245,158,11,0.42) !important; }
+        .fc-view-all     { cursor: pointer !important; }
         .fc-view-all:hover     { color: rgba(255,255,255,0.7) !important; border-color: rgba(255,255,255,0.22) !important; }
 
         html { scroll-behavior: auto; }

@@ -625,7 +625,7 @@ export function HomeLoggedIn({
         {/* ── Empty state ───────────────────────────────────────── */}
         {stats.matchesPlayed === 0 && (
           <div style={{
-            background: 'linear-gradient(135deg,#F8FAFC 0%,#F1F5F9 100%)',
+            background: 'var(--card)',
             border: `1px solid ${BORDER}`,
             borderRadius: 16, padding: '40px 24px', textAlign: 'center',
             marginTop: 8,
@@ -972,7 +972,7 @@ function HomeMatchCard({ match, userId, colIndex, totalCount }: { match: HomeMat
             onClick={() => setShowForm(true)}
             className="event-card-btn"
             style={{
-              flex: 1, padding: '8px 6px',
+              flex: 1, padding: '10px 6px', minHeight: 44,
               background: 'linear-gradient(135deg,#059669,#10b981)',
               color: '#fff', border: 'none', borderRadius: 7,
               fontSize: 11, fontWeight: 800, cursor: 'pointer',
@@ -985,7 +985,7 @@ function HomeMatchCard({ match, userId, colIndex, totalCount }: { match: HomeMat
             onClick={() => setShowBetModal(true)}
             className="event-card-btn"
             style={{
-              padding: '8px 10px',
+              padding: '10px 12px', minHeight: 44, minWidth: 44,
               background: 'rgba(37,99,235,0.15)', border: '1px solid rgba(37,99,235,0.3)',
               borderRadius: 7, color: '#60a5fa',
               fontSize: 11, fontWeight: 800, cursor: 'pointer',
@@ -998,7 +998,7 @@ function HomeMatchCard({ match, userId, colIndex, totalCount }: { match: HomeMat
             onClick={() => setShowDeleteConfirm(true)}
             className="event-card-btn"
             style={{
-              padding: '8px 8px',
+              padding: '10px 10px', minHeight: 44, minWidth: 44,
               background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.2)',
               borderRadius: 7, color: '#f87171',
               fontSize: 11, fontWeight: 800, cursor: 'pointer',

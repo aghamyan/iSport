@@ -1158,7 +1158,7 @@ function FormulaPanel() {
   return (
     <div style={{
       marginTop: 12,
-      background: 'rgba(0,0,0,0.3)',
+      background: 'var(--card3)',
       border: `1px solid rgba(245,158,11,0.2)`,
       borderRadius: 12, padding: '16px',
       animation: 'p4pFadeUp 0.3s ease both',

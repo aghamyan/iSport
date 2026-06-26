@@ -163,7 +163,7 @@ function OddsCell({
         onMouseLeave={() => setHovered(false)}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
-          width: '100%', minWidth: 72, padding: '7px 6px',
+          width: '100%', minWidth: 72, padding: '11px 6px', minHeight: 44,
           borderRadius: 6, border: `1.5px solid ${border}`, background: bg,
           cursor: closed ? 'not-allowed' : 'pointer',
           opacity: closed ? 0.45 : 1, transition: 'border-color 0.1s, background 0.1s',
@@ -912,7 +912,8 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 4,
                 background: 'none', border: 'none', color: TEXT2,
-                fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: 0,
+                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                padding: '12px 8px 12px 0', minHeight: 44,
               }}
             >
               <ChevronLeft size={16} /> Matches
@@ -928,7 +929,7 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
             onClick={handleRefresh}
             disabled={refreshing}
             style={{
-              display: 'flex', alignItems: 'center', padding: '6px 8px',
+              display: 'flex', alignItems: 'center', padding: '10px 12px', minHeight: 44,
               borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent',
               color: refreshing ? MUTED : TEXT2, cursor: refreshing ? 'not-allowed' : 'pointer',
             }}

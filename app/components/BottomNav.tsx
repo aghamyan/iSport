@@ -161,7 +161,8 @@ export function BottomNav({ userId }: { userId: string }) {
                     key={loc}
                     onClick={() => setLocale(loc)}
                     style={{
-                      padding: '4px 11px',
+                      padding: '10px 14px',
+                      minHeight: 44,
                       borderRadius: 8,
                       border: `1px solid ${loc === locale ? 'var(--accent)' : 'var(--border)'}`,
                       cursor: loc === locale ? 'default' : 'pointer',
@@ -181,8 +182,8 @@ export function BottomNav({ userId }: { userId: string }) {
                   onClick={toggleTheme}
                   aria-label={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
                   style={{
-                    width: 28,
-                    height: 28,
+                    width: 44,
+                    height: 44,
                     borderRadius: 8,
                     border: '1px solid var(--border)',
                     background: 'transparent',
@@ -194,7 +195,7 @@ export function BottomNav({ userId }: { userId: string }) {
                     transition: 'all 0.12s',
                   }}
                 >
-                  {theme === 'dark' ? <Sun size={13} strokeWidth={2} /> : <Moon size={13} strokeWidth={2} />}
+                  {theme === 'dark' ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
                 </button>
               </div>
               <button
@@ -205,7 +206,8 @@ export function BottomNav({ userId }: { userId: string }) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 5,
-                  padding: '4px 11px',
+                  padding: '10px 14px',
+                  minHeight: 44,
                   borderRadius: 8,
                   border: '1px solid var(--border)',
                   background: 'transparent',
