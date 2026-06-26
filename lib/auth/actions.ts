@@ -46,7 +46,7 @@ export async function loginAction(
 
   await createSession(user.id, user.is_admin, session.id)
 
-  redirect('/welcome')
+  redirect('/')
 }
 
 export async function logoutAction() {
