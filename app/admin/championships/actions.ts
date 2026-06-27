@@ -130,6 +130,26 @@ export async function adminUpdateChampionshipMatchAction(
   revalidatePath('/admin/championships')
 }
 
+export async function adminUpdateChampionshipYoutubeUrlAction(
+  championshipId: string,
+  youtubeUrl: string | null
+): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('championships')
+    .update({ youtube_url: youtubeUrl })
+    .eq('id', championshipId)
+
+  if (error) throw new Error(error.message)
+
+  await logAdminAction('update_championship_youtube_url', 'championship', championshipId, { youtubeUrl })
+  revalidatePath('/admin/championships')
+  revalidatePath(`/championships/${championshipId}`)
+}
+
 export async function adminDeleteChampionshipMatchAction(
   championshipId: string,
   matchId: string

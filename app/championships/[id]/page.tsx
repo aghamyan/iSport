@@ -18,7 +18,7 @@ export default async function ChampionshipPage({
   const [champResult, playersResult, matchesResult] = await Promise.all([
     supabase
       .from('championships')
-      .select('id, name, number_of_cycles, is_active, created_by, created_at, played_at, format')
+      .select('id, name, number_of_cycles, is_active, created_by, created_at, played_at, format, youtube_url')
       .eq('id', id)
       .single(),
     supabase
@@ -83,6 +83,7 @@ export default async function ChampionshipPage({
         format: (champ.format ?? 'round_robin') as 'round_robin' | 'group_knockout' | 'group_playoff',
         playedAt: (champ.played_at as string | null) ?? null,
         createdAt: champ.created_at,
+        youtubeUrl: (champ.youtube_url as string | null) ?? null,
       }}
       players={players}
       initialMatches={matches}

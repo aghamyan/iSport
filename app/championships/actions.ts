@@ -1040,6 +1040,24 @@ export async function getMatchPreviewAction(
   }
 }
 
+export async function updateChampionshipYoutubeUrlAction(
+  championshipId: string,
+  youtubeUrl: string | null
+): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('championships')
+    .update({ youtube_url: youtubeUrl })
+    .eq('id', championshipId)
+
+  if (error) throw new Error(error.message)
+  await logAdminAction('update_championship_youtube_url', 'championship', championshipId)
+  revalidatePath(`/championships/${championshipId}`)
+}
+
 export async function updateChampionshipDateAction(
   championshipId: string,
   playedAt: string | null

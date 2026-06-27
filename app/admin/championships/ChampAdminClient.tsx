@@ -9,6 +9,7 @@ import {
   adminSetChampionshipActiveAction,
   adminUpdateChampionshipMatchAction,
   adminDeleteChampionshipMatchAction,
+  adminUpdateChampionshipYoutubeUrlAction,
 } from './actions'
 
 type CMatch = {
@@ -26,6 +27,7 @@ type Championship = {
   name: string
   isActive: boolean
   createdAt: string
+  youtubeUrl: string | null
   playerCount: number
   matches: CMatch[]
 }
@@ -122,6 +124,10 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
   const [editMatch, setEditMatch]   = useState<CMatch | null>(null)
   const [confirmMatchDel, setConfirmMatchDel] = useState<CMatch | null>(null)
   const [pending, start]            = useTransition()
+  const [editingYoutube, setEditingYoutube] = useState(false)
+  const [youtubeInput, setYoutubeInput] = useState(champ.youtubeUrl ?? '')
+  const [youtubeError, setYoutubeError] = useState('')
+  const [savingYoutube, startYoutube] = useTransition()
 
   function doDeleteChamp() {
     start(async () => {
@@ -140,6 +146,19 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
 
   function toggleActive() {
     start(async () => { await adminSetChampionshipActiveAction(champ.id, !champ.isActive) })
+  }
+
+  function saveYoutubeUrl() {
+    setYoutubeError('')
+    const url = youtubeInput.trim() || null
+    startYoutube(async () => {
+      try {
+        await adminUpdateChampionshipYoutubeUrlAction(champ.id, url)
+        setEditingYoutube(false)
+      } catch (e) {
+        setYoutubeError((e as Error).message)
+      }
+    })
   }
 
   return (
@@ -168,6 +187,70 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
               {expanded ? t('admin.champ.hideMatches') : t('admin.champ.showMatches')}
             </button>
             <button onClick={() => setConfirmDelete(true)} disabled={pending} style={S.btn('#fff', '#dc2626')}>{t('common.delete')}</button>
+          </div>
+        </div>
+
+        {/* YouTube / Live stream section */}
+        <div style={{ padding: '10px 20px 12px', borderTop: '1px solid #f9fafb', background: '#fafafa' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
+              Live Stream
+            </span>
+
+            {editingYoutube ? (
+              <>
+                <input
+                  type="url"
+                  placeholder="https://youtube.com/live/..."
+                  value={youtubeInput}
+                  onChange={(e) => setYoutubeInput(e.target.value)}
+                  style={{ flex: 1, minWidth: 240, padding: '5px 10px', border: '1px solid #FF0000', borderRadius: 6, fontSize: 12, outline: 'none', color: '#111827' }}
+                />
+                <button
+                  onClick={saveYoutubeUrl}
+                  disabled={savingYoutube}
+                  style={{ ...S.btn('#fff', '#FF0000'), opacity: savingYoutube ? 0.6 : 1 }}
+                >
+                  {savingYoutube ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  onClick={() => { setYoutubeInput(champ.youtubeUrl ?? ''); setEditingYoutube(false); setYoutubeError('') }}
+                  style={S.btn('#374151', '#f3f4f6')}
+                >
+                  Cancel
+                </button>
+                {youtubeError && <span style={{ fontSize: 11, color: '#dc2626' }}>{youtubeError}</span>}
+              </>
+            ) : (
+              <>
+                {champ.youtubeUrl ? (
+                  <a
+                    href={champ.youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 12, color: '#FF0000', fontWeight: 600, textDecoration: 'none', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {champ.youtubeUrl}
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>No stream URL set</span>
+                )}
+                <button
+                  onClick={() => { setYoutubeInput(champ.youtubeUrl ?? ''); setEditingYoutube(true) }}
+                  style={{ ...S.btn('#374151', '#f3f4f6'), marginLeft: 4 }}
+                >
+                  {champ.youtubeUrl ? 'Edit URL' : 'Set URL'}
+                </button>
+                {champ.youtubeUrl && (
+                  <button
+                    onClick={() => { setYoutubeInput(''); startYoutube(async () => { await adminUpdateChampionshipYoutubeUrlAction(champ.id, null) }) }}
+                    style={S.btn('#fff', '#dc2626')}
+                  >
+                    Remove
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
 

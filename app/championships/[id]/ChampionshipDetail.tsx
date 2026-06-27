@@ -29,6 +29,7 @@ import {
   regenerateMatchesAction,
   generateNextCycleAction,
   updateChampionshipDateAction,
+  updateChampionshipYoutubeUrlAction,
 } from '../actions'
 import { ScoreModal } from '../ScoreModal'
 import { MatchPreviewModal } from '../MatchPreviewModal'
@@ -48,6 +49,7 @@ export type Championship = {
   format: 'round_robin' | 'group_knockout' | 'group_playoff'
   playedAt: string | null
   createdAt: string
+  youtubeUrl: string | null
 }
 
 export type ChampionshipPlayer = {
@@ -1724,6 +1726,9 @@ export function ChampionshipDetail({
   const [dateValue, setDateValue] = useState(effectiveDate.split('T')[0])
   const [isSavingDate, startDateTransition] = useTransition()
   const [dateError, setDateError] = useState<string | null>(null)
+  const [youtubeUrl, setYoutubeUrl] = useState<string | null>(championship.youtubeUrl)
+  const [isSavingYoutube, startYoutubeTransition] = useTransition()
+  const [youtubeError, setYoutubeError] = useState<string | null>(null)
 
   const playerMap = new Map(players.map((p) => [p.id, p.displayName]))
   const avatarMap = new Map(players.map((p) => [p.id, p.avatarUrl]))
@@ -1891,6 +1896,19 @@ export function ChampionshipDetail({
     })
   }
 
+  function handleSaveYoutubeUrl(url: string | null) {
+    setYoutubeError(null)
+    const normalized = url?.trim() || null
+    startYoutubeTransition(async () => {
+      try {
+        await updateChampionshipYoutubeUrlAction(championship.id, normalized)
+        setYoutubeUrl(normalized)
+      } catch (e) {
+        setYoutubeError(e instanceof Error ? e.message : 'Failed to update stream URL.')
+      }
+    })
+  }
+
   // ── Group knockout view ──
 
   if (isGroupKnockout) {
@@ -1951,6 +1969,10 @@ export function ChampionshipDetail({
           isSavingDate={isSavingDate}
           dateError={dateError}
           championshipId={championship.id}
+          youtubeUrl={youtubeUrl}
+          onSaveYoutubeUrl={handleSaveYoutubeUrl}
+          isSavingYoutube={isSavingYoutube}
+          youtubeError={youtubeError}
         />
 
         <div style={{ padding: '20px 20px 0' }}>
@@ -2217,6 +2239,10 @@ export function ChampionshipDetail({
           isSavingDate={isSavingDate}
           dateError={dateError}
           championshipId={championship.id}
+          youtubeUrl={youtubeUrl}
+          onSaveYoutubeUrl={handleSaveYoutubeUrl}
+          isSavingYoutube={isSavingYoutube}
+          youtubeError={youtubeError}
         />
 
         {/* Tab bar — always visible */}
@@ -2438,6 +2464,10 @@ export function ChampionshipDetail({
         isSavingDate={isSavingDate}
         dateError={dateError}
         championshipId={championship.id}
+        youtubeUrl={youtubeUrl}
+        onSaveYoutubeUrl={handleSaveYoutubeUrl}
+        isSavingYoutube={isSavingYoutube}
+        youtubeError={youtubeError}
       />
 
       {/* Tab bar — always visible */}
@@ -2676,6 +2706,10 @@ function PageHeader({
   isSavingDate,
   dateError,
   championshipId,
+  youtubeUrl,
+  onSaveYoutubeUrl,
+  isSavingYoutube,
+  youtubeError,
 }: {
   name: string
   badge: string
@@ -2691,10 +2725,16 @@ function PageHeader({
   isSavingDate: boolean
   dateError: string | null
   championshipId: string
+  youtubeUrl: string | null
+  onSaveYoutubeUrl: (url: string | null) => void
+  isSavingYoutube: boolean
+  youtubeError: string | null
 }) {
   const { t } = useTranslation()
   const [editingDate, setEditingDate] = useState(false)
   const [localDate, setLocalDate] = useState(dateValue)
+  const [editingYoutube, setEditingYoutube] = useState(false)
+  const [localYoutubeUrl, setLocalYoutubeUrl] = useState(youtubeUrl ?? '')
   const [headerMobile, setHeaderMobile] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
 
@@ -2716,13 +2756,22 @@ function PageHeader({
     setEditingDate(false)
   }
 
+  function handleYoutubeSave() {
+    onSaveYoutubeUrl(localYoutubeUrl || null)
+    setEditingYoutube(false)
+  }
+
+  function handleYoutubeCancel() {
+    setLocalYoutubeUrl(youtubeUrl ?? '')
+    setEditingYoutube(false)
+  }
+
   const displayDate = new Date(dateValue + 'T12:00:00').toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
 
-  const showControls = isHovering || editingDate
+  const showControls = isHovering || editingDate || editingYoutube
 
-  // championshipId is kept in props for future use
   void championshipId
 
   return (
@@ -2849,6 +2898,100 @@ function PageHeader({
                   {isAdmin && (
                     <button onClick={() => setEditingDate(true)} style={{ padding: '2px 8px', background: 'rgba(255,255,255,0.06)', color: 'rgba(203,213,225,0.8)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 5, cursor: 'pointer', fontSize: 10, fontWeight: 600, opacity: showControls ? 1 : 0, transition: 'opacity 0.2s ease', pointerEvents: showControls ? 'auto' : 'none' }}>
                       {t('champ.editDate')}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* YouTube / stream row */}
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {editingYoutube ? (
+                <>
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/live/..."
+                    value={localYoutubeUrl}
+                    onChange={(e) => setLocalYoutubeUrl(e.target.value)}
+                    style={{ padding: '4px 10px', background: 'rgba(15,23,42,0.6)', border: '1px solid #FF0000', borderRadius: 6, color: '#f1f5f9', fontSize: 12, outline: 'none', minWidth: 240, maxWidth: '100%' }}
+                  />
+                  <button
+                    onClick={handleYoutubeSave}
+                    disabled={isSavingYoutube}
+                    style={{ padding: '4px 10px', background: '#FF0000', color: '#fff', border: 'none', borderRadius: 6, cursor: isSavingYoutube ? 'wait' : 'pointer', fontSize: 11, fontWeight: 700 }}
+                  >
+                    {isSavingYoutube ? '…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleYoutubeCancel}
+                    style={{ padding: '4px 10px', background: 'transparent', color: 'rgba(148,163,184,0.7)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  {youtubeError && <span style={{ fontSize: 11, color: '#f87171' }}>{youtubeError}</span>}
+                </>
+              ) : (
+                <>
+                  {youtubeUrl && (
+                    <a
+                      href={youtubeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: headerMobile ? '7px 14px' : '8px 18px',
+                        background: 'linear-gradient(135deg, #FF0000 0%, #CC0000 100%)',
+                        color: '#fff',
+                        borderRadius: 8,
+                        textDecoration: 'none',
+                        fontSize: headerMobile ? 12 : 13,
+                        fontWeight: 800,
+                        letterSpacing: '0.03em',
+                        boxShadow: '0 2px 12px rgba(255,0,0,0.45), 0 0 0 1px rgba(255,0,0,0.25)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => {
+                        const el = e.currentTarget as HTMLAnchorElement
+                        el.style.transform = 'translateY(-1px)'
+                        el.style.boxShadow = '0 4px 18px rgba(255,0,0,0.6), 0 0 0 1px rgba(255,0,0,0.35)'
+                      }}
+                      onMouseLeave={(e) => {
+                        const el = e.currentTarget as HTMLAnchorElement
+                        el.style.transform = 'translateY(0)'
+                        el.style.boxShadow = '0 2px 12px rgba(255,0,0,0.45), 0 0 0 1px rgba(255,0,0,0.25)'
+                      }}
+                    >
+                      {/* YouTube play icon */}
+                      <svg width="18" height="13" viewBox="0 0 18 13" fill="none" style={{ flexShrink: 0 }}>
+                        <rect width="18" height="13" rx="3" fill="white" fillOpacity="0.18" />
+                        <path d="M7.2 9.1V3.9L12 6.5L7.2 9.1Z" fill="white" />
+                      </svg>
+                      WATCH ON YOUTUBE
+                    </a>
+                  )}
+                  {isAdmin && (
+                    <button
+                      onClick={() => { setLocalYoutubeUrl(youtubeUrl ?? ''); setEditingYoutube(true) }}
+                      style={{
+                        padding: '3px 10px',
+                        background: youtubeUrl ? 'rgba(255,255,255,0.06)' : 'rgba(255,0,0,0.12)',
+                        color: youtubeUrl ? 'rgba(203,213,225,0.8)' : '#ff7070',
+                        border: youtubeUrl ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,0,0,0.3)',
+                        borderRadius: 5,
+                        cursor: 'pointer',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        opacity: showControls ? 1 : 0,
+                        transition: 'opacity 0.2s ease',
+                        pointerEvents: showControls ? 'auto' : 'none',
+                      }}
+                    >
+                      {youtubeUrl ? 'Edit stream URL' : '+ Set stream URL'}
                     </button>
                   )}
                 </>

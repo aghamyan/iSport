@@ -12,7 +12,7 @@ export default async function AdminChampionshipsPage() {
   const [champsRes, matchesRes, playersRes] = await Promise.all([
     supabase
       .from('championships')
-      .select('id, name, is_active, created_at')
+      .select('id, name, is_active, created_at, youtube_url')
       .order('created_at', { ascending: false }),
     supabase
       .from('championship_matches')
@@ -48,6 +48,7 @@ export default async function AdminChampionshipsPage() {
     name:        c.name,
     isActive:    c.is_active,
     createdAt:   c.created_at,
+    youtubeUrl:  (c.youtube_url as string | null) ?? null,
     playerCount: countByChamp[c.id] ?? 0,
     matches:     matchesByChamp[c.id] ?? [],
   }))
