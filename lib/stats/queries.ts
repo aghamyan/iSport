@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
-import { calculateStandings } from '@/lib/championships/standings'
+import { calculateStandings, filterGroupMatches, resolveChampionshipOrder } from '@/lib/championships/standings'
 import type {
   ChampionshipLeader,
   ChampionshipResult,
@@ -368,6 +368,7 @@ type CmRow    = {
   away_player_id: string
   home_score: number | null
   away_score: number | null
+  round?: string | null
 }
 
 export const getChampionshipLeaders = unstable_cache(
@@ -387,7 +388,7 @@ export const getChampionshipLeaders = unstable_cache(
         .select('championship_id, player_id'),
       supabase
         .from('championship_matches')
-        .select('id, championship_id, home_player_id, away_player_id, home_score, away_score')
+        .select('id, championship_id, home_player_id, away_player_id, home_score, away_score, round')
         .in('status', ['confirmed', 'final']),
     ])
 
@@ -425,12 +426,15 @@ export const getChampionshipLeaders = unstable_cache(
         awayPlayerId: m.away_player_id,
         homeScore:    m.home_score,
         awayScore:    m.away_score,
+        round:        m.round,
       }))
 
-      const standings = calculateStandings(matchRows, playerIds)
-      if (!standings.length) return null
+      const groupStandings = calculateStandings(filterGroupMatches(matchRows), playerIds)
+      if (!groupStandings.length) return null
 
-      const leader     = standings[0]
+      const order      = resolveChampionshipOrder(matchRows, groupStandings)
+      const leaderId    = order[0]
+      const leader      = groupStandings.find((r) => r.playerId === leaderId) ?? groupStandings[0]
       const leaderUser = userMap.get(leader.playerId)
 
       return {
@@ -479,7 +483,7 @@ export const getPlayerChampionshipPlacements = unstable_cache(
         .in('championship_id', champIds),
       supabase
         .from('championship_matches')
-        .select('id, championship_id, home_player_id, away_player_id, home_score, away_score')
+        .select('id, championship_id, home_player_id, away_player_id, home_score, away_score, round')
         .in('championship_id', champIds)
         .in('status', ['confirmed', 'final']),
     ])
@@ -508,13 +512,17 @@ export const getPlayerChampionshipPlacements = unstable_cache(
         awayPlayerId: m.away_player_id,
         homeScore:    m.home_score,
         awayScore:    m.away_score,
+        round:        m.round,
       }))
 
-      const standings = calculateStandings(matchRows, playerIds)
-      const rank = standings.findIndex((r) => r.playerId === playerId)
+      const groupStandings = calculateStandings(filterGroupMatches(matchRows), playerIds)
+      const row = groupStandings.find((r) => r.playerId === playerId)
+      if (!row) return null
+
+      const order = resolveChampionshipOrder(matchRows, groupStandings)
+      const rank  = order.indexOf(playerId)
       if (rank === -1) return null
 
-      const row = standings[rank]
       return {
         championshipId:   champId,
         championshipName: champ.name,
@@ -563,7 +571,7 @@ export const getLastChampionshipPodium = unstable_cache(
     const [matchesRes, playersRes] = await Promise.all([
       supabase
         .from('championship_matches')
-        .select('id, home_player_id, away_player_id, home_score, away_score')
+        .select('id, home_player_id, away_player_id, home_score, away_score, round')
         .eq('championship_id', champ.id)
         .in('status', ['confirmed', 'final']),
       supabase
@@ -579,12 +587,18 @@ export const getLastChampionshipPodium = unstable_cache(
       awayPlayerId: m.away_player_id,
       homeScore: m.home_score,
       awayScore: m.away_score,
+      round: m.round,
     }))
 
     if (!playerIds.length || !matchRows.length) return []
 
-    const standings = calculateStandings(matchRows, playerIds)
-    const top3 = standings.slice(0, 3)
+    const groupStandings = calculateStandings(filterGroupMatches(matchRows), playerIds)
+    const order = resolveChampionshipOrder(matchRows, groupStandings)
+    const standingsById = new Map(groupStandings.map((r) => [r.playerId, r]))
+    const top3 = order
+      .slice(0, 3)
+      .map((playerId) => standingsById.get(playerId))
+      .filter((r): r is NonNullable<typeof r> => r !== undefined)
     if (!top3.length) return []
 
     const top3Ids = top3.map((s) => s.playerId)
@@ -657,36 +671,18 @@ export const getLastChampionshipWinner = unstable_cache(
 
     if (playerIds.length === 0 || matches.length === 0) return null
 
-    // Knockout/playoff formats: winner comes from the final match
-    const finalPenaltyMatch = matches.find((m) => m.round === 'final_penalty')
-    const finalMatch = matches.find((m) => m.round === 'final')
+    const matchRows = matches.map((m) => ({
+      id: m.id,
+      homePlayerId: m.home_player_id,
+      awayPlayerId: m.away_player_id,
+      homeScore: m.home_score,
+      awayScore: m.away_score,
+      round: m.round,
+    }))
 
-    let winnerId: string | null = null
-
-    if (finalPenaltyMatch && finalPenaltyMatch.home_score !== null && finalPenaltyMatch.away_score !== null) {
-      winnerId = finalPenaltyMatch.home_score > finalPenaltyMatch.away_score
-        ? finalPenaltyMatch.home_player_id
-        : finalPenaltyMatch.away_player_id
-    } else if (finalMatch && finalMatch.home_score !== null && finalMatch.away_score !== null) {
-      if (finalMatch.home_score !== finalMatch.away_score) {
-        winnerId = finalMatch.home_score > finalMatch.away_score
-          ? finalMatch.home_player_id
-          : finalMatch.away_player_id
-      }
-    }
-
-    // Round-robin format: winner is rank 1 in standings
-    if (!winnerId) {
-      const rows = matches.map((m) => ({
-        id: m.id,
-        homePlayerId: m.home_player_id,
-        awayPlayerId: m.away_player_id,
-        homeScore: m.home_score,
-        awayScore: m.away_score,
-      }))
-      const standings = calculateStandings(rows, playerIds)
-      if (standings.length > 0) winnerId = standings[0].playerId
-    }
+    const standings = calculateStandings(filterGroupMatches(matchRows), playerIds)
+    const order = resolveChampionshipOrder(matchRows, standings)
+    const winnerId = order[0] ?? null
 
     if (!winnerId) return null
 
@@ -698,18 +694,6 @@ export const getLastChampionshipWinner = unstable_cache(
 
     if (!userRow) return null
 
-    // Group-stage stats only (exclude knockout rounds)
-    const groupRows = matches
-      .filter((m) => !['semi', 'final', 'penalty', 'final_penalty'].includes(m.round ?? ''))
-      .map((m) => ({
-        id: m.id,
-        homePlayerId: m.home_player_id,
-        awayPlayerId: m.away_player_id,
-        homeScore: m.home_score,
-        awayScore: m.away_score,
-      }))
-
-    const standings = calculateStandings(groupRows, playerIds)
     const winnerRow = standings.find((r) => r.playerId === winnerId)
 
     return {

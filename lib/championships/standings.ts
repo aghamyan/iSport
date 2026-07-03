@@ -4,6 +4,7 @@ export type MatchRow = {
   awayPlayerId: string
   homeScore: number | null
   awayScore: number | null
+  round?: string | null
 }
 
 export type StandingRow = {
@@ -156,4 +157,49 @@ export function calculateStandings(matches: MatchRow[], playerIds: string[]): St
   }
 
   return result
+}
+
+const KNOCKOUT_ROUNDS = new Set(['semi', 'final', 'penalty', 'final_penalty'])
+
+/** Group-stage matches only, excluding semis/final/penalties. */
+export function filterGroupMatches<T extends { round?: string | null }>(matches: T[]): T[] {
+  return matches.filter((m) => !KNOCKOUT_ROUNDS.has(m.round ?? ''))
+}
+
+/**
+ * Full finishing order for a championship.
+ *
+ * The champion is whoever wins the final (or the final penalty shootout),
+ * not whoever tops the group table — a lower seed can win the final and
+ * still take 1st. That winner is promoted to the top of the order; every
+ * other player keeps their group-stage table position. Formats without a
+ * decided final (round_robin, or a knockout/playoff final not yet played)
+ * fall back to plain table order, so `groupStandings[0]` is 1st.
+ */
+export function resolveChampionshipOrder(
+  matches: MatchRow[],
+  groupStandings: StandingRow[]
+): string[] {
+  const tableOrder = groupStandings.map((r) => r.playerId)
+
+  const finalPenalty = matches.find((m) => m.round === 'final_penalty')
+  const final = matches.find((m) => m.round === 'final')
+
+  let championId: string | null = null
+  if (finalPenalty && finalPenalty.homeScore !== null && finalPenalty.awayScore !== null) {
+    championId = finalPenalty.homeScore > finalPenalty.awayScore
+      ? finalPenalty.homePlayerId
+      : finalPenalty.awayPlayerId
+  } else if (
+    final &&
+    final.homeScore !== null &&
+    final.awayScore !== null &&
+    final.homeScore !== final.awayScore
+  ) {
+    championId = final.homeScore > final.awayScore ? final.homePlayerId : final.awayPlayerId
+  }
+
+  if (!championId || !tableOrder.includes(championId)) return tableOrder
+
+  return [championId, ...tableOrder.filter((id) => id !== championId)]
 }
