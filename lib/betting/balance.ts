@@ -30,6 +30,8 @@ export type TxType =
   | 'ADMIN_CREDIT'
   | 'ADMIN_DEBIT'
   | 'ADMIN_RESET'
+  | 'CASINO_BET'
+  | 'CASINO_WIN'
 
 export type PlayerBalanceSummary = BalanceRecord & {
   playerName: string

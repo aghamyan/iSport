@@ -13,6 +13,8 @@ import { useBetSlip } from '@/lib/betting/BetSlipContext'
 import { getMarketLabel } from '@/lib/betting/validation'
 import supabase from '@/lib/supabase/client'
 import type { MarketRow } from '@/lib/odds/markets'
+import { CasinoSection } from '@/app/betting/casino/CasinoSection'
+import type { SlotSymbol } from '@/lib/casino/types'
 import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -741,13 +743,15 @@ type Props = {
   userId:         string
   matches:        MatchBettingRow[]
   initialBalance: number
+  slotSymbols:    SlotSymbol[]
 }
 
-export function BettingPageClient({ userId, matches, initialBalance }: Props) {
+export function BettingPageClient({ userId, matches, initialBalance, slotSymbols }: Props) {
   const router     = useRouter()
   const isDesktop  = useIsDesktop()
   const { setBalance } = useBetSlip()
 
+  const [mode, setMode]                   = useState<'sports' | 'casino'>('sports')
   const [refreshing, setRefreshing]       = useState(false)
   const [refreshKey, setRefreshKey]       = useState(0)
   const [selectedMatch, setSelectedMatch] = useState<MatchBettingRow | null>(() => matches[0] ?? null)
@@ -774,6 +778,33 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
 
   // ── Desktop: three-panel layout ───────────────────────────────────────────
 
+  // ── Mode toggle bar ───────────────────────────────────────────────────────────
+  const ModeToggle = (
+    <div style={{
+      display: 'flex', gap: 2, background: `${BG}`, borderRadius: 10,
+      padding: '2px', border: `1px solid ${BORDER}`,
+    }}>
+      {(['sports', 'casino'] as const).map(m => (
+        <button
+          key={m}
+          onClick={() => setMode(m)}
+          style={{
+            padding: '5px 14px', borderRadius: 8, border: 'none',
+            background: mode === m
+              ? m === 'casino' ? 'linear-gradient(135deg, #F59E0B, #D97706)' : ACCENT
+              : 'transparent',
+            color: mode === m ? (m === 'casino' ? '#000' : '#fff') : TEXT2,
+            fontSize: 12, fontWeight: 800, cursor: 'pointer',
+            transition: 'all 0.15s',
+            boxShadow: mode === m ? (m === 'casino' ? '0 2px 8px rgba(245,158,11,0.4)' : '0 2px 8px rgba(220,38,38,0.3)') : 'none',
+          }}
+        >
+          {m === 'sports' ? '⚽ Sports' : '🎰 Casino'}
+        </button>
+      ))}
+    </div>
+  )
+
   if (isDesktop) {
     return (
       <div className="app-page" style={{ height: '100dvh', overflow: 'hidden', background: BG, display: 'flex', flexDirection: 'column' }}>
@@ -786,107 +817,123 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 17, fontWeight: 900, color: TEXT }}>Betting</div>
-            <span style={{ fontSize: 11, color: MUTED }}>
-              {matches.length} {matches.length === 1 ? 'match' : 'matches'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <BetNotificationCenter />
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
-                borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent',
-                color: refreshing ? MUTED : TEXT2, fontSize: 11, fontWeight: 700,
-                cursor: refreshing ? 'not-allowed' : 'pointer',
-              }}
-            >
-              <RefreshCw size={12} strokeWidth={2} style={{ animation: refreshing ? 'spin 0.7s linear infinite' : 'none' }} />
-              Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Three-panel body */}
-        <div style={{
-          flex: 1, overflow: 'hidden',
-          display: 'grid',
-          gridTemplateColumns: '300px 1fr 360px',
-        }}>
-          {/* LEFT: match browser */}
-          <div style={{ borderRight: `1px solid ${BORDER}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <MatchBrowser
-              matches={matches}
-              selectedId={selectedMatch?.matchId ?? null}
-              onSelect={row => { setSelectedMatch(row); setMidTab('markets') }}
-            />
-          </div>
-
-          {/* MIDDLE: markets panel + My Bets tab */}
-          <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', background: BG }}>
-            {/* Middle tab row */}
-            <div style={{
-              display: 'flex', borderBottom: `1px solid ${BORDER}`,
-              background: CARD, flexShrink: 0,
-            }}>
-              {(['markets', 'bets'] as const).map(key => {
-                const label = key === 'markets' ? 'Markets' : 'My Bets'
-                const active = midTab === key
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setMidTab(key)}
-                    style={{
-                      padding: '11px 18px', background: 'none', border: 'none', cursor: 'pointer',
-                      borderBottom: active ? `2px solid ${ACCENT}` : '2px solid transparent',
-                      color: active ? ACCENT : TEXT2,
-                      fontSize: 13, fontWeight: active ? 800 : 600,
-                    }}
-                  >
-                    {label}
-                  </button>
-                )
-              })}
+            <div style={{ fontSize: 17, fontWeight: 900, color: TEXT }}>
+              {mode === 'casino' ? 'Casino' : 'Betting'}
             </div>
-
-            {midTab === 'markets' ? (
-              selectedMatch ? (
-                <MatchMarketsView
-                  key={selectedMatch.matchId}
-                  row={selectedMatch}
-                  refreshKey={refreshKey}
-                />
-              ) : (
-                <div style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: MUTED, fontSize: 13,
-                }}>
-                  Select a match to view markets
-                </div>
-              )
-            ) : (
-              <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-                <ActiveBets userId={userId} showHistory />
-              </div>
+            {mode === 'sports' && (
+              <span style={{ fontSize: 11, color: MUTED }}>
+                {matches.length} {matches.length === 1 ? 'match' : 'matches'}
+              </span>
             )}
           </div>
-
-          {/* RIGHT: bet slip */}
-          <div style={{
-            borderLeft: `1px solid ${BORDER}`,
-            overflow: 'hidden', display: 'flex', flexDirection: 'column',
-            background: CARD2,
-          }}>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              <BetSlipContents compact showToast />
-            </div>
-            <div style={{ padding: '10px 14px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
-              <BalanceWidget playerId={userId} initialBalance={initialBalance} compact showHistory={false} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {ModeToggle}
+            <BetNotificationCenter />
+            {mode === 'sports' && (
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px',
+                  borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent',
+                  color: refreshing ? MUTED : TEXT2, fontSize: 11, fontWeight: 700,
+                  cursor: refreshing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <RefreshCw size={12} strokeWidth={2} style={{ animation: refreshing ? 'spin 0.7s linear infinite' : 'none' }} />
+                Refresh
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Casino mode */}
+        {mode === 'casino' && (
+          <div style={{ flex: 1, overflowY: 'auto', background: '#0a0f1e', padding: '20px' }}>
+            <CasinoSection userId={userId} symbols={slotSymbols} />
+          </div>
+        )}
+
+        {/* Sports mode: Three-panel body */}
+        {mode === 'sports' && (
+          <div style={{
+            flex: 1, overflow: 'hidden',
+            display: 'grid',
+            gridTemplateColumns: '300px 1fr 360px',
+          }}>
+            {/* LEFT: match browser */}
+            <div style={{ borderRight: `1px solid ${BORDER}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <MatchBrowser
+                matches={matches}
+                selectedId={selectedMatch?.matchId ?? null}
+                onSelect={row => { setSelectedMatch(row); setMidTab('markets') }}
+              />
+            </div>
+
+            {/* MIDDLE: markets panel + My Bets tab */}
+            <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column', background: BG }}>
+              {/* Middle tab row */}
+              <div style={{
+                display: 'flex', borderBottom: `1px solid ${BORDER}`,
+                background: CARD, flexShrink: 0,
+              }}>
+                {(['markets', 'bets'] as const).map(key => {
+                  const label = key === 'markets' ? 'Markets' : 'My Bets'
+                  const active = midTab === key
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setMidTab(key)}
+                      style={{
+                        padding: '11px 18px', background: 'none', border: 'none', cursor: 'pointer',
+                        borderBottom: active ? `2px solid ${ACCENT}` : '2px solid transparent',
+                        color: active ? ACCENT : TEXT2,
+                        fontSize: 13, fontWeight: active ? 800 : 600,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {midTab === 'markets' ? (
+                selectedMatch ? (
+                  <MatchMarketsView
+                    key={selectedMatch.matchId}
+                    row={selectedMatch}
+                    refreshKey={refreshKey}
+                  />
+                ) : (
+                  <div style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: MUTED, fontSize: 13,
+                  }}>
+                    Select a match to view markets
+                  </div>
+                )
+              ) : (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+                  <ActiveBets userId={userId} showHistory />
+                </div>
+              )}
+            </div>
+
+            {/* RIGHT: bet slip */}
+            <div style={{
+              borderLeft: `1px solid ${BORDER}`,
+              overflow: 'hidden', display: 'flex', flexDirection: 'column',
+              background: CARD2,
+            }}>
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <BetSlipContents compact showToast />
+              </div>
+              <div style={{ padding: '10px 14px', borderTop: `1px solid ${BORDER}`, flexShrink: 0 }}>
+                <BalanceWidget playerId={userId} initialBalance={initialBalance} compact showHistory={false} />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -896,17 +943,18 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
   const showingMarkets = selectedMatch !== null
 
   return (
-    <div className="app-page" style={{ minHeight: '100dvh', background: BG }}>
+    <div className="app-page" style={{ minHeight: '100dvh', background: mode === 'casino' ? '#0a0f1e' : BG }}>
       {/* Mobile header */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 30,
-        background: 'var(--card)', backdropFilter: 'blur(16px)',
-        borderBottom: `1px solid ${BORDER}`,
-        padding: '10px 52px 10px 16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: mode === 'casino' ? '#0d1628' : 'var(--card)',
+        backdropFilter: 'blur(16px)',
+        borderBottom: `1px solid ${mode === 'casino' ? 'rgba(245,158,11,0.15)' : BORDER}`,
+        padding: '10px 12px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
       }}>
-        <div>
-          {showingMarkets ? (
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {mode === 'sports' && showingMarkets ? (
             <button
               onClick={() => setSelectedMatch(null)}
               style={{
@@ -919,29 +967,40 @@ export function BettingPageClient({ userId, matches, initialBalance }: Props) {
               <ChevronLeft size={16} /> Matches
             </button>
           ) : (
-            <div style={{ fontSize: 18, fontWeight: 900, color: TEXT }}>Betting</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: mode === 'casino' ? '#F59E0B' : TEXT }}>
+              {mode === 'casino' ? '🎰 Casino' : 'Betting'}
+            </div>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <BalanceWidget playerId={userId} initialBalance={initialBalance} compact showHistory={false} />
-          <BetNotificationCenter />
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            style={{
-              display: 'flex', alignItems: 'center', padding: '10px 12px', minHeight: 44,
-              borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent',
-              color: refreshing ? MUTED : TEXT2, cursor: refreshing ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <RefreshCw size={13} strokeWidth={2} style={{ animation: refreshing ? 'spin 0.7s linear infinite' : 'none' }} />
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {ModeToggle}
+          {mode === 'sports' && (
+            <>
+              <BalanceWidget playerId={userId} initialBalance={initialBalance} compact showHistory={false} />
+              <BetNotificationCenter />
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                style={{
+                  display: 'flex', alignItems: 'center', padding: '10px 12px', minHeight: 44,
+                  borderRadius: 8, border: `1px solid ${BORDER}`, background: 'transparent',
+                  color: refreshing ? MUTED : TEXT2, cursor: refreshing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                <RefreshCw size={13} strokeWidth={2} style={{ animation: refreshing ? 'spin 0.7s linear infinite' : 'none' }} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Mobile content */}
       <div style={{ paddingBottom: 'var(--nav-h)' }}>
-        {showingMarkets ? (
+        {mode === 'casino' ? (
+          <div style={{ padding: '12px' }}>
+            <CasinoSection userId={userId} symbols={slotSymbols} />
+          </div>
+        ) : showingMarkets ? (
           <MatchMarketsView
             key={selectedMatch.matchId}
             row={selectedMatch}

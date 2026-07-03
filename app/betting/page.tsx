@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BettingPageClient, type MatchBettingRow, type Preview1X2, type PreviewOpt } from './BettingPageClient'
+import { BASE_SYMBOLS, makePlayerSymbols } from '@/lib/casino/slotGames'
+import type { SlotSymbol } from '@/lib/casino/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,7 +83,14 @@ export default async function BettingPage() {
     .from('player_balances')
     .upsert({ player_id: session.sub }, { onConflict: 'player_id', ignoreDuplicates: true })
 
-  const [fmRes, cmRes, balRes] = await Promise.all([
+  // Fetch player avatars for casino slot symbols
+  const playersRes = supabase
+    .from('users')
+    .select('name, avatar_url')
+    .eq('is_active', true)
+    .not('avatar_url', 'is', null)
+
+  const [fmRes, cmRes, balRes, playersData] = await Promise.all([
     supabase
       .from('friendly_matches')
       .select(`
@@ -98,12 +107,22 @@ export default async function BettingPage() {
       .select('current_balance')
       .eq('player_id', session.sub)
       .single(),
+    playersRes,
   ])
 
   const allFriendly    = (fmRes.data ?? []) as RawMatch[]
   const allChamp       = cmRes
   const initialBalance = Number(balRes.data?.current_balance ?? 10000)
   const allIds      = [...allFriendly, ...allChamp].map(m => m.id)
+
+  // Build slot symbols from player avatars
+  const playerRows    = (playersData.data ?? []) as { name: string; avatar_url: string | null }[]
+  const playerAvatars = playerRows.map(p => p.avatar_url)
+  const playerNames   = playerRows.map(p => p.name)
+  const slotSymbols: SlotSymbol[] = [
+    ...BASE_SYMBOLS.map(s => ({ ...s, imageUrl: undefined as string | undefined })),
+    ...makePlayerSymbols(playerAvatars, playerNames),
+  ]
 
   // Fetch open market counts + 1X2 preview odds in parallel
   const marketCounts = new Map<string, number>()
@@ -188,6 +207,7 @@ export default async function BettingPage() {
       userId={session.sub}
       matches={[...friendly, ...championship]}
       initialBalance={initialBalance}
+      slotSymbols={slotSymbols}
     />
   )
 }

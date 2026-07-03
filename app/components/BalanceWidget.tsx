@@ -58,6 +58,8 @@ const TX_ICONS: Record<TxType, string> = {
   ADMIN_CREDIT:  '➕',
   ADMIN_DEBIT:   '➖',
   ADMIN_RESET:   '🔄',
+  CASINO_BET:    '🎰',
+  CASINO_WIN:    '💰',
 }
 
 const TX_LABELS: Record<TxType, string> = {
@@ -68,11 +70,13 @@ const TX_LABELS: Record<TxType, string> = {
   ADMIN_CREDIT:  'Credit',
   ADMIN_DEBIT:   'Debit',
   ADMIN_RESET:   'Balance reset',
+  CASINO_BET:    'Casino bet',
+  CASINO_WIN:    'Casino win',
 }
 
 function txColor(type: TxType): string {
-  if (['BET_WON','BET_RETURNED','BET_CANCELLED','ADMIN_CREDIT'].includes(type)) return WIN
-  if (['BET_PLACED','ADMIN_DEBIT'].includes(type)) return LOSS
+  if (['BET_WON','BET_RETURNED','BET_CANCELLED','ADMIN_CREDIT','CASINO_WIN'].includes(type)) return WIN
+  if (['BET_PLACED','ADMIN_DEBIT','ADMIN_RESET','CASINO_BET'].includes(type)) return LOSS
   return TEXT2
 }
 
