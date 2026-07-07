@@ -371,6 +371,10 @@ export async function generateSemiFinalsAction(championshipId: string): Promise<
         }
       : null
 
+    if (!deciderMatch && getFourthPlaceTie(mappedMatches, allPlayerIds)) {
+      throw new Error('4th and 5th place are tied on points — record a decider match before generating the semi-finals')
+    }
+
     const qualifiers = getPlayoffQualifiers(mappedMatches, allPlayerIds, deciderMatch)
     slots = generatePlayoffSemiSlots(qualifiers)
     qualifierPlayerIds = [qualifiers.p1, qualifiers.p2, qualifiers.p3, qualifiers.p4]
