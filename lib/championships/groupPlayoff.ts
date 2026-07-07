@@ -9,6 +9,21 @@ export type PlayoffQualifiers = {
   p4: string  // 4th place
 }
 
+// Sorts after all group cycles, before the semi-final legs.
+export const FOURTH_PLACE_DECIDER_CYCLE = 900
+
+export type FourthPlaceTie = {
+  p4: string
+  p5: string
+}
+
+export type DeciderMatchResult = {
+  homePlayerId: string
+  awayPlayerId: string
+  homeScore: number | null
+  awayScore: number | null
+}
+
 export type PlayoffSemiResult = {
   winner: string | null
   needsPenalty: boolean
@@ -33,15 +48,78 @@ export function generateGroupPlayoffStageSlots(playerIds: string[], cycles: numb
   }))
 }
 
-/** Returns top-4 qualifiers from the single group standings. */
-export function getPlayoffQualifiers(groupMatches: MatchRow[], playerIds: string[]): PlayoffQualifiers {
+/**
+ * Returns top-4 qualifiers from the single group standings.
+ *
+ * When the 4th and 5th-placed players are tied on points, a decider
+ * match may have been played between them (see `getFourthPlaceTie` /
+ * `generateFourthPlaceDeciderSlot`). If `deciderMatch` has a decisive
+ * result for that exact pair, its winner takes the 4th qualifying spot
+ * instead of whoever the goal-diff/H2H tiebreak would have picked.
+ */
+export function getPlayoffQualifiers(
+  groupMatches: MatchRow[],
+  playerIds: string[],
+  deciderMatch?: DeciderMatchResult | null
+): PlayoffQualifiers {
   const standings = calculateStandings(groupMatches, playerIds)
   if (standings.length < 4) throw new Error('Need at least 4 players in standings')
+
+  const order = standings.map((r) => r.playerId)
+
+  if (
+    deciderMatch &&
+    deciderMatch.homeScore !== null &&
+    deciderMatch.awayScore !== null &&
+    deciderMatch.homeScore !== deciderMatch.awayScore &&
+    order.length >= 5
+  ) {
+    const fourth = order[3]
+    const fifth = order[4]
+    const pair = new Set([deciderMatch.homePlayerId, deciderMatch.awayPlayerId])
+    if (pair.has(fourth) && pair.has(fifth)) {
+      const winner = deciderMatch.homeScore > deciderMatch.awayScore ? deciderMatch.homePlayerId : deciderMatch.awayPlayerId
+      if (winner !== fourth) {
+        order[3] = winner
+        order[4] = fourth
+      }
+    }
+  }
+
   return {
-    p1: standings[0].playerId,
-    p2: standings[1].playerId,
-    p3: standings[2].playerId,
-    p4: standings[3].playerId,
+    p1: order[0],
+    p2: order[1],
+    p3: order[2],
+    p4: order[3],
+  }
+}
+
+/**
+ * When the 4th and 5th-placed players in the group table are level on
+ * points, offers an on-pitch decider instead of relying solely on goal
+ * difference / head-to-head. Returns the tied pair, or null if there's
+ * no tie at the qualification boundary (or fewer than 5 players).
+ */
+export function getFourthPlaceTie(groupMatches: MatchRow[], playerIds: string[]): FourthPlaceTie | null {
+  const standings = calculateStandings(groupMatches, playerIds)
+  if (standings.length < 5) return null
+  if (standings[3].points !== standings[4].points) return null
+  return { p4: standings[3].playerId, p5: standings[4].playerId }
+}
+
+/**
+ * Generates the 4th-place decider match slot. This match is registered
+ * like any other but tagged with round 'qualifier_decider' so it's
+ * excluded from the group table (which only counts round === 'group').
+ */
+export function generateFourthPlaceDeciderSlot(p4: string, p5: string): MatchSlot {
+  return {
+    homePlayerId: p4,
+    awayPlayerId: p5,
+    cycle: FOURTH_PLACE_DECIDER_CYCLE,
+    groupLabel: null,
+    round: 'qualifier_decider',
+    leg: null,
   }
 }
 

@@ -20,6 +20,8 @@ import {
   getPlayoffQualifiers,
   generatePlayoffSemiSlots,
   resolvePlayoffSemi,
+  getFourthPlaceTie,
+  generateFourthPlaceDeciderSlot,
 } from '@/lib/championships/groupPlayoff'
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
 import { calculateOdds, type PlayerStats, type OddsFormEntry, type H2HInput } from '@/lib/odds'
@@ -344,10 +346,35 @@ export async function generateSemiFinalsAction(championshipId: string): Promise<
   } else {
     // group_playoff: top 4 from single group → 2 single-leg semis (1v4, 2v3)
     const allPlayerIds = (cpResult.data ?? []).map((r) => r.player_id)
-    const qualifiers = getPlayoffQualifiers(mappedMatches, allPlayerIds)
+
+    // If 4th/5th were tied on points, a decider match may have been played —
+    // its result (if decisive) overrides the goal-diff/H2H tiebreak.
+    const { data: deciderRows } = await supabase
+      .from('championship_matches')
+      .select('home_player_id, away_player_id, home_score, away_score')
+      .eq('championship_id', championshipId)
+      .eq('round', 'qualifier_decider')
+      .limit(1)
+    const deciderRow = deciderRows?.[0]
+    if (deciderRow && (deciderRow.home_score === null || deciderRow.away_score === null)) {
+      throw new Error('4th-place decider match has not been played yet')
+    }
+    if (deciderRow && deciderRow.home_score === deciderRow.away_score) {
+      throw new Error('4th-place decider match ended in a draw — record a winner before generating the semi-finals')
+    }
+    const deciderMatch = deciderRow
+      ? {
+          homePlayerId: deciderRow.home_player_id,
+          awayPlayerId: deciderRow.away_player_id,
+          homeScore: deciderRow.home_score as number | null,
+          awayScore: deciderRow.away_score as number | null,
+        }
+      : null
+
+    const qualifiers = getPlayoffQualifiers(mappedMatches, allPlayerIds, deciderMatch)
     slots = generatePlayoffSemiSlots(qualifiers)
     qualifierPlayerIds = [qualifiers.p1, qualifiers.p2, qualifiers.p3, qualifiers.p4]
-    await logAdminAction('generate_semis', 'championship', championshipId, { qualifiers })
+    await logAdminAction('generate_semis', 'championship', championshipId, { qualifiers, deciderMatch })
   }
 
   // Fetch stats for qualifier players
@@ -360,6 +387,85 @@ export async function generateSemiFinalsAction(championshipId: string): Promise<
   for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
 
   await insertMatchesWithOdds(supabase, championshipId, slots, statsMap, champ.played_at, session!.sub)
+  revalidatePath(`/championships/${championshipId}`)
+}
+
+/**
+ * Creates a decider match between the 4th- and 5th-placed players of a
+ * group-playoff championship when they're tied on points. The result
+ * decides who takes the 4th (qualifying) spot for the semi-finals — it
+ * is registered like any other match but does not add points to the
+ * group table (see `getFourthPlaceTie` in lib/championships/groupPlayoff).
+ */
+export async function generateFourthPlaceDeciderAction(championshipId: string): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const supabase = createServiceClient()
+
+  const { data: champ } = await supabase
+    .from('championships')
+    .select('format, played_at')
+    .eq('id', championshipId)
+    .single()
+  if (champ?.format !== 'group_playoff') throw new Error('Not a group playoff championship')
+
+  const { data: existingDecider } = await supabase
+    .from('championship_matches')
+    .select('id')
+    .eq('championship_id', championshipId)
+    .eq('round', 'qualifier_decider')
+    .limit(1)
+  if (existingDecider && existingDecider.length > 0) throw new Error('4th-place decider already exists')
+
+  const { data: existingSemis } = await supabase
+    .from('championship_matches')
+    .select('id')
+    .eq('championship_id', championshipId)
+    .eq('round', 'semi')
+    .limit(1)
+  if (existingSemis && existingSemis.length > 0) throw new Error('Semi-finals already generated')
+
+  const [matchesResult, cpResult] = await Promise.all([
+    supabase
+      .from('championship_matches')
+      .select('id, home_player_id, away_player_id, home_score, away_score')
+      .eq('championship_id', championshipId)
+      .eq('round', 'group'),
+    supabase
+      .from('championship_players')
+      .select('player_id')
+      .eq('championship_id', championshipId),
+  ])
+
+  const allGroupMatches = matchesResult.data ?? []
+  const pendingGroups = allGroupMatches.filter((m) => m.home_score === null || m.away_score === null)
+  if (pendingGroups.length > 0) throw new Error('Not all group matches have been played yet')
+
+  const mappedMatches = allGroupMatches.map((m) => ({
+    id: m.id,
+    homePlayerId: m.home_player_id,
+    awayPlayerId: m.away_player_id,
+    homeScore: m.home_score as number | null,
+    awayScore: m.away_score as number | null,
+  }))
+  const allPlayerIds = (cpResult.data ?? []).map((r) => r.player_id)
+
+  const tie = getFourthPlaceTie(mappedMatches, allPlayerIds)
+  if (!tie) throw new Error('4th and 5th place are not tied on points — no decider needed')
+
+  const { data: playersData } = await supabase
+    .from('players')
+    .select('id, wins, losses, draws, matches_played, goal_diff, goals_for, goals_against')
+    .in('id', [tie.p4, tie.p5])
+
+  const statsMap: Record<string, PlayerStats> = {}
+  for (const p of (playersData ?? []) as RawPlayer[]) statsMap[p.id] = toStats(p)
+
+  const slot = generateFourthPlaceDeciderSlot(tie.p4, tie.p5)
+  await insertMatchesWithOdds(supabase, championshipId, [slot], statsMap, champ.played_at, session!.sub)
+
+  await logAdminAction('generate_fourth_place_decider', 'championship', championshipId, { tie })
   revalidatePath(`/championships/${championshipId}`)
 }
 

@@ -19,13 +19,14 @@ import { useRouter } from 'next/navigation'
 import supabase from '@/lib/supabase/client'
 import { calculateStandings } from '@/lib/championships/standings'
 import { resolveSemiTie } from '@/lib/championships/groupKnockout'
-import { resolvePlayoffSemi } from '@/lib/championships/groupPlayoff'
+import { resolvePlayoffSemi, getFourthPlaceTie, type FourthPlaceTie } from '@/lib/championships/groupPlayoff'
 import {
   deleteChampionshipAction,
   generateSemiFinalsAction,
   generateFinalAction,
   generatePenaltyDeciderAction,
   generateFinalPenaltyDeciderAction,
+  generateFourthPlaceDeciderAction,
   regenerateMatchesAction,
   generateNextCycleAction,
   updateChampionshipDateAction,
@@ -585,12 +586,15 @@ function StandingsTable({
   playerMap,
   avatarMap,
   highlightTop,
+  swapPair,
 }: {
   playerIds: string[]
   matches: ChampionshipMatch[]
   playerMap: Map<string, string>
   avatarMap: Map<string, string | null | undefined>
   highlightTop?: number
+  /** When a qualifier-decider match flipped the table order, moves the winner ahead of the loser for display. */
+  swapPair?: { winner: string; loser: string }
 }) {
   const { t } = useTranslation()
   const standings = calculateStandings(
@@ -603,6 +607,15 @@ function StandingsTable({
     })),
     playerIds
   )
+
+  if (swapPair) {
+    const winnerIdx = standings.findIndex((r) => r.playerId === swapPair.winner)
+    const loserIdx = standings.findIndex((r) => r.playerId === swapPair.loser)
+    if (winnerIdx > loserIdx && loserIdx !== -1) {
+      const [winnerRow] = standings.splice(winnerIdx, 1)
+      standings.splice(loserIdx, 0, winnerRow)
+    }
+  }
 
   const STANDING_COLS = '20px 1fr 26px 26px 26px 26px 26px 26px 30px 38px'
 
@@ -1195,6 +1208,8 @@ function KnockoutSection({
 
 function PlayoffKnockoutSection({
   matches,
+  deciderMatch,
+  fourthPlaceTie,
   playerMap,
   avatarMap,
   currentUserId,
@@ -1206,8 +1221,11 @@ function PlayoffKnockoutSection({
   onGenerateFinal,
   onGeneratePenalty,
   onGenerateFinalPenalty,
+  onGenerateDecider,
 }: {
   matches: ChampionshipMatch[]
+  deciderMatch?: ChampionshipMatch
+  fourthPlaceTie: FourthPlaceTie | null
   playerMap: Map<string, string>
   avatarMap: Map<string, string | null | undefined>
   currentUserId: string
@@ -1219,6 +1237,7 @@ function PlayoffKnockoutSection({
   onGenerateFinal: () => void
   onGeneratePenalty: (p1: string, p2: string) => void
   onGenerateFinalPenalty: () => void
+  onGenerateDecider: () => void
 }) {
   const { t } = useTranslation()
   const semiMatches = matches.filter((m) => m.round === 'semi')
@@ -1259,6 +1278,108 @@ function PlayoffKnockoutSection({
 
   return (
     <div>
+      {(deciderMatch || (!hasSemis && groupStageDone && fourthPlaceTie)) && (
+        <div
+          style={{
+            marginBottom: 20,
+            border: '1px solid #fde68a',
+            borderRadius: 8,
+            background: 'rgba(245,158,11,0.06)',
+            padding: '14px 16px',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              fontSize: 10,
+              fontWeight: 800,
+              color: '#b45309',
+              background: 'rgba(245,158,11,0.12)',
+              border: '1px solid #fde68a',
+              padding: '2px 7px',
+              borderRadius: 4,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              marginBottom: 10,
+            }}
+          >
+            {t('champ.fourthPlaceDecider')}
+          </span>
+
+          {!deciderMatch && fourthPlaceTie && (
+            <>
+              <p style={{ fontSize: 13, color: 'var(--text2)', margin: '8px 0 10px' }}>
+                {t('champ.fourthPlaceTieDesc', {
+                  p4: playerMap.get(fourthPlaceTie.p4) ?? '?',
+                  p5: playerMap.get(fourthPlaceTie.p5) ?? '?',
+                })}
+              </p>
+              {isAdmin && (
+                <button
+                  onClick={onGenerateDecider}
+                  style={{
+                    padding: '8px 18px',
+                    background: '#d97706',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  {t('champ.createDeciderMatch')}
+                </button>
+              )}
+            </>
+          )}
+
+          {deciderMatch && (
+            <div style={{ marginTop: 8, border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden', background: 'var(--card)' }}>
+              <MatchCard
+                match={deciderMatch}
+                playerMap={playerMap}
+                avatarMap={avatarMap}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                championshipId={championshipId}
+                championshipIsActive={championshipIsActive}
+                variant="row"
+                badge={
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 700,
+                      color: '#b45309',
+                      background: 'rgba(245,158,11,0.12)',
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em',
+                    }}
+                  >
+                    {t('champ.decider')}
+                  </span>
+                }
+              />
+            </div>
+          )}
+
+          {deciderMatch &&
+            deciderMatch.homeScore !== null &&
+            deciderMatch.awayScore !== null &&
+            deciderMatch.homeScore === deciderMatch.awayScore && (
+              <p style={{ fontSize: 12, color: '#b45309', fontWeight: 600, marginTop: 8 }}>
+                {t('champ.deciderDrawWarning')}
+              </p>
+            )}
+
+          <p style={{ fontSize: 10, color: 'var(--muted2)', marginTop: 8, marginBottom: 0 }}>
+            {t('champ.deciderNote')}
+          </p>
+        </div>
+      )}
+
       {!hasSemis && groupStageDone && isAdmin && (
         <div style={{ marginBottom: 20, textAlign: 'center' }}>
           <button
@@ -1863,6 +1984,17 @@ export function ChampionshipDetail({
     })
   }
 
+  function handleGenerateFourthPlaceDecider() {
+    setKnockoutError(null)
+    startKnockoutTransition(async () => {
+      try {
+        await generateFourthPlaceDeciderAction(championship.id)
+      } catch (e) {
+        setKnockoutError(e instanceof Error ? e.message : 'Failed to create decider match.')
+      }
+    })
+  }
+
   function handleRegenerate() {
     setRegenError(null)
     startRegenTransition(async () => {
@@ -2204,9 +2336,33 @@ export function ChampionshipDetail({
     const playoffMatches = matches.filter(
       (m) => m.round === 'semi' || m.round === 'final' || m.round === 'penalty' || m.round === 'final_penalty'
     )
+    const deciderMatch = matches.find((m) => m.round === 'qualifier_decider')
 
     const groupStageDone =
       groupMatches.length > 0 && groupMatches.every((m) => m.homeScore !== null)
+
+    const fourthPlaceTie: FourthPlaceTie | null = groupStageDone
+      ? getFourthPlaceTie(
+          groupMatches.map((m) => ({
+            id: m.id,
+            homePlayerId: m.homePlayerId,
+            awayPlayerId: m.awayPlayerId,
+            homeScore: m.homeScore,
+            awayScore: m.awayScore,
+          })),
+          playerIds
+        )
+      : null
+
+    // If the decider was played and produced a winner, that player takes
+    // 4th place in the standings display too — not just the semis bracket.
+    const deciderSwap =
+      deciderMatch && deciderMatch.homeScore !== null && deciderMatch.awayScore !== null && deciderMatch.homeScore !== deciderMatch.awayScore
+        ? {
+            winner: deciderMatch.homeScore > deciderMatch.awayScore ? deciderMatch.homePlayerId : deciderMatch.awayPlayerId,
+            loser: deciderMatch.homeScore > deciderMatch.awayScore ? deciderMatch.awayPlayerId : deciderMatch.homePlayerId,
+          }
+        : undefined
 
     const totalCycles = championship.numberOfCycles
     const byCycle = groupByCycle(groupMatches)
@@ -2353,6 +2509,8 @@ export function ChampionshipDetail({
               ) : (
                 <PlayoffKnockoutSection
                   matches={playoffMatches}
+                  deciderMatch={deciderMatch}
+                  fourthPlaceTie={fourthPlaceTie}
                   playerMap={playerMap}
                   avatarMap={avatarMap}
                   currentUserId={currentUserId}
@@ -2364,6 +2522,7 @@ export function ChampionshipDetail({
                   onGenerateFinal={handleGenerateFinal}
                   onGeneratePenalty={handleGeneratePenalty}
                   onGenerateFinalPenalty={handleGenerateFinalPenalty}
+                  onGenerateDecider={handleGenerateFourthPlaceDecider}
                 />
               )}
             </div>
@@ -2377,6 +2536,7 @@ export function ChampionshipDetail({
               playerMap={playerMap}
               avatarMap={avatarMap}
               highlightTop={4}
+              swapPair={deciderSwap}
             />
             <div style={{ marginTop: 8, fontSize: 10, color: 'var(--muted2)', lineHeight: 1.5 }}>
               {t('champ.greenAdvancesPlay')}
