@@ -64,7 +64,7 @@ type PlayerWithUser = {
   goals_against: number
   goal_diff: number
   updated_at: string
-  users: { name: string; avatar_url: string | null; hero_photo_url: string | null } | null
+  users: { name: string; avatar_url: string | null; hero_photo_url: string | null; is_admin: boolean } | null
 }
 
 export const getLeaderboard = unstable_cache(
@@ -74,7 +74,7 @@ export const getLeaderboard = unstable_cache(
       .select(`
         id, wins, losses, draws, matches_played,
         goals_for, goals_against, goal_diff, updated_at,
-        users(name, avatar_url, hero_photo_url)
+        users(name, avatar_url, hero_photo_url, is_admin)
       `)
       .order('wins',        { ascending: false })
       .order('goal_diff',   { ascending: false })
@@ -82,21 +82,23 @@ export const getLeaderboard = unstable_cache(
 
     if (error || !data) return []
 
-    return (data as unknown as PlayerWithUser[]).map((p) => ({
-      id:            p.id,
-      wins:          p.wins,
-      losses:        p.losses,
-      draws:         p.draws,
-      matchesPlayed: p.matches_played,
-      goalsFor:      p.goals_for,
-      goalsAgainst:  p.goals_against,
-      goalDiff:      p.goal_diff,
-      winRate:       p.matches_played > 0 ? p.wins / p.matches_played : 0,
-      updatedAt:     p.updated_at,
-      name:          p.users?.name ?? 'Unknown',
-      avatarUrl:     p.users?.avatar_url ?? null,
-      heroPhotoUrl:  p.users?.hero_photo_url ?? null,
-    }))
+    return (data as unknown as PlayerWithUser[])
+      .filter((p) => !p.users?.is_admin)
+      .map((p) => ({
+        id:            p.id,
+        wins:          p.wins,
+        losses:        p.losses,
+        draws:         p.draws,
+        matchesPlayed: p.matches_played,
+        goalsFor:      p.goals_for,
+        goalsAgainst:  p.goals_against,
+        goalDiff:      p.goal_diff,
+        winRate:       p.matches_played > 0 ? p.wins / p.matches_played : 0,
+        updatedAt:     p.updated_at,
+        name:          p.users?.name ?? 'Unknown',
+        avatarUrl:     p.users?.avatar_url ?? null,
+        heroPhotoUrl:  p.users?.hero_photo_url ?? null,
+      }))
   },
   ['leaderboard'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
@@ -333,12 +335,14 @@ export const getRivalryWinners = unstable_cache(
     const playerIds = Array.from(countMap.keys())
     const { data: users } = await supabase
       .from('users')
-      .select('id, name, avatar_url')
+      .select('id, name, avatar_url, is_admin')
       .in('id', playerIds)
+      .eq('is_admin', false)
 
     const userMap = new Map((users ?? []).map((u) => [u.id, u]))
 
     return playerIds
+      .filter((pid) => userMap.has(pid))
       .map((pid) => {
         const u = userMap.get(pid)
         return {
@@ -768,9 +772,10 @@ export const getChampionshipOnlyStats = unstable_cache(
       .from('users')
       .select('id, name, avatar_url, hero_photo_url')
       .in('id', playerIds)
+      .eq('is_admin', false)
     const userMap = new Map((users ?? []).map((u) => [u.id, u]))
 
-    return playerIds.map((pid) => {
+    return playerIds.filter((pid) => userMap.has(pid)).map((pid) => {
       const s = agg.get(pid)!
       const u = userMap.get(pid)
       return {

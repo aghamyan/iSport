@@ -20,7 +20,7 @@ export default async function PlayerProfilePage({
 
   const [userResult, playerResult, badgesResult, rivalriesResult, formResult, placementsResult, allUsersResult] =
     await Promise.all([
-      supabase.from('users').select('id, name, avatar_url, intro_video_url, hero_photo_url, hero_photo_position, intro_audio_url, intro_audio_trim_start, intro_audio_trim_end, is_active, instagram_url, navi_coords').eq('id', id).single(),
+      supabase.from('users').select('id, name, avatar_url, intro_video_url, hero_photo_url, hero_photo_position, intro_audio_url, intro_audio_trim_start, intro_audio_trim_end, is_active, is_admin, instagram_url, navi_coords').eq('id', id).single(),
       supabase
         .from('players')
         .select('wins, losses, draws, matches_played, goals_for, goals_against, goal_diff')
@@ -38,10 +38,10 @@ export default async function PlayerProfilePage({
         .order('status', { ascending: true }),
       getPlayerForm(id, 5),
       getPlayerChampionshipPlacements(id),
-      supabase.from('users').select('id, name').eq('is_active', true).neq('id', id).order('name'),
+      supabase.from('users').select('id, name').eq('is_active', true).eq('is_admin', false).neq('id', id).order('name'),
     ])
 
-  if (userResult.error || !userResult.data) notFound()
+  if (userResult.error || !userResult.data || userResult.data.is_admin) notFound()
 
   const user = userResult.data
   const player = playerResult.data

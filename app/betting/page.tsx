@@ -88,6 +88,7 @@ export default async function BettingPage() {
     .from('users')
     .select('name, avatar_url')
     .eq('is_active', true)
+    .eq('is_admin', false)
     .not('avatar_url', 'is', null)
 
   const [fmRes, cmRes, balRes, playersData] = await Promise.all([

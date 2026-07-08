@@ -20,6 +20,7 @@ export default async function RivalriesPage() {
       .from('users')
       .select('id, name')
       .eq('is_active', true)
+      .eq('is_admin', false)
       .order('name'),
   ])
 

@@ -18,6 +18,7 @@ async function getSlotSymbols(): Promise<SlotSymbol[]> {
     .from('users')
     .select('id, name, avatar_url')
     .eq('is_active', true)
+    .eq('is_admin', false)
     .not('avatar_url', 'is', null)
 
   const playerAvatars = (data ?? []).map(u => u.avatar_url as string | null)
