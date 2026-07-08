@@ -53,6 +53,7 @@ export async function getHeroBannerSignedUploadUrlAction(
 
 export async function finalizeHeroBannerUploadAction(
   storagePath: string,
+  position: string = '50% 0%',
 ): Promise<{ error?: string; url?: string }> {
   const session = await getSession()
   if (!session?.isAdmin) return { error: 'Unauthorized' }
@@ -61,8 +62,20 @@ export async function finalizeHeroBannerUploadAction(
   const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(storagePath)
 
   await updateSettingAction('homepage_hero_url', publicUrl)
+  await updateSettingAction('homepage_hero_position', position)
   revalidatePath('/', 'layout')
   return { url: publicUrl }
+}
+
+export async function updateHeroBannerPositionAction(
+  position: string,
+): Promise<{ error?: string }> {
+  const session = await getSession()
+  if (!session?.isAdmin) return { error: 'Unauthorized' }
+
+  await updateSettingAction('homepage_hero_position', position)
+  revalidatePath('/', 'layout')
+  return {}
 }
 
 export async function removeHeroBannerAction(): Promise<{ error?: string }> {
@@ -70,6 +83,7 @@ export async function removeHeroBannerAction(): Promise<{ error?: string }> {
   if (!session?.isAdmin) return { error: 'Unauthorized' }
 
   await updateSettingAction('homepage_hero_url', '')
+  await updateSettingAction('homepage_hero_position', '50% 0%')
   revalidatePath('/', 'layout')
   return {}
 }

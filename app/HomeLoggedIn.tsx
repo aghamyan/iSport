@@ -79,6 +79,7 @@ type Props = {
   pendingMatches: HomeMatchItem[]
   globalStats: GlobalStats
   heroBannerUrl?: string | null
+  heroBannerPosition?: string | null
 }
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ function getTierKey(rank: number, total: number): { labelKey: string; color: str
 export function HomeLoggedIn({
   userId, isAdmin, myName, myAvatarUrl, myStats, rank, p4pRank, totalPlayers,
   recentForm, champPlacements, champLeaders, currentChampion, rivalries, players,
-  pendingMatches, globalStats, heroBannerUrl,
+  pendingMatches, globalStats, heroBannerUrl, heroBannerPosition,
 }: Props) {
   const router = useRouter()
   const { t } = useTranslation()
@@ -265,7 +266,7 @@ export function HomeLoggedIn({
       {/* ── HERO BANNER / MOSAIC ──────────────────────────────────── */}
       <div>
         {heroBannerUrl
-          ? <HeroBanner url={heroBannerUrl} />
+          ? <HeroBanner url={heroBannerUrl} position={heroBannerPosition ?? undefined} />
           : <PhotoMosaic myName={myName} myAvatarUrl={myAvatarUrl} players={players} userId={userId} />
         }
 
@@ -1388,7 +1389,7 @@ function RivalryCard({ rivalry, userId }: { rivalry: RivalryItem; userId: string
 
 // ─── Hero Banner ──────────────────────────────────────────────────────────────
 
-function HeroBanner({ url }: { url: string }) {
+function HeroBanner({ url, position }: { url: string; position?: string }) {
   return (
     <div style={{
       position: 'relative',
@@ -1405,7 +1406,7 @@ function HeroBanner({ url }: { url: string }) {
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          objectPosition: 'center top',
+          objectPosition: position || 'center top',
           display: 'block',
         }}
       />

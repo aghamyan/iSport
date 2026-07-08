@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from '@/lib/i18n/context'
 import {
   updateSettingAction,
   getLogoSignedUploadUrlAction, finalizeLogoUploadAction,
   getHeroBannerSignedUploadUrlAction, finalizeHeroBannerUploadAction, removeHeroBannerAction,
+  updateHeroBannerPositionAction,
 } from './actions'
 
 type Setting = { key: string; value: unknown }
@@ -156,14 +157,286 @@ function LogoUploadCard({ currentUrl }: { currentUrl: string }) {
   )
 }
 
-function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
+function HeroBannerPositionModal({
+  previewSrc,
+  initialPosition,
+  onConfirm,
+  onCancel,
+}: {
+  previewSrc: string
+  initialPosition: string
+  onConfirm: (position: string) => void
+  onCancel: () => void
+}) {
+  const parse = (s: string): [number, number] => {
+    const [x, y] = s.split(' ').map(parseFloat)
+    return [isNaN(x) ? 50 : x, isNaN(y) ? 0 : y]
+  }
+  const [init] = useState(() => parse(initialPosition))
+  const [posX, setPosX] = useState(init[0])
+  const [posY, setPosY] = useState(init[1])
+  const [nat, setNat] = useState({ w: 0, h: 0 })
+  const [frame, setFrame] = useState({ w: 640, h: 154 })
+
+  const isDragging = useRef(false)
+  const lastMouse = useRef({ x: 0, y: 0 })
+  const maxDragRef = useRef({ x: 0, y: 0 })
+
+  // Responsive frame size — mirrors the homepage hero banner's full-width, 216px-tall bleed
+  useEffect(() => {
+    function calc() {
+      const vw = Math.min(window.innerWidth - 48, 720)
+      const w = Math.round(vw)
+      const h = Math.min(216, Math.round(w / 2.2))
+      setFrame({ w, h })
+    }
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [])
+
+  useEffect(() => {
+    if (nat.w === 0) return
+    const scale = Math.max(frame.w / nat.w, frame.h / nat.h)
+    maxDragRef.current = {
+      x: Math.max(0, nat.w * scale - frame.w),
+      y: Math.max(0, nat.h * scale - frame.h),
+    }
+  }, [nat, frame])
+
+  const applyDelta = useCallback((dx: number, dy: number) => {
+    const { x: mX, y: mY } = maxDragRef.current
+    if (mX > 0) {
+      setPosX((p) => {
+        const newOff = -(p / 100) * mX + dx
+        return Math.max(0, Math.min(100, (-newOff / mX) * 100))
+      })
+    }
+    if (mY > 0) {
+      setPosY((p) => {
+        const newOff = -(p / 100) * mY + dy
+        return Math.max(0, Math.min(100, (-newOff / mY) * 100))
+      })
+    }
+  }, [])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+  }
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDragging.current) return
+      const dx = e.clientX - lastMouse.current.x
+      const dy = e.clientY - lastMouse.current.y
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      applyDelta(dx, dy)
+    }
+    const onUp = () => { isDragging.current = false }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [applyDelta])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    isDragging.current = true
+    lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return
+    e.preventDefault()
+    const t = e.touches[0]
+    const dx = t.clientX - lastMouse.current.x
+    const dy = t.clientY - lastMouse.current.y
+    lastMouse.current = { x: t.clientX, y: t.clientY }
+    applyDelta(dx, dy)
+  }
+  const handleTouchEnd = () => { isDragging.current = false }
+
+  const scale = nat.w > 0 ? Math.max(frame.w / nat.w, frame.h / nat.h) : 1
+  const sw = nat.w * scale
+  const sh = nat.h * scale
+  const { x: mX, y: mY } = maxDragRef.current
+  const imgL = -(posX / 100) * mX
+  const imgT = -(posY / 100) * mY
+
+  const posStr = `${Math.round(posX)}% ${Math.round(posY)}%`
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.96)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24 }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 8 }}>
+          Position Hero Banner
+        </div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>
+          Drag to choose which area is shown on the homepage
+        </div>
+      </div>
+
+      <div
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          width: frame.w, height: frame.h, flexShrink: 0,
+          overflow: 'hidden', position: 'relative',
+          cursor: 'grab', userSelect: 'none', touchAction: 'none',
+          borderRadius: 6,
+          boxShadow: '0 0 0 2px #DC2626, 0 0 32px 0 rgba(220,38,38,0.25)',
+          background: '#0C0C0C',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={previewSrc}
+          alt="preview"
+          draggable={false}
+          onLoad={(e) => {
+            const img = e.currentTarget
+            setNat({ w: img.naturalWidth, h: img.naturalHeight })
+          }}
+          style={{
+            position: 'absolute',
+            width: sw > 0 ? sw : '100%',
+            height: sw > 0 ? sh : '100%',
+            left: imgL, top: imgT,
+            pointerEvents: 'none', userSelect: 'none',
+            objectFit: sw > 0 ? 'unset' : 'cover',
+          }}
+        />
+
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.18) 40%, rgba(12,12,12,0.78) 100%)',
+        }} />
+
+        {nat.w === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13, letterSpacing: '0.06em' }}>
+            Loading…
+          </div>
+        )}
+
+        {nat.w > 0 && (
+          <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', borderRadius: 20, padding: '5px 14px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              ↔ Drag to reposition
+            </div>
+          </div>
+        )}
+      </div>
+
+      {nat.w > 0 && mY > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: frame.w, maxWidth: '100%' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Top</span>
+          <input
+            type="range" min={0} max={100} value={Math.round(posY)}
+            onChange={(e) => setPosY(Number(e.target.value))}
+            style={{ flex: 1, accentColor: '#DC2626', height: 3, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Bottom</span>
+        </div>
+      )}
+      {nat.w > 0 && mX > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: frame.w, maxWidth: '100%' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Left</span>
+          <input
+            type="range" min={0} max={100} value={Math.round(posX)}
+            onChange={(e) => setPosX(Number(e.target.value))}
+            style={{ flex: 1, accentColor: '#DC2626', height: 3, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Right</span>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button
+          onClick={onCancel}
+          style={{ padding: '10px 28px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm(posStr)}
+          style={{ padding: '10px 36px', background: '#DC2626', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function HeroBannerCard({ currentUrl, currentPosition }: { currentUrl: string; currentPosition: string }) {
   const [preview, setPreview] = useState(currentUrl || '')
+  const [position, setPosition] = useState(currentPosition || '50% 0%')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [repositioning, setRepositioning] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const [showPosModal, setShowPosModal] = useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropSrc, setCropSrc] = useState('')
+
+  function handleFileChosen(f: File) {
+    setError('')
+    const objUrl = URL.createObjectURL(f)
+    setCropFile(f)
+    setCropSrc(objUrl)
+    setShowPosModal(true)
+  }
+
+  function handleOpenReposition() {
+    if (!preview || file) return
+    setCropFile(null)
+    setCropSrc(preview)
+    setShowPosModal(true)
+  }
+
+  function handlePosCancel() {
+    setShowPosModal(false)
+    if (cropFile) URL.revokeObjectURL(cropSrc)
+    setCropFile(null)
+    setCropSrc('')
+  }
+
+  function handlePosConfirm(newPosition: string) {
+    setShowPosModal(false)
+    if (cropFile) {
+      // New image staged — apply chosen position once "Save Banner" is clicked
+      const f = cropFile
+      URL.revokeObjectURL(cropSrc)
+      setCropFile(null)
+      setCropSrc('')
+      setFile(f)
+      setPosition(newPosition)
+      const reader = new FileReader()
+      reader.onload = (ev) => setPreview(ev.target?.result as string)
+      reader.readAsDataURL(f)
+    } else {
+      // Repositioning the already-saved banner — persist immediately
+      setCropSrc('')
+      setPosition(newPosition)
+      setRepositioning(true)
+      setError('')
+      updateHeroBannerPositionAction(newPosition)
+        .then((res) => {
+          if (res.error) throw new Error(res.error)
+          setSaved(true)
+          setTimeout(() => setSaved(false), 2500)
+        })
+        .catch((e) => setError((e as Error).message))
+        .finally(() => setRepositioning(false))
+    }
+  }
 
   async function handleUpload() {
     if (!file) return
@@ -181,7 +454,7 @@ function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
       })
       if (!uploadRes.ok) throw new Error('Upload failed')
 
-      const finalRes = await finalizeHeroBannerUploadAction(res.storagePath!)
+      const finalRes = await finalizeHeroBannerUploadAction(res.storagePath!, position)
       if (finalRes.error) throw new Error(finalRes.error)
 
       setPreview(finalRes.url!)
@@ -202,6 +475,7 @@ function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
       if (res.error) throw new Error(res.error)
       setPreview('')
       setFile(null)
+      setPosition('50% 0%')
     } catch (e) {
       setError((e as Error).message)
     }
@@ -210,10 +484,19 @@ function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
 
   return (
     <div style={S.card}>
+      {showPosModal && cropSrc && (
+        <HeroBannerPositionModal
+          previewSrc={cropSrc}
+          initialPosition={position}
+          onConfirm={handlePosConfirm}
+          onCancel={handlePosCancel}
+        />
+      )}
+
       <div style={S.label}>Homepage Hero Banner</div>
       <div style={S.desc}>
         Upload a full-width hero image displayed at the top of the homepage when users sign in.
-        Recommended: landscape photo, JPG or PNG, min 750×400 px. Faces/subjects should be in the upper half.
+        Recommended: landscape photo, JPG or PNG, min 750×400 px. Use Reposition to choose which area is shown.
       </div>
 
       {/* Preview */}
@@ -228,7 +511,7 @@ function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
           <img
             src={preview}
             alt="Hero banner preview"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: position, display: 'block' }}
           />
           <div style={{
             position: 'absolute', inset: 0,
@@ -242,6 +525,21 @@ function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
           }}>
             Preview
           </div>
+          {!file && (
+            <button
+              onClick={handleOpenReposition}
+              disabled={repositioning}
+              style={{
+                position: 'absolute', top: 10, right: 10,
+                padding: '6px 12px', borderRadius: 6, border: 'none',
+                background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                cursor: repositioning ? 'not-allowed' : 'pointer', opacity: repositioning ? 0.6 : 1,
+              }}
+            >
+              {repositioning ? 'Saving…' : 'Reposition'}
+            </button>
+          )}
         </div>
       )}
 
@@ -265,11 +563,8 @@ function HeroBannerCard({ currentUrl }: { currentUrl: string }) {
           onChange={(e) => {
             const f = e.target.files?.[0]
             if (!f) return
-            setFile(f)
-            setError('')
-            const reader = new FileReader()
-            reader.onload = (ev) => setPreview(ev.target?.result as string)
-            reader.readAsDataURL(f)
+            e.target.value = ''
+            handleFileChosen(f)
           }}
         />
         <button onClick={() => inputRef.current?.click()} style={S.btn('#374151', '#f3f4f6')}>
@@ -398,7 +693,7 @@ export function SettingsClient({ settings }: Props) {
       <p style={{ margin: '0 0 28px', fontSize: 13, color: '#6b7280' }}>{t('admin.settings.subtitle')}</p>
 
       <LogoUploadCard currentUrl={get('logo_url', '')} />
-      <HeroBannerCard currentUrl={get('homepage_hero_url', '')} />
+      <HeroBannerCard currentUrl={get('homepage_hero_url', '')} currentPosition={get('homepage_hero_position', '50% 0%')} />
       <GameplayRulesCard current={get('gameplay_rules', '')} />
       <EditWindowCard />
       <OddsFormatCard />

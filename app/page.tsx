@@ -83,7 +83,7 @@ export default async function HomePage() {
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(20),
-    supabase.from('system_settings').select('value').eq('key', 'homepage_hero_url').maybeSingle(),
+    supabase.from('system_settings').select('key, value').in('key', ['homepage_hero_url', 'homepage_hero_position']),
   ])
 
   const rank   = leaderboard.findIndex((p) => p.id === session.sub) + 1
@@ -217,9 +217,14 @@ export default async function HomePage() {
     topScorerAvatarUrl:  topScorer?.avatarUrl ?? null,
   }
 
-  const heroBannerRaw = heroBannerRes.data?.value
+  const heroSettings = new Map((heroBannerRes.data ?? []).map((r) => [r.key as string, r.value]))
+  const heroBannerRaw      = heroSettings.get('homepage_hero_url')
+  const heroBannerPosRaw   = heroSettings.get('homepage_hero_position')
   const heroBannerUrl = typeof heroBannerRaw === 'string'
     ? heroBannerRaw.replace(/^"|"$/g, '')
+    : null
+  const heroBannerPosition = typeof heroBannerPosRaw === 'string'
+    ? heroBannerPosRaw.replace(/^"|"$/g, '')
     : null
 
   return (
@@ -241,6 +246,7 @@ export default async function HomePage() {
       pendingMatches={pendingMatches}
       globalStats={globalStats}
       heroBannerUrl={heroBannerUrl || null}
+      heroBannerPosition={heroBannerPosition || null}
     />
   )
 }
