@@ -17,7 +17,7 @@ export default async function AdminMatchesPage() {
       .order('created_at', { ascending: false }),
     supabase
       .from('users')
-      .select('id, name, is_admin')
+      .select('id, name')
       .order('name'),
   ])
 
@@ -35,9 +35,9 @@ export default async function AdminMatchesPage() {
     createdAt:  m.created_at as string,
   }))
 
-  // Active, non-admin users for the "Add Match" player pickers
+  // Active users for the "Add Match" player pickers
   const players = (allUsers ?? [])
-    .filter((u) => u.name && !u.is_admin)
+    .filter((u) => u.name)
     .map((u) => ({ id: u.id as string, name: u.name as string }))
 
   return <MatchesAdminClient matches={matches} players={players} />

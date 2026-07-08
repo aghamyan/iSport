@@ -29,7 +29,6 @@ export default async function AdminBadgesPage() {
       .from('users')
       .select('id, name')
       .eq('is_active', true)
-      .eq('is_admin', false)
       .order('name'),
   ])
 

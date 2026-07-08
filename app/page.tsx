@@ -67,7 +67,7 @@ export default async function HomePage() {
     getPlayerChampionshipPlacements(session.sub),
     getChampionshipLeaders(),
     getLastChampionshipWinner(),
-    supabase.from('users').select('id, name, avatar_url').eq('is_active', true).eq('is_admin', false).neq('id', session.sub).order('name'),
+    supabase.from('users').select('id, name, avatar_url').eq('is_active', true).neq('id', session.sub).order('name'),
     supabase
       .from('rivalries')
       .select('id, best_of, player1_id, player2_id, player1_wins, player2_wins, winner_id, status')

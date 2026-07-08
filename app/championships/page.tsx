@@ -17,7 +17,6 @@ export default async function ChampionshipsPage() {
       .from('users')
       .select('id, name')
       .eq('is_active', true)
-      .eq('is_admin', false)
       .order('name'),
   ])
 
