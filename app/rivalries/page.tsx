@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isReservedAdminName } from '@/lib/players'
 import { RivalriesListClient } from './RivalriesListClient'
 
 export default async function RivalriesPage() {
@@ -46,7 +47,7 @@ export default async function RivalriesPage() {
   }))
 
   const players = (playersResult.data ?? [])
-    .filter((p) => p.id !== session.sub)
+    .filter((p) => p.id !== session.sub && !isReservedAdminName(p.name))
     .map((p) => ({ id: p.id, name: p.name }))
 
   return (

@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BettingPageClient, type MatchBettingRow, type Preview1X2, type PreviewOpt } from './BettingPageClient'
 import { BASE_SYMBOLS, makePlayerSymbols } from '@/lib/casino/slotGames'
+import { isReservedAdminName } from '@/lib/players'
 import type { SlotSymbol } from '@/lib/casino/types'
 
 export const dynamic = 'force-dynamic'
@@ -116,7 +117,8 @@ export default async function BettingPage() {
   const allIds      = [...allFriendly, ...allChamp].map(m => m.id)
 
   // Build slot symbols from player avatars
-  const playerRows    = (playersData.data ?? []) as { name: string; avatar_url: string | null }[]
+  const playerRows    = ((playersData.data ?? []) as { name: string; avatar_url: string | null }[])
+    .filter((p) => !isReservedAdminName(p.name))
   const playerAvatars = playerRows.map(p => p.avatar_url)
   const playerNames   = playerRows.map(p => p.name)
   const slotSymbols: SlotSymbol[] = [

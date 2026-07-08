@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isReservedAdminName } from '@/lib/players'
 import { MatchesAdminClient } from './MatchesAdminClient'
 
 export default async function AdminMatchesPage() {
@@ -37,7 +38,7 @@ export default async function AdminMatchesPage() {
 
   // Active users for the "Add Match" player pickers
   const players = (allUsers ?? [])
-    .filter((u) => u.name)
+    .filter((u) => u.name && !isReservedAdminName(u.name))
     .map((u) => ({ id: u.id as string, name: u.name as string }))
 
   return <MatchesAdminClient matches={matches} players={players} />

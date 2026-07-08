@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isReservedAdminName } from '@/lib/players'
 import { BadgesAdminClient } from './BadgesAdminClient'
 
 export default async function AdminBadgesPage() {
@@ -53,7 +54,9 @@ export default async function AdminBadgesPage() {
     }
   })
 
-  const players = (playersRes.data ?? []).map((u) => ({ id: u.id, name: u.name }))
+  const players = (playersRes.data ?? [])
+    .filter((u) => !isReservedAdminName(u.name))
+    .map((u) => ({ id: u.id, name: u.name }))
 
   return <BadgesAdminClient badges={badges} playerBadges={playerBadges} players={players} />
 }

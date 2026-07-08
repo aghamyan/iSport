@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isReservedAdminName } from '@/lib/players'
 import { ChampionshipsListClient } from './ChampionshipsListClient'
 
 export default async function ChampionshipsPage() {
@@ -50,10 +51,12 @@ export default async function ChampionshipsPage() {
       return bDate - aDate
     })
 
-  const players = (playersResult.data ?? []).map((p) => ({
-    id: p.id,
-    displayName: p.name,
-  }))
+  const players = (playersResult.data ?? [])
+    .filter((p) => !isReservedAdminName(p.name))
+    .map((p) => ({
+      id: p.id,
+      displayName: p.name,
+    }))
 
   return (
     <ChampionshipsListClient

@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
+import { isReservedAdminName } from '@/lib/players'
 import {
   getPlayerStats,
   getLeaderboard,
@@ -119,7 +120,9 @@ export default async function HomePage() {
     status:      r.status as 'active' | 'completed',
   }))
 
-  const players = (pRes.data ?? []).map((p) => ({
+  const nonAdminPlayers = (pRes.data ?? []).filter((p) => !isReservedAdminName(p.name))
+
+  const players = nonAdminPlayers.map((p) => ({
     id: p.id,
     displayName: p.name,
     avatarUrl: (p.avatar_url as string | null) ?? null,
@@ -127,7 +130,7 @@ export default async function HomePage() {
 
   // Player lookup for pending match names (excludes current user — handled separately)
   const playerLookup: Record<string, { name: string; avatar_url: string | null }> = {}
-  for (const p of pRes.data ?? []) {
+  for (const p of nonAdminPlayers) {
     playerLookup[p.id] = { name: p.name, avatar_url: (p.avatar_url as string | null) ?? null }
   }
 

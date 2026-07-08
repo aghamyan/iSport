@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/session'
 import { computeSpin, BASE_SYMBOLS, makePlayerSymbols } from '@/lib/casino/slotGames'
 import { calculateRoulettePayout, effectiveMultiplier } from '@/lib/casino/roulette'
+import { isReservedAdminName } from '@/lib/players'
 import type {
   SlotSymbol, SpinResult, RouletteBet, RouletteResult,
   CasinoLeaderboardEntry, CasinoPlayerStats, CasinoConfig,
@@ -20,8 +21,9 @@ async function getSlotSymbols(): Promise<SlotSymbol[]> {
     .eq('is_active', true)
     .not('avatar_url', 'is', null)
 
-  const playerAvatars = (data ?? []).map(u => u.avatar_url as string | null)
-  const playerNames   = (data ?? []).map(u => u.name as string)
+  const rows = (data ?? []).filter((u) => !isReservedAdminName(u.name as string))
+  const playerAvatars = rows.map(u => u.avatar_url as string | null)
+  const playerNames   = rows.map(u => u.name as string)
   const playerSymbols = makePlayerSymbols(playerAvatars, playerNames)
 
   return [...BASE_SYMBOLS.map(s => ({ ...s, imageUrl: undefined })), ...playerSymbols] as SlotSymbol[]

@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { calculateStandings, filterGroupMatches, resolveChampionshipOrder } from '@/lib/championships/standings'
+import { isReservedAdminName } from '@/lib/players'
 import type {
   ChampionshipLeader,
   ChampionshipResult,
@@ -82,21 +83,23 @@ export const getLeaderboard = unstable_cache(
 
     if (error || !data) return []
 
-    return (data as unknown as PlayerWithUser[]).map((p) => ({
-      id:            p.id,
-      wins:          p.wins,
-      losses:        p.losses,
-      draws:         p.draws,
-      matchesPlayed: p.matches_played,
-      goalsFor:      p.goals_for,
-      goalsAgainst:  p.goals_against,
-      goalDiff:      p.goal_diff,
-      winRate:       p.matches_played > 0 ? p.wins / p.matches_played : 0,
-      updatedAt:     p.updated_at,
-      name:          p.users?.name ?? 'Unknown',
-      avatarUrl:     p.users?.avatar_url ?? null,
-      heroPhotoUrl:  p.users?.hero_photo_url ?? null,
-    }))
+    return (data as unknown as PlayerWithUser[])
+      .filter((p) => !isReservedAdminName(p.users?.name))
+      .map((p) => ({
+        id:            p.id,
+        wins:          p.wins,
+        losses:        p.losses,
+        draws:         p.draws,
+        matchesPlayed: p.matches_played,
+        goalsFor:      p.goals_for,
+        goalsAgainst:  p.goals_against,
+        goalDiff:      p.goal_diff,
+        winRate:       p.matches_played > 0 ? p.wins / p.matches_played : 0,
+        updatedAt:     p.updated_at,
+        name:          p.users?.name ?? 'Unknown',
+        avatarUrl:     p.users?.avatar_url ?? null,
+        heroPhotoUrl:  p.users?.hero_photo_url ?? null,
+      }))
   },
   ['leaderboard'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
@@ -339,6 +342,7 @@ export const getRivalryWinners = unstable_cache(
     const userMap = new Map((users ?? []).map((u) => [u.id, u]))
 
     return playerIds
+      .filter((pid) => !isReservedAdminName(userMap.get(pid)?.name))
       .map((pid) => {
         const u = userMap.get(pid)
         return {
@@ -770,7 +774,7 @@ export const getChampionshipOnlyStats = unstable_cache(
       .in('id', playerIds)
     const userMap = new Map((users ?? []).map((u) => [u.id, u]))
 
-    return playerIds.map((pid) => {
+    return playerIds.filter((pid) => !isReservedAdminName(userMap.get(pid)?.name)).map((pid) => {
       const s = agg.get(pid)!
       const u = userMap.get(pid)
       return {

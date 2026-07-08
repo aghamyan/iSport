@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlayerForm, getPlayerChampionshipPlacements } from '@/lib/stats/queries'
+import { isReservedAdminName } from '@/lib/players'
 import { PlayerProfile } from './PlayerProfile'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +42,7 @@ export default async function PlayerProfilePage({
       supabase.from('users').select('id, name').eq('is_active', true).neq('id', id).order('name'),
     ])
 
-  if (userResult.error || !userResult.data) notFound()
+  if (userResult.error || !userResult.data || isReservedAdminName(userResult.data.name)) notFound()
 
   const user = userResult.data
   const player = playerResult.data
@@ -93,7 +94,9 @@ export default async function PlayerProfilePage({
     }
   })
 
-  const allPlayers = (allUsersResult.data ?? []).map((u) => ({ id: u.id, name: u.name }))
+  const allPlayers = (allUsersResult.data ?? [])
+    .filter((u) => !isReservedAdminName(u.name))
+    .map((u) => ({ id: u.id, name: u.name }))
 
   return (
     <PlayerProfile
