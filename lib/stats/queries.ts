@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { calculateStandings, filterGroupMatches, resolveChampionshipOrder } from '@/lib/championships/standings'
 import { isReservedAdminName } from '@/lib/players'
+import type { P4PMatchEntry, TitleRecord } from './p4p'
 import type {
   ChampionshipLeader,
   ChampionshipResult,
@@ -363,7 +364,7 @@ export const getRivalryWinners = unstable_cache(
 // Uses calculateStandings (same algorithm as ChampionshipDetail) so the leader
 // shown here always matches what the championship page displays.
 
-type ChampRow = { id: string; name: string; is_active: boolean }
+type ChampRow = { id: string; name: string; is_active: boolean; prestige_weight: number | null }
 type CpRow    = { championship_id: string; player_id: string }
 type CmRow    = {
   id: string
@@ -385,7 +386,7 @@ export const getChampionshipLeaders = unstable_cache(
     const [champsRes, cpRes, cmRes] = await Promise.all([
       supabase
         .from('championships')
-        .select('id, name, is_active')
+        .select('id, name, is_active, prestige_weight')
         .order('created_at', { ascending: false }),
       supabase
         .from('championship_players')
@@ -445,6 +446,7 @@ export const getChampionshipLeaders = unstable_cache(
         championshipId:   champ.id,
         championshipName: champ.name,
         isActive:         champ.is_active,
+        prestigeWeight:   champ.prestige_weight ?? 2,
         playerId:         leader.playerId,
         playerName:       leaderUser?.name ?? 'Unknown',
         avatarUrl:        leaderUser?.avatar_url ?? null,
@@ -797,3 +799,82 @@ export const getChampionshipOnlyStats = unstable_cache(
   ['champ-only-stats'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
 )
+
+// ─── Per-player championship match history (for P4P Strength of Schedule +
+// Recent Form) ──────────────────────────────────────────────────────────────
+//
+// One batched query for every confirmed championship match on the platform,
+// exploded into a per-player { opponentId, result, playedAt } list. Mirrors
+// get_player_form's date fallback (played_at, then confirmed_at) but stays
+// championship-only, consistent with getChampionshipOnlyStats, and covers
+// every player in one round trip instead of one RPC call per player.
+
+type CmHistoryRow = {
+  home_player_id: string
+  away_player_id: string
+  home_score:      number | null
+  away_score:      number | null
+  played_at:       string | null
+  confirmed_at:    string | null
+}
+
+// unstable_cache round-trips its return value through serialization, which
+// silently strips Map down to a plain object (losing .get/.set) — so the
+// cached layer returns a plain Record, and the Map lives only outside the
+// cache boundary, rebuilt fresh (cheaply) on every call.
+const getChampionshipMatchHistoryRecord = unstable_cache(
+  async (): Promise<Record<string, P4PMatchEntry[]>> => {
+    const supabase = createServiceClient()
+
+    const { data, error } = await supabase
+      .from('championship_matches')
+      .select('home_player_id, away_player_id, home_score, away_score, played_at, confirmed_at')
+      .in('status', ['confirmed', 'final'])
+      .not('home_score', 'is', null)
+
+    const history: Record<string, P4PMatchEntry[]> = {}
+    if (error || !data) return history
+
+    const push = (playerId: string, opponentId: string, myScore: number, oppScore: number, playedAt: string) => {
+      const result: P4PMatchEntry['result'] = myScore > oppScore ? 'W' : myScore < oppScore ? 'L' : 'D'
+      const arr = history[playerId] ?? []
+      arr.push({ opponentId, result, playedAt })
+      history[playerId] = arr
+    }
+
+    for (const m of data as CmHistoryRow[]) {
+      if (m.home_score === null || m.away_score === null) continue
+      const playedAt = m.played_at ?? m.confirmed_at ?? new Date(0).toISOString()
+      push(m.home_player_id, m.away_player_id, m.home_score, m.away_score, playedAt)
+      push(m.away_player_id, m.home_player_id, m.away_score, m.home_score, playedAt)
+    }
+
+    return history
+  },
+  ['champ-match-history'],
+  { tags: [STATS_CACHE_TAG], revalidate: 60 }
+)
+
+export async function getChampionshipMatchHistory(): Promise<Map<string, P4PMatchEntry[]>> {
+  const record = await getChampionshipMatchHistoryRecord()
+  return new Map(Object.entries(record))
+}
+
+// ─── Prestige-weighted title records (P4P Legacy pillar input) ────────────────
+//
+// Folds getChampionshipLeaders() into playerId -> { count, weightedSum },
+// summing each completed championship's prestige_weight (see
+// schema_p4p_prestige_patch.sql) for every title a player holds.
+
+export function buildTitleRecords(leaders: ChampionshipLeader[]): Map<string, TitleRecord> {
+  const map = new Map<string, TitleRecord>()
+  for (const cl of leaders) {
+    if (cl.isActive) continue
+    const prev = map.get(cl.playerId) ?? { count: 0, weightedSum: 0 }
+    map.set(cl.playerId, {
+      count:       prev.count + 1,
+      weightedSum: prev.weightedSum + cl.prestigeWeight,
+    })
+  }
+  return map
+}

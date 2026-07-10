@@ -623,7 +623,7 @@ function StandingsTable({
     <div style={{ overflowX: 'auto' }}>
       <div
         style={{
-          border: '1px solid #e5e7eb',
+          border: '1px solid var(--border)',
           borderRadius: 6,
           overflow: 'hidden',
           background: 'var(--card)',
@@ -638,7 +638,7 @@ function StandingsTable({
             gridTemplateColumns: STANDING_COLS,
             padding: '9px 14px',
             background: 'var(--card3)',
-            borderBottom: '1px solid #e5e7eb',
+            borderBottom: '1px solid var(--border)',
             fontSize: 10,
             fontWeight: 800,
             color: 'var(--muted2)',
@@ -673,13 +673,13 @@ function StandingsTable({
                 display: 'grid',
                 gridTemplateColumns: STANDING_COLS,
                 padding: '10px 14px',
-                borderBottom: idx < standings.length - 1 ? '1px solid #f3f4f6' : 'none',
+                borderBottom: idx < standings.length - 1 ? '1px solid var(--border)' : 'none',
                 borderLeft: advances
-                  ? '3px solid #16a34a'
+                  ? '3px solid var(--win)'
                   : isFirst
-                  ? '3px solid #d97706'
+                  ? '3px solid var(--gold)'
                   : '3px solid transparent',
-                background: advances ? '#f0fdf4' : isFirst ? '#fffbeb' : '#ffffff',
+                background: advances ? 'rgba(var(--rgb-win),0.08)' : isFirst ? 'rgba(var(--rgb-gold),0.08)' : 'var(--card)',
                 fontSize: 13,
                 gap: 4,
                 alignItems: 'center',

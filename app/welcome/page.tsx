@@ -1,6 +1,12 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth/session'
-import { getLeaderboard, getChampionshipLeaders } from '@/lib/stats/queries'
+import {
+  getLeaderboard,
+  getChampionshipLeaders,
+  getChampionshipOnlyStats,
+  getChampionshipMatchHistory,
+  buildTitleRecords,
+} from '@/lib/stats/queries'
 import { rankByP4P } from '@/lib/stats/p4p'
 import { createServiceClient } from '@/lib/supabase/server'
 import { WelcomeReveal, type CurrentPlayerInfo } from './WelcomeReveal'
@@ -9,21 +15,20 @@ export default async function WelcomePage() {
   const session = await getSession()
   if (!session) redirect('/login')
 
-  const [leaderboard, champLeaders] = await Promise.all([
+  // leaderboard is fetched only to decide whether anyone has played yet —
+  // P4P itself uses championship-only stats, same source as the leaderboard
+  // and home pages, so a player's rank doesn't disagree across screens.
+  const [leaderboard, champLeaders, champOnlyStats, matchHistory] = await Promise.all([
     getLeaderboard(),
     getChampionshipLeaders(),
+    getChampionshipOnlyStats(),
+    getChampionshipMatchHistory(),
   ])
 
   if (leaderboard.length === 0) redirect('/')
 
-  const titlesByPlayer = new Map<string, number>()
-  for (const cl of champLeaders) {
-    if (!cl.isActive) {
-      titlesByPlayer.set(cl.playerId, (titlesByPlayer.get(cl.playerId) ?? 0) + 1)
-    }
-  }
-
-  const ranked = rankByP4P(leaderboard, titlesByPlayer)
+  const titlesByPlayer = buildTitleRecords(champLeaders)
+  const ranked = rankByP4P(champOnlyStats, titlesByPlayer, matchHistory)
   const top5   = ranked.slice(0, 5).map((p) => ({
     id:            p.id,
     name:          p.name,

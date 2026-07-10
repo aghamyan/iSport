@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createChampionshipAction } from './actions'
 import { splitIntoGroups } from '@/lib/championships/groupKnockout'
+import { prestigeTierForPlayerCount, PRESTIGE_WEIGHT } from '@/lib/championships/prestige'
 import { useTranslation } from '@/lib/i18n/context'
 
 export type PlayerOption = {
@@ -371,6 +372,15 @@ export function CreateChampionshipModal({ players, onClose }: Props) {
             </button>
           ))}
         </div>
+
+        {n >= 2 && (
+          <p style={{ fontSize: 12, color: '#6b7280', margin: '-8px 0 16px' }}>
+            {t('champ.create.prestigeAuto', {
+              tier: t(`champ.create.prestige.${prestigeTierForPlayerCount(n)}`),
+              weight: PRESTIGE_WEIGHT[prestigeTierForPlayerCount(n)],
+            })}
+          </p>
+        )}
 
         {/* Group preview for group_knockout */}
         {groupPreview && (

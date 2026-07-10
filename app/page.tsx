@@ -9,6 +9,8 @@ import {
   getChampionshipLeaders,
   getLastChampionshipWinner,
   getChampionshipOnlyStats,
+  getChampionshipMatchHistory,
+  buildTitleRecords,
 } from '@/lib/stats/queries'
 import { rankByP4P } from '@/lib/stats/p4p'
 import { HomeLoggedIn } from './HomeLoggedIn'
@@ -59,7 +61,7 @@ export default async function HomePage() {
   // ── Logged-in dashboard ────────────────────────────────────────────────────
   const [
     myStats, leaderboard, recentForm, champPlacements, champLeaders,
-    currentChampion, pRes, rRes, champOnlyStats, myUserRes, allPendingRes,
+    currentChampion, pRes, rRes, champOnlyStats, matchHistory, myUserRes, allPendingRes,
     heroBannerRes,
   ] = await Promise.all([
     getPlayerStats(session.sub),
@@ -75,6 +77,7 @@ export default async function HomePage() {
       .or(`player1_id.eq.${session.sub},player2_id.eq.${session.sub}`)
       .order('created_at', { ascending: false }),
     getChampionshipOnlyStats(),
+    getChampionshipMatchHistory(),
     supabase.from('users').select('avatar_url').eq('id', session.sub).single(),
     supabase
       .from('friendly_matches')
@@ -90,13 +93,8 @@ export default async function HomePage() {
   const myName = leaderboard.find((p) => p.id === session.sub)?.name ?? 'Player'
 
   // P4P uses championship-only stats so friendly match results don't inflate rankings
-  const titlesByPlayer = new Map<string, number>()
-  for (const cl of champLeaders) {
-    if (!cl.isActive) {
-      titlesByPlayer.set(cl.playerId, (titlesByPlayer.get(cl.playerId) ?? 0) + 1)
-    }
-  }
-  const p4pRanked = rankByP4P(champOnlyStats, titlesByPlayer)
+  const titlesByPlayer = buildTitleRecords(champLeaders)
+  const p4pRanked = rankByP4P(champOnlyStats, titlesByPlayer, matchHistory)
   const p4pRank   = p4pRanked.findIndex((p) => p.id === session.sub) + 1
 
   const myAvatarUrl = (myUserRes.data?.avatar_url as string | null) ?? null

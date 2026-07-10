@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
-import { Trophy, Crown, Medal, Flame, Zap, TrendingUp, Shield, Target, BarChart3, Award, Activity, Sparkles, Waves, Users, Building2, Star, Gamepad2, Calculator } from 'lucide-react'
+import { Trophy, Medal, Flame, Zap, TrendingUp, Shield, Target, BarChart3, Award, Activity, Sparkles, Waves, Users, Building2, Star, Gamepad2, Calculator, ChevronDown } from 'lucide-react'
 import type { NamedPlayerStats, RivalryWinner, ChampionshipLeader, LastChampionshipPodiumEntry, H2HRecord } from '@/lib/stats/types'
 import type { P4PRankedPlayer } from '@/lib/stats/p4p'
 import { fetchH2HAction } from '@/app/players/actions'
@@ -944,6 +944,13 @@ function ChampionshipsTab({ leaders }: { leaders: ChampionshipLeader[] }) {
 }
 
 // ─── P4P tab ───────────────────────────────────────────────────────────────────
+//
+// Design: a validated 8-color categorical palette (checked with the data-viz
+// skill's CVD/contrast/chroma validator against both theme surfaces) identifies
+// each pillar consistently everywhere it appears. The per-row/per-card default
+// is a single calm accent meter + key numbers; the full 8-pillar rainbow only
+// appears in the expandable detail, where there's room and every segment is
+// labeled — never as ambient decoration. No infinite pulse/glow/shimmer.
 
 const P4P_ANIMS = `
   @keyframes p4pBarFill {
@@ -951,247 +958,199 @@ const P4P_ANIMS = `
     to   { width: var(--bar-w); }
   }
   @keyframes p4pFadeUp {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes p4pGoldGlow {
-    0%,100% { box-shadow: 0 0 0 3px ${GOLD}, 0 0 28px 6px rgba(245,158,11,0.45); }
-    50%     { box-shadow: 0 0 0 3px #fcd34d, 0 0 44px 14px rgba(245,158,11,0.7); }
+  @keyframes p4pDetailOpen {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes p4pSilverGlow {
-    0%,100% { box-shadow: 0 0 0 2.5px #94a3b8, 0 0 20px 5px rgba(148,163,184,0.38); }
-    50%     { box-shadow: 0 0 0 2.5px #cbd5e1, 0 0 32px 10px rgba(148,163,184,0.56); }
-  }
-  @keyframes p4pBronzeGlow {
-    0%,100% { box-shadow: 0 0 0 2.5px #cd7f32, 0 0 20px 5px rgba(205,127,50,0.38); }
-    50%     { box-shadow: 0 0 0 2.5px #e8a04a, 0 0 32px 10px rgba(205,127,50,0.56); }
-  }
-  @keyframes p4pFloat {
-    0%,100% { transform: translateY(0px); }
-    50%     { transform: translateY(-6px); }
-  }
-  @keyframes p4pShimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position: 200% center; }
-  }
+  .p4p-expand-btn:hover { border-color: ${ACCENT} !important; color: ${ACCENT} !important; }
+  .p4p-row:hover { background: rgba(var(--rgb-overlay),0.02); }
 `
 
-type P4PPillarRow = { icon: ReactNode; label: string; value: number; max: number; color: string }
+// Fixed categorical palette, one hex per pillar, ordered by pillar weight
+// (winQuality highest -> defense lowest). Validated with the data-viz skill's
+// validate_palette.js against this app's light (#FFFFFF) and dark (#111827)
+// card surfaces: lightness band, chroma floor, adjacent-pair CVD separation
+// (worst case ΔE 16.0) and contrast all PASS in both themes with these exact
+// hex values — no separate light/dark variants needed. Legacy reuses the
+// app's --gold brand token (trophy semantics already mean "legacy" everywhere
+// else in the UI); Dominance reuses the app's --win green for the same reason.
+const PILLAR_COLOR = {
+  winQuality:         '#2563EB',
+  legacy:             '#D97706',
+  experience:         '#0D9488',
+  strengthOfSchedule: '#7C3AED',
+  recentForm:         '#DB2777',
+  goalDominance:       '#16A34A',
+  attack:             '#EA580C',
+  defense:            '#0891B2',
+} as const
 
-function P4PScoreDial({ score, rank, size = 68 }: { score: number; rank: number; size?: number }) {
-  const pct   = score / 100
-  const r     = (size / 2) - 6
-  const circ  = 2 * Math.PI * r
-  const color = rank === 1 ? GOLD : rank === 2 ? SILVER : rank === 3 ? BRONZE : ACCENT
+// All bars share one 0–30 scale (winQuality's max) so a bar's length is
+// directly comparable across pillars — how much of the final score each
+// pillar actually contributed — rather than 8 independently-scaled "fullness"
+// bars that look equally full regardless of point value.
+const PILLAR_COMMON_SCALE = 30
 
+type PillarKey = keyof typeof PILLAR_COLOR
+
+function usePillarMeta(t: (k: string) => string): Array<{ key: PillarKey; label: string; max: number; color: string; icon: ReactNode }> {
+  return [
+    { key: 'winQuality',         label: t('lb.p4p.pillar.winQuality'), max: 30, color: PILLAR_COLOR.winQuality,         icon: <Zap size={12} /> },
+    { key: 'legacy',             label: t('lb.p4p.pillar.legacy'),     max: 20, color: PILLAR_COLOR.legacy,             icon: <Trophy size={12} /> },
+    { key: 'experience',         label: t('lb.p4p.pillar.experience'), max: 10, color: PILLAR_COLOR.experience,         icon: <Activity size={12} /> },
+    { key: 'strengthOfSchedule', label: t('lb.p4p.pillar.sos'),        max: 10, color: PILLAR_COLOR.strengthOfSchedule, icon: <Star size={12} /> },
+    { key: 'recentForm',         label: t('lb.p4p.pillar.recentForm'), max: 10, color: PILLAR_COLOR.recentForm,         icon: <TrendingUp size={12} /> },
+    { key: 'goalDominance',      label: t('lb.p4p.pillar.dominance'),  max: 10, color: PILLAR_COLOR.goalDominance,      icon: <Flame size={12} /> },
+    { key: 'attack',             label: t('lb.p4p.pillar.attack'),     max: 5,  color: PILLAR_COLOR.attack,             icon: <Target size={12} /> },
+    { key: 'defense',            label: t('lb.p4p.pillar.defense'),    max: 5,  color: PILLAR_COLOR.defense,            icon: <Shield size={12} /> },
+  ]
+}
+
+// ── Score meter — single calm hue, the default "how good" signal everywhere ──
+
+function ScoreMeter({ score, color, numSize = 20, barW = 64 }: { score: number; color: string; numSize?: number; barW?: number }) {
+  const pct = Math.max(0, Math.min(100, score))
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(var(--rgb-overlay),0.04)" strokeWidth="5" />
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="5"
-          strokeDasharray={`${pct * circ} ${circ}`} strokeLinecap="round"
-          style={{ filter: `drop-shadow(0 0 5px ${color})` }} />
-      </svg>
-      <div style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{ fontSize: size * 0.22, fontWeight: 900, color, lineHeight: 1 }}>{score.toFixed(1)}</div>
-        <div style={{ fontSize: size * 0.1, color: `${color}99`, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 1 }}>P4P</div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+      <span style={{ fontSize: numSize, fontWeight: 800, color, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+        {score.toFixed(1)}
+      </span>
+      <div style={{ width: barW, height: 5, borderRadius: 99, background: 'rgba(var(--rgb-overlay),0.1)', overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: 99, background: color,
+          ['--bar-w' as string]: `${pct}%`, width: `${pct}%`,
+          animation: 'p4pBarFill 0.6s ease both',
+        }} />
       </div>
     </div>
   )
 }
 
-function P4PPillarBars({ p4p }: { p4p: P4PRankedPlayer['p4p'] }) {
-  const { t } = useTranslation()
-  const rows: P4PPillarRow[] = [
-    { icon: <Zap size={11} />,        label: t('lb.p4p.pillar.clutch'),     max: 35, color: GOLD,      value: p4p.clutch     },
-    { icon: <TrendingUp size={11} />, label: t('lb.p4p.pillar.form'),       max: 20, color: '#22c55e', value: p4p.form       },
-    { icon: <Flame size={11} />,      label: t('lb.p4p.pillar.dominance'),  max: 20, color: '#ef4444', value: p4p.dominance  },
-    { icon: <Trophy size={11} />,     label: t('lb.p4p.pillar.legacy'),     max: 15, color: PURPLE,    value: p4p.legacy     },
-    { icon: <Target size={11} />,     label: t('lb.p4p.pillar.attack'),     max: 6,  color: '#f97316', value: p4p.attack     },
-    { icon: <Shield size={11} />,     label: t('lb.p4p.pillar.resilience'), max: 4,  color: ACCENT,    value: p4p.resilience },
-  ]
+// ── One pillar row: icon, label, shared-scale bar, value/max ────────────────
+
+function PillarBar({ meta, value }: { meta: { key: PillarKey; label: string; max: number; color: string; icon: ReactNode }; value: number }) {
+  const pct = Math.min(100, (value / PILLAR_COMMON_SCALE) * 100)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-      {rows.map((row, i) => (
-        <div key={row.label} style={{
-          display: 'grid',
-          gridTemplateColumns: '16px 76px 1fr 30px',
-          alignItems: 'center', gap: 5,
-        }}>
-          <span style={{ display: 'inline-flex', color: row.color }}>{row.icon}</span>
-          <span style={{
-            fontSize: 8, color: MUTED, fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.07em',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{row.label}</span>
-          <div style={{ height: 5, borderRadius: 99, background: 'rgba(var(--rgb-overlay),0.04)', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 99, background: row.color,
-              boxShadow: `0 0 5px ${row.color}66`,
-              ['--bar-w' as string]: `${Math.min(100, (row.value / row.max) * 100)}%`,
-              animation: `p4pBarFill 0.9s ${0.06 * i}s ease both`,
-            }} />
-          </div>
-          <span style={{ fontSize: 9, fontWeight: 800, color: row.color, textAlign: 'right' }}>
-            {row.value.toFixed(1)}
+    <div style={{ display: 'grid', gridTemplateColumns: '14px 100px 1fr 54px', alignItems: 'center', gap: 8 }}>
+      <span style={{ display: 'inline-flex', color: meta.color, flexShrink: 0 }}>{meta.icon}</span>
+      <span style={{
+        fontSize: 11, color: MUTED, fontWeight: 600,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{meta.label}</span>
+      <div style={{ height: 7, borderRadius: 4, background: `${meta.color}1F`, overflow: 'hidden' }}>
+        <div style={{
+          height: '100%', borderRadius: 4, background: meta.color,
+          ['--bar-w' as string]: `${pct}%`, width: `${pct}%`,
+          animation: 'p4pBarFill 0.5s ease both',
+        }} />
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 700, color: TEXT, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {value.toFixed(1)}<span style={{ color: MUTED, fontWeight: 500 }}>/{meta.max}</span>
+      </span>
+    </div>
+  )
+}
+
+// ── Full breakdown: all 8 pillars + confidence/record footer ────────────────
+// This is the ONLY place all 8 colors appear together — every segment is
+// labeled with an icon, a name, and an exact value, so it reads as data, not
+// decoration.
+
+function P4PBreakdown({ player, pillars }: { player: P4PRankedPlayer; pillars: ReturnType<typeof usePillarMeta> }) {
+  const { t } = useTranslation()
+  const p = player.p4p
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {pillars.map((m) => (
+        <PillarBar key={m.key} meta={m} value={p[m.key]} />
+      ))}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: '5px 16px',
+        marginTop: 3, paddingTop: 10, borderTop: `1px solid ${BORDER}`,
+        fontSize: 11, color: MUTED,
+      }}>
+        <span>{t('lb.p4p.formula.confidence')} <b style={{ color: TEXT }}>{Math.round(p.confidence * 100)}%</b></span>
+        <span>{t('common.matches')} <b style={{ color: TEXT }}>{player.matchesPlayed}</b></span>
+        <span>{t('common.wins')} <b style={{ color: TEXT }}>{player.wins}</b></span>
+        <span>{t('common.draws')} <b style={{ color: TEXT }}>{player.draws}</b></span>
+        <span>{t('common.losses')} <b style={{ color: TEXT }}>{player.losses}</b></span>
+        <span>{t('common.winRate')} <b style={{ color: TEXT }}>{Math.round(player.winRate * 100)}%</b></span>
+        {p.titles > 0 && (
+          <span style={{ color: PILLAR_COLOR.legacy, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <Trophy size={11} />{p.titles}×
           </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Pillar legend — shown once, decodes every bar on the page ───────────────
+
+function P4PLegend({ pillars }: { pillars: ReturnType<typeof usePillarMeta> }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+      {pillars.map((m) => (
+        <div key={m.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: MUTED }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: m.color, flexShrink: 0 }} />
+          <span style={{ display: 'inline-flex', color: m.color }}>{m.icon}</span>
+          {m.label} <span style={{ color: MUTED, opacity: 0.55 }}>/{m.max}</span>
         </div>
       ))}
     </div>
   )
 }
 
-function P4PTopCard({ player, rank, currentUserId }: { player: P4PRankedPlayer; rank: number; currentUserId: string }) {
+// ── Formula / spec panel ─────────────────────────────────────────────────────
+
+function FormulaPanel({ pillars }: { pillars: ReturnType<typeof usePillarMeta> }) {
   const { t } = useTranslation()
-  const isMe     = player.id === currentUserId
-  const color    = rank === 1 ? GOLD : rank === 2 ? SILVER : BRONZE
-  const glowAnim = rank === 1 ? 'p4pGoldGlow 2.5s ease-in-out infinite' : rank === 2 ? 'p4pSilverGlow 3s ease-in-out infinite' : 'p4pBronzeGlow 3s ease-in-out infinite'
-  const medalIcon = rank === 1
-    ? <Crown size={rank === 1 ? 16 : 14} style={{ color, filter: `drop-shadow(0 0 8px ${color}88)` }} />
-    : <Medal size={14} style={{ color, filter: `drop-shadow(0 0 8px ${color}88)` }} />
-  const rgb      = rank === 1 ? '245,158,11' : rank === 2 ? '148,163,184' : '205,127,50'
-  const avSize   = rank === 1 ? 52 : 44
-  const initials = player.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  const SIMPLE_KEY: Record<PillarKey, string> = {
+    winQuality: 'winQualitySimple', legacy: 'legacySimple', experience: 'experienceSimple',
+    strengthOfSchedule: 'sosSimple', recentForm: 'recentFormSimple', goalDominance: 'dominanceSimple',
+    attack: 'attackSimple', defense: 'defenseSimple',
+  }
+  const DETAIL_KEY: Record<PillarKey, string> = {
+    winQuality: 'winQualityDetail', legacy: 'legacyDetail', experience: 'experienceDetail',
+    strengthOfSchedule: 'sosDetail', recentForm: 'recentFormDetail', goalDominance: 'dominanceDetail',
+    attack: 'attackDetail', defense: 'defenseDetail',
+  }
 
   return (
     <div style={{
-      background: `linear-gradient(135deg, rgba(${rgb},0.08), rgba(${rgb},0.03))`,
-      border: `1px solid rgba(${rgb},0.28)`,
-      borderRadius: 16, padding: '16px',
-      animation: 'p4pFadeUp 0.5s ease both',
-    }}>
-      {/* ── Header: avatar · name · dial ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        {/* Avatar */}
-        <div style={{
-          width: avSize, height: avSize, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-          background: 'var(--card)',
-          animation: `${glowAnim}${rank === 1 ? ', p4pFloat 4s ease-in-out infinite' : ''}`,
-        }}>
-          {player.avatarUrl
-            ? <img src={player.avatarUrl} alt={player.name} width={avSize} height={avSize}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : (
-              <div style={{
-                width: '100%', height: '100%',
-                background: rank === 1 ? `linear-gradient(135deg,${GOLD},#ef4444)` : rank === 2 ? 'linear-gradient(135deg,#94a3b8,#64748b)' : 'linear-gradient(135deg,#cd7f32,#92400e)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: avSize * 0.36, fontWeight: 900, color: '#fff',
-              }}>{initials}</div>
-            )
-          }
-        </div>
-
-        {/* Name + stats */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
-            <span style={{ display: 'inline-flex' }}>{medalIcon}</span>
-            <Link href={`/players/${player.id}`} style={{
-              fontSize: rank === 1 ? 15 : 13, fontWeight: 800,
-              textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              ...(rank === 1 ? {
-                background: 'linear-gradient(90deg,#f59e0b,#fcd34d,#f97316,#f59e0b)',
-                backgroundSize: '200% auto',
-                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                animation: 'p4pShimmer 3s linear infinite',
-              } : { color }),
-            }}>{player.name}</Link>
-            {isMe && <span style={{ fontSize: 9, color: ACCENT, fontWeight: 600, flexShrink: 0 }}>{t('common.youSmall')}</span>}
-          </div>
-          <div style={{ fontSize: 10, color: MUTED, lineHeight: 1.5 }}>
-            {player.wins}W · {player.matchesPlayed}G · {Math.round(player.p4p.confidence * 100)}% conf.
-            {player.p4p.titles > 0 && (
-              <span style={{ marginLeft: 5, color: PURPLE, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 2 }}>
-                <Trophy size={10} /> {player.p4p.titles}×
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Score dial — right side of header, no longer competing with bars */}
-        <P4PScoreDial score={player.p4p.score} rank={rank} size={64} />
-      </div>
-
-      {/* ── Full-width pillar bars ── */}
-      <P4PPillarBars p4p={player.p4p} />
-    </div>
-  )
-}
-
-function FormulaPanel() {
-  const { t } = useTranslation()
-  const FORMULA_ROWS = [
-    {
-      icon: <Zap size={14} />, label: t('lb.p4p.pillar.clutch'), max: 35, color: GOLD,
-      simple: t('lb.p4p.formula.clutchSimple'),
-      detail: t('lb.p4p.formula.clutchDetail'),
-    },
-    {
-      icon: <TrendingUp size={14} />, label: t('lb.p4p.pillar.form'), max: 20, color: '#22c55e',
-      simple: t('lb.p4p.formula.formSimple'),
-      detail: t('lb.p4p.formula.formDetail'),
-    },
-    {
-      icon: <Flame size={14} />, label: t('lb.p4p.pillar.dominance'), max: 20, color: '#ef4444',
-      simple: t('lb.p4p.formula.dominanceSimple'),
-      detail: t('lb.p4p.formula.dominanceDetail'),
-    },
-    {
-      icon: <Trophy size={14} />, label: t('lb.p4p.pillar.legacy'), max: 15, color: PURPLE,
-      simple: t('lb.p4p.formula.legacySimple'),
-      detail: t('lb.p4p.formula.legacyDetail'),
-    },
-    {
-      icon: <Target size={14} />, label: t('lb.p4p.pillar.attack'), max: 6, color: '#f97316',
-      simple: t('lb.p4p.formula.attackSimple'),
-      detail: t('lb.p4p.formula.attackDetail'),
-    },
-    {
-      icon: <Shield size={14} />, label: t('lb.p4p.pillar.resilience'), max: 4, color: ACCENT,
-      simple: t('lb.p4p.formula.resilienceSimple'),
-      detail: t('lb.p4p.formula.resilienceDetail'),
-    },
-  ]
-  return (
-    <div style={{
-      marginTop: 12,
-      background: 'var(--card3)',
-      border: `1px solid rgba(245,158,11,0.2)`,
+      marginTop: 12, background: CARD2, border: `1px solid ${BORDER}`,
       borderRadius: 12, padding: '16px',
-      animation: 'p4pFadeUp 0.3s ease both',
+      animation: 'p4pDetailOpen 0.2s ease both',
     }}>
-      <div style={{ fontSize: 12, fontWeight: 800, color: GOLD, marginBottom: 14, letterSpacing: '0.04em' }}>
+      <div style={{ fontSize: 12, fontWeight: 800, color: TEXT, marginBottom: 14 }}>
         {t('lb.p4p.formula.title')}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {FORMULA_ROWS.map((row) => (
-          <div key={row.label} style={{
-            display: 'grid', gridTemplateColumns: '20px 1fr', gap: 8, alignItems: 'start',
-          }}>
-            <span style={{ display: 'inline-flex', color: row.color, marginTop: 1 }}>{row.icon}</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: row.color }}>{row.label}</span>
-                <span style={{ fontSize: 9, color: `${row.color}88`, fontWeight: 700 }}>max {row.max} pts</span>
+        {pillars.map((m) => (
+          <div key={m.key} style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 8, alignItems: 'start' }}>
+            <span style={{ display: 'inline-flex', color: m.color, marginTop: 1 }}>{m.icon}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: m.color }}>{m.label}</span>
+                <span style={{ fontSize: 9, color: MUTED, fontWeight: 700 }}>max {m.max} pts</span>
               </div>
               <div style={{ fontSize: 11, fontWeight: 700, color: TEXT, marginBottom: 2, fontFamily: 'monospace' }}>
-                {row.simple}
+                {t(`lb.p4p.formula.${SIMPLE_KEY[m.key]}`)}
               </div>
-              <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{row.detail}</div>
+              <div style={{ fontSize: 11, color: MUTED, lineHeight: 1.5 }}>{t(`lb.p4p.formula.${DETAIL_KEY[m.key]}`)}</div>
             </div>
           </div>
         ))}
 
-        {/* Confidence */}
-        <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr', gap: 8, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 8, alignItems: 'start' }}>
           <span style={{ display: 'inline-flex', color: ACCENT, marginTop: 1 }}><Target size={14} /></span>
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 2 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: TEXT }}>{t('lb.p4p.formula.confidence')}</span>
+            <div style={{ fontSize: 11, fontWeight: 800, color: TEXT, marginBottom: 2 }}>
+              {t('lb.p4p.formula.confidence')}
             </div>
             <div style={{ fontSize: 11, fontWeight: 700, color: TEXT, marginBottom: 2, fontFamily: 'monospace' }}>
               {t('lb.p4p.formula.confidenceSimple')}
@@ -1205,21 +1164,137 @@ function FormulaPanel() {
 
       <div style={{
         marginTop: 14, padding: '10px 12px',
-        background: 'rgba(245,158,11,0.07)', borderRadius: 8,
+        background: 'var(--card3)', borderRadius: 8, border: `1px solid ${BORDER}`,
         fontSize: 11, color: MUTED, lineHeight: 1.5,
       }}>
-        <span style={{ color: GOLD, fontWeight: 700 }}>{t('lb.p4p.formula.finalScore')}</span>
+        <span style={{ color: TEXT, fontWeight: 700 }}>{t('lb.p4p.formula.finalScore')}</span>
         {t('lb.p4p.formula.finalScoreFormula')}
         <br />
-        <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>{t('lb.p4p.formula.maxScore')}</span>
+        <span style={{ fontSize: 10 }}>{t('lb.p4p.formula.maxScore')}</span>
       </div>
+    </div>
+  )
+}
+
+// ── Top-3 featured card — hierarchy preserved, glow/shimmer/float removed ───
+
+function P4PPlayerCard({ player, rank, currentUserId, pillars }: {
+  player: P4PRankedPlayer
+  rank: number
+  currentUserId: string
+  pillars: ReturnType<typeof usePillarMeta>
+}) {
+  const { t } = useTranslation()
+  const isMe = player.id === currentUserId
+  const tierColor = rank === 1 ? GOLD : rank === 2 ? SILVER : BRONZE
+
+  return (
+    <div style={{
+      background: CARD, border: `1px solid rgba(${RANK_RGBS[rank - 1]},0.4)`,
+      borderRadius: 14, padding: '16px',
+      display: 'flex', flexDirection: 'column', gap: 12,
+      animation: 'p4pFadeUp 0.35s ease both',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Avatar url={player.avatarUrl} name={player.name} size={44} rank={rank} isMe={isMe} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ display: 'inline-flex' }}>{rankMedal(rank, 13)}</span>
+            <Link href={`/players/${player.id}`} style={{
+              fontSize: 13, fontWeight: 700, color: tierColor, textDecoration: 'none',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{player.name}</Link>
+            {isMe && <span style={{ fontSize: 9, color: ACCENT, fontWeight: 600, flexShrink: 0 }}>{t('common.youSmall')}</span>}
+          </div>
+          <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+            {player.wins}W · {player.matchesPlayed}G
+          </div>
+        </div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: tierColor, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+          {player.p4p.score.toFixed(1)}
+        </div>
+      </div>
+
+      <P4PBreakdown player={player} pillars={pillars} />
+    </div>
+  )
+}
+
+// ── Rest-of-list row — compact single-hue meter by default, expand for detail ──
+
+function P4PRow({ player, rank, currentUserId, pillars, expanded, onToggle }: {
+  player: P4PRankedPlayer
+  rank: number
+  currentUserId: string
+  pillars: ReturnType<typeof usePillarMeta>
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const { t } = useTranslation()
+  const isMe = player.id === currentUserId
+
+  return (
+    <div className="p4p-row" style={{ background: isMe ? 'rgba(220,38,38,0.05)' : CARD }}>
+      <div style={{
+        display: 'grid', gridTemplateColumns: '30px 1fr auto 28px',
+        padding: '10px 14px', gap: 10, alignItems: 'center',
+      }}>
+        <span style={{ fontSize: 12, color: MUTED, fontWeight: 600 }}>{rank}</span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <Avatar url={player.avatarUrl} name={player.name} size={28} isMe={isMe} />
+          <Link href={`/players/${player.id}`} style={{
+            fontSize: 13, fontWeight: 500, color: TEXT, textDecoration: 'none',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {player.name}
+            {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: ACCENT, fontWeight: 400 }}>{t('common.youSmall')}</span>}
+          </Link>
+          {player.p4p.titles > 0 && (
+            <span style={{ fontSize: 9, color: PILLAR_COLOR.legacy, fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
+              <Trophy size={9} />{player.p4p.titles}
+            </span>
+          )}
+        </div>
+
+        <ScoreMeter score={player.p4p.score} color={ACCENT} numSize={15} barW={64} />
+
+        <button
+          onClick={onToggle}
+          className="p4p-expand-btn"
+          aria-label={t('lb.table.pillarBreakdown')}
+          style={{
+            width: 26, height: 26, borderRadius: 7,
+            border: `1px solid ${expanded ? ACCENT : BORDER}`,
+            background: expanded ? 'rgba(220,38,38,0.08)' : CARD2,
+            color: expanded ? ACCENT : MUTED,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'all 0.15s',
+          }}
+        >
+          <ChevronDown size={14} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div style={{
+          padding: '4px 16px 16px', borderTop: `1px solid ${BORDER}`,
+          animation: 'p4pDetailOpen 0.2s ease both',
+        }}>
+          <div style={{ paddingTop: 12 }}>
+            <P4PBreakdown player={player} pillars={pillars} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentUserId: string }) {
   const [showFormula, setShowFormula] = useState(false)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const { t } = useTranslation()
+  const pillars = usePillarMeta(t)
 
   if (!ranked.length) {
     return <div style={{ textAlign: 'center', padding: '40px 0', color: MUTED, fontSize: 14 }}>{t('lb.noPlayers')}</div>
@@ -1229,30 +1304,39 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
   const rest   = ranked.slice(3)
   const myRank = ranked.findIndex((p) => p.id === currentUserId) + 1
 
+  function toggleRow(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   return (
-    <div style={{ animation: 'p4pFadeUp 0.35s ease' }}>
+    <div style={{ animation: 'p4pFadeUp 0.3s ease' }}>
       <style dangerouslySetInnerHTML={{ __html: P4P_ANIMS }} />
 
       {/* Header */}
       <div style={{
-        marginBottom: 20, padding: '14px 18px',
-        background: 'rgba(245,158,11,0.05)', border: `1px solid rgba(245,158,11,0.18)`,
+        marginBottom: 18, padding: '14px 18px',
+        background: CARD2, border: `1px solid ${BORDER}`,
         borderRadius: 12,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: GOLD, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Zap size={14} />{t('lb.p4p.title')}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: TEXT, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Zap size={14} style={{ color: ACCENT }} />{t('lb.p4p.title')}
           </div>
           <button
             onClick={() => setShowFormula((v) => !v)}
             style={{
-              padding: '5px 12px', border: `1px solid rgba(245,158,11,0.35)`,
-              borderRadius: 20, background: showFormula ? 'rgba(245,158,11,0.15)' : 'transparent',
-              color: showFormula ? GOLD : MUTED, fontSize: 11, fontWeight: 700,
-              cursor: 'pointer', transition: 'all 0.15s', letterSpacing: '0.03em',
+              padding: '5px 12px', border: `1px solid ${showFormula ? ACCENT : BORDER}`,
+              borderRadius: 8, background: showFormula ? 'rgba(220,38,38,0.08)' : CARD,
+              color: showFormula ? ACCENT : MUTED, fontSize: 11, fontWeight: 700,
+              cursor: 'pointer', transition: 'all 0.15s',
             }}
           >
-            {showFormula ? t('lb.p4p.close') : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calculator size={11} />{t('lb.p4p.howCalculated')}</span>}
+            {showFormula ? t('common.close') : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Calculator size={11} />{t('lb.p4p.howCalculated')}</span>}
           </button>
         </div>
         <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.5 }}>
@@ -1263,13 +1347,18 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
             {t('lb.p4p.yourRank', { n: myRank, score: ranked[myRank - 1]?.p4p.score.toFixed(1) ?? '0.0' })}
           </div>
         )}
-        {showFormula && <FormulaPanel />}
+        {showFormula && <FormulaPanel pillars={pillars} />}
+      </div>
+
+      {/* Legend — decodes every bar below */}
+      <div style={{ marginBottom: 16, padding: '0 2px' }}>
+        <P4PLegend pillars={pillars} />
       </div>
 
       {/* Top 3 featured cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginBottom: 20 }}>
         {top3.map((p, i) => (
-          <P4PTopCard key={p.id} player={p} rank={i + 1} currentUserId={currentUserId} />
+          <P4PPlayerCard key={p.id} player={p} rank={i + 1} currentUserId={currentUserId} pillars={pillars} />
         ))}
       </div>
 
@@ -1277,97 +1366,27 @@ function P4PTab({ ranked, currentUserId }: { ranked: P4PRankedPlayer[]; currentU
       {rest.length > 0 && (
         <div style={{ border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
           <div style={{
-            display: 'grid', gridTemplateColumns: '32px 1fr 80px 100px',
+            display: 'grid', gridTemplateColumns: '30px 1fr auto 28px',
             padding: '9px 14px', background: CARD2, borderBottom: `1px solid ${BORDER}`,
             fontSize: 10, fontWeight: 700, color: MUTED,
-            textTransform: 'uppercase', letterSpacing: '0.07em', gap: 8,
+            textTransform: 'uppercase', letterSpacing: '0.07em', gap: 10,
           }}>
             <span>#</span>
             <span>{t('common.player')}</span>
-            <span style={{ textAlign: 'center' }}>{t('lb.table.p4pScore')}</span>
-            <span>{t('lb.table.pillarBreakdown')}</span>
+            <span style={{ textAlign: 'right' }}>{t('lb.table.p4pScore')}</span>
+            <span />
           </div>
 
-          {rest.map((p, i) => {
-            const rank   = i + 4
-            const isMe   = p.id === currentUserId
-            // Mini stacked bar: 6 colored segments proportional to raw pillar contribution
-            const rawPillars = [
-              { v: p.p4p.clutch,     color: GOLD      },
-              { v: p.p4p.form,       color: '#22c55e' },
-              { v: p.p4p.dominance,  color: '#ef4444' },
-              { v: p.p4p.legacy,     color: PURPLE    },
-              { v: p.p4p.attack,     color: '#f97316' },
-              { v: p.p4p.resilience, color: ACCENT    },
-            ]
-            const rawTotal = rawPillars.reduce((s, x) => s + x.v, 0) || 1
-
-            return (
-              <div key={p.id} className="lb-row" style={{
-                display: 'grid', gridTemplateColumns: '32px 1fr 80px 100px',
-                padding: '10px 14px', gap: 8, alignItems: 'center',
-                borderBottom: i < rest.length - 1 ? `1px solid ${BORDER}` : 'none',
-                background: isMe ? 'rgba(220,38,38,0.05)' : CARD,
-                transition: 'background 0.15s',
-              }}>
-                <span style={{ fontSize: 12, color: MUTED, fontWeight: 600 }}>{rank}</span>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <Avatar url={p.avatarUrl} name={p.name} size={28} isMe={isMe} />
-                  <Link href={`/players/${p.id}`} style={{
-                    fontSize: 13, fontWeight: 500, color: TEXT, textDecoration: 'none',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>
-                    {p.name}
-                    {isMe && <span style={{ marginLeft: 4, fontSize: 9, color: ACCENT, fontWeight: 400 }}>{t('common.youSmall')}</span>}
-                  </Link>
-                  {p.p4p.titles > 0 && (
-                    <span style={{ fontSize: 9, color: PURPLE, fontWeight: 700, flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                      <Trophy size={9} />{p.p4p.titles}
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ textAlign: 'center', fontSize: 15, fontWeight: 900, color: ACCENT }}>
-                  {p.p4p.score.toFixed(1)}
-                </div>
-
-                {/* Stacked mini bar */}
-                <div style={{ display: 'flex', height: 6, borderRadius: 99, overflow: 'hidden', gap: 1 }}>
-                  {rawPillars.map((seg, si) => (
-                    <div key={si} style={{
-                      height: '100%', flex: seg.v / rawTotal,
-                      background: seg.color, borderRadius: 99,
-                    }} />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+          {rest.map((p, i) => (
+            <div key={p.id} style={{ borderBottom: i < rest.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+              <P4PRow
+                player={p} rank={i + 4} currentUserId={currentUserId} pillars={pillars}
+                expanded={expanded.has(p.id)} onToggle={() => toggleRow(p.id)}
+              />
+            </div>
+          ))}
         </div>
       )}
-
-      {/* Pillar legend */}
-      <div style={{
-        marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center',
-      }}>
-        {[
-          { label: t('lb.p4p.pillar.clutch'),     color: GOLD,      icon: <Zap size={10} />,       max: 35 },
-          { label: t('lb.p4p.pillar.form'),        color: '#22c55e', icon: <TrendingUp size={10} />, max: 20 },
-          { label: t('lb.p4p.pillar.dominance'),   color: '#ef4444', icon: <Flame size={10} />,      max: 20 },
-          { label: t('lb.p4p.pillar.legacy'),      color: PURPLE,    icon: <Trophy size={10} />,     max: 15 },
-          { label: t('lb.p4p.pillar.attack'),      color: '#f97316', icon: <Target size={10} />,     max: 6  },
-          { label: t('lb.p4p.pillar.resilience'),  color: ACCENT,    icon: <Shield size={10} />,     max: 4  },
-        ].map((p) => (
-          <div key={p.label} style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            fontSize: 10, color: MUTED,
-          }}>
-            <div style={{ width: 8, height: 8, borderRadius: 99, background: p.color, flexShrink: 0 }} />
-            <span style={{ display: 'inline-flex', color: p.color }}>{p.icon}</span> {p.label} <span style={{ color: 'rgba(255,255,255,0.2)' }}>/{p.max}</span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth/session'
 import { logAdminAction } from '@/lib/admin/activityLog'
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
 import { cancelMatchBets } from '@/lib/betting/settlement'
+import { PRESTIGE_WEIGHT } from '@/lib/championships/prestige'
 
 function requireAdmin(session: Awaited<ReturnType<typeof getSession>>) {
   if (!session?.isAdmin) throw new Error('Unauthorized')
@@ -128,6 +129,67 @@ export async function adminUpdateChampionshipMatchAction(
   revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
   revalidatePath('/admin/championships')
+}
+
+export async function adminUpdateChampionshipNameAction(
+  championshipId: string,
+  name: string
+): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error('Name cannot be empty')
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('championships')
+    .update({ name: trimmed })
+    .eq('id', championshipId)
+
+  if (error) throw new Error(error.message)
+
+  await logAdminAction('update_championship_name', 'championship', championshipId, { name: trimmed })
+  revalidateTag(STATS_CACHE_TAG, 'max')
+  revalidatePath('/admin/championships')
+  revalidatePath('/championships')
+  revalidatePath(`/championships/${championshipId}`)
+}
+
+/**
+ * Overrides a championship's P4P prestige weight. Normally auto-derived
+ * from player count at creation (see lib/championships/prestige.ts) — this
+ * lets an admin correct it by hand, e.g. before marking the championship
+ * complete, so the right weight is already in place once titles start
+ * counting toward P4P Legacy. Restricted to the three canonical tiers
+ * (2/4/8) so the weight scale stays meaningful across all championships.
+ */
+export async function adminUpdateChampionshipPrestigeAction(
+  championshipId: string,
+  weight: number
+): Promise<void> {
+  const session = await getSession()
+  requireAdmin(session)
+
+  const validWeights = Object.values(PRESTIGE_WEIGHT) as number[]
+  if (!validWeights.includes(weight)) {
+    throw new Error(`Prestige weight must be one of: ${validWeights.join(', ')}`)
+  }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('championships')
+    .update({ prestige_weight: weight })
+    .eq('id', championshipId)
+
+  if (error) throw new Error(error.message)
+
+  await logAdminAction('update_championship_prestige', 'championship', championshipId, { weight })
+  revalidateTag(STATS_CACHE_TAG, 'max')
+  revalidatePath('/admin/championships')
+  revalidatePath('/championships')
+  revalidatePath('/leaderboard')
+  revalidatePath('/')
 }
 
 export async function adminUpdateChampionshipYoutubeUrlAction(

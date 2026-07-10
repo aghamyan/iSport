@@ -12,7 +12,7 @@ export default async function AdminChampionshipsPage() {
   const [champsRes, matchesRes, playersRes] = await Promise.all([
     supabase
       .from('championships')
-      .select('id, name, is_active, created_at, youtube_url')
+      .select('id, name, is_active, created_at, youtube_url, prestige_weight')
       .order('created_at', { ascending: false }),
     supabase
       .from('championship_matches')
@@ -44,13 +44,14 @@ export default async function AdminChampionshipsPage() {
   }
 
   const championships = (champsRes.data ?? []).map((c) => ({
-    id:          c.id,
-    name:        c.name,
-    isActive:    c.is_active,
-    createdAt:   c.created_at,
-    youtubeUrl:  (c.youtube_url as string | null) ?? null,
-    playerCount: countByChamp[c.id] ?? 0,
-    matches:     matchesByChamp[c.id] ?? [],
+    id:             c.id,
+    name:           c.name,
+    isActive:       c.is_active,
+    createdAt:      c.created_at,
+    youtubeUrl:     (c.youtube_url as string | null) ?? null,
+    prestigeWeight: (c.prestige_weight as number | null) ?? 2,
+    playerCount:    countByChamp[c.id] ?? 0,
+    matches:        matchesByChamp[c.id] ?? [],
   }))
 
   return <ChampAdminClient championships={championships} />

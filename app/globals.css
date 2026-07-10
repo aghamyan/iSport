@@ -37,6 +37,8 @@
   /* so tints flip from black-on-white to white-on-dark automatically.     */
   --rgb-overlay: 0,0,0;
   --rgb-accent:  220,38,38;
+  --rgb-win:     22,163,74;
+  --rgb-gold:    217,119,6;
 
   /* Shadows */
   --shadow-sm:         0 1px 4px rgba(0,0,0,0.06);
@@ -70,6 +72,8 @@
   --nav-border: #1E3050;
   --rgb-overlay: 255,255,255;
   --rgb-accent:  239,68,68;
+  --rgb-win:     34,197,94;
+  --rgb-gold:    245,158,11;
   --shadow-sm:         0 1px 4px rgba(0,0,0,0.3);
   --shadow-md:         0 2px 8px rgba(0,0,0,0.4);
   --shadow-card:       0 2px 12px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3);

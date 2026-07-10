@@ -24,6 +24,7 @@ import {
   generateFourthPlaceDeciderSlot,
 } from '@/lib/championships/groupPlayoff'
 import { STATS_CACHE_TAG } from '@/lib/stats/queries'
+import { prestigeWeightForPlayerCount } from '@/lib/championships/prestige'
 import { calculateOdds, type PlayerStats, type OddsFormEntry, type H2HInput } from '@/lib/odds'
 import { logAdminAction } from '@/lib/admin/activityLog'
 import { generateMatchMarkets, fetchLeagueAvgGoals } from '@/lib/odds/markets'
@@ -224,6 +225,10 @@ export async function createChampionshipAction(
   if (format === 'group_knockout' && playerIds.length < 4) throw new Error('Group Knockout requires at least 4 players')
   if (format === 'group_playoff' && playerIds.length < 4) throw new Error('Group Playoff requires at least 4 players')
 
+  // Prestige weight is derived from field size, not admin-picked — see
+  // lib/championships/prestige.ts for the rationale.
+  const prestigeWeight = prestigeWeightForPlayerCount(playerIds.length)
+
   const supabase = createServiceClient()
 
   const { data: playersData } = await supabase
@@ -243,6 +248,7 @@ export async function createChampionshipAction(
       number_of_cycles: numberOfCycles,
       format,
       created_by:       session!.sub,
+      prestige_weight:  prestigeWeight,
       ...(playedAt ? { played_at: playedAt } : {}),
     })
     .select('id')

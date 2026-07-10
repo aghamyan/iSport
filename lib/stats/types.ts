@@ -129,6 +129,7 @@ export type ChampionshipLeader = {
   championshipId: string
   championshipName: string
   isActive: boolean
+  prestigeWeight: number
   playerId: string
   playerName: string
   avatarUrl: string | null

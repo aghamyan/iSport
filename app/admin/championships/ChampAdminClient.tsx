@@ -4,13 +4,22 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { ConfirmDialog } from '@/app/components/ConfirmDialog'
 import { useTranslation } from '@/lib/i18n/context'
+import { prestigeTierForPlayerCount, PRESTIGE_WEIGHT, type PrestigeTier } from '@/lib/championships/prestige'
 import {
   adminDeleteChampionshipAction,
   adminSetChampionshipActiveAction,
   adminUpdateChampionshipMatchAction,
   adminDeleteChampionshipMatchAction,
   adminUpdateChampionshipYoutubeUrlAction,
+  adminUpdateChampionshipNameAction,
+  adminUpdateChampionshipPrestigeAction,
 } from './actions'
+
+const PRESTIGE_TIERS: { tier: PrestigeTier; labelKey: string }[] = [
+  { tier: 'friendly', labelKey: 'champ.create.prestige.friendly' },
+  { tier: 'standard', labelKey: 'champ.create.prestige.standard' },
+  { tier: 'major',    labelKey: 'champ.create.prestige.major' },
+]
 
 type CMatch = {
   id: string
@@ -28,6 +37,7 @@ type Championship = {
   isActive: boolean
   createdAt: string
   youtubeUrl: string | null
+  prestigeWeight: number
   playerCount: number
   matches: CMatch[]
 }
@@ -128,6 +138,12 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
   const [youtubeInput, setYoutubeInput] = useState(champ.youtubeUrl ?? '')
   const [youtubeError, setYoutubeError] = useState('')
   const [savingYoutube, startYoutube] = useTransition()
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState(champ.name)
+  const [nameError, setNameError] = useState('')
+  const [savingName, startName] = useTransition()
+  const [prestigeError, setPrestigeError] = useState('')
+  const [savingPrestige, startPrestige] = useTransition()
 
   function doDeleteChamp() {
     start(async () => {
@@ -148,6 +164,35 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
     start(async () => { await adminSetChampionshipActiveAction(champ.id, !champ.isActive) })
   }
 
+  function saveName() {
+    setNameError('')
+    const trimmed = nameInput.trim()
+    if (!trimmed) {
+      setNameError(t('admin.champ.nameRequired'))
+      return
+    }
+    startName(async () => {
+      try {
+        await adminUpdateChampionshipNameAction(champ.id, trimmed)
+        setEditingName(false)
+      } catch (e) {
+        setNameError((e as Error).message)
+      }
+    })
+  }
+
+  function setPrestige(weight: number) {
+    if (weight === champ.prestigeWeight) return
+    setPrestigeError('')
+    startPrestige(async () => {
+      try {
+        await adminUpdateChampionshipPrestigeAction(champ.id, weight)
+      } catch (e) {
+        setPrestigeError((e as Error).message)
+      }
+    })
+  }
+
   function saveYoutubeUrl() {
     setYoutubeError('')
     const url = youtubeInput.trim() || null
@@ -166,12 +211,40 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, marginBottom: 12, overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{champ.name}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: champ.isActive ? '#dcfce7' : '#f3f4f6', color: champ.isActive ? '#16a34a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {champ.isActive ? t('champ.active') : t('champ.ended')}
-              </span>
-            </div>
+            {editingName ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  autoFocus
+                  style={{ padding: '5px 10px', border: '1px solid #2563eb', borderRadius: 6, fontSize: 14, fontWeight: 700, color: '#111827', minWidth: 200 }}
+                />
+                <button onClick={saveName} disabled={savingName} style={{ ...S.btn('#fff', '#2563eb'), opacity: savingName ? 0.6 : 1 }}>
+                  {savingName ? t('common.saving') : t('common.save')}
+                </button>
+                <button
+                  onClick={() => { setNameInput(champ.name); setEditingName(false); setNameError('') }}
+                  style={S.btn('#374151', '#f3f4f6')}
+                >
+                  {t('common.cancel')}
+                </button>
+                {nameError && <span style={{ fontSize: 11, color: '#dc2626' }}>{nameError}</span>}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{champ.name}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: champ.isActive ? '#dcfce7' : '#f3f4f6', color: champ.isActive ? '#16a34a' : '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {champ.isActive ? t('champ.active') : t('champ.ended')}
+                </span>
+                <button
+                  onClick={() => { setNameInput(champ.name); setEditingName(true) }}
+                  style={S.btn('#374151', '#f3f4f6')}
+                >
+                  {t('common.edit')}
+                </button>
+              </div>
+            )}
             <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
               {t('admin.champ.playerCount', { n: champ.playerCount })} · {t('admin.champ.matchCount', { n: champ.matches.length })} · {new Date(champ.createdAt).toLocaleDateString()}
             </div>
@@ -251,6 +324,40 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
                 )}
               </>
             )}
+          </div>
+        </div>
+
+        {/* P4P prestige weight */}
+        <div style={{ padding: '10px 20px 12px', borderTop: '1px solid #f9fafb', background: '#fafafa' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }}>
+              {t('admin.champ.prestige')}
+            </span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {PRESTIGE_TIERS.map(({ tier, labelKey }) => {
+                const weight = PRESTIGE_WEIGHT[tier]
+                const active = champ.prestigeWeight === weight
+                return (
+                  <button
+                    key={tier}
+                    onClick={() => setPrestige(weight)}
+                    disabled={savingPrestige}
+                    style={S.btn(active ? '#fff' : '#374151', active ? '#7c3aed' : '#f3f4f6')}
+                  >
+                    {t(labelKey)} · {weight}
+                  </button>
+                )
+              })}
+            </div>
+            {champ.playerCount > 0 && prestigeTierForPlayerCount(champ.playerCount) !== Object.entries(PRESTIGE_WEIGHT).find(([, w]) => w === champ.prestigeWeight)?.[0] && (
+              <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>
+                {t('admin.champ.prestigeSuggested', {
+                  tier: t(`champ.create.prestige.${prestigeTierForPlayerCount(champ.playerCount)}`),
+                  n: champ.playerCount,
+                })}
+              </span>
+            )}
+            {prestigeError && <span style={{ fontSize: 11, color: '#dc2626' }}>{prestigeError}</span>}
           </div>
         </div>
 
