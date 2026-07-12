@@ -261,6 +261,7 @@ function MatchCard({
       )}
       {showPreview && (
         <MatchPreviewModal
+          matchId={match.id}
           homePlayerId={match.homePlayerId}
           awayPlayerId={match.awayPlayerId}
           homeName={homeName}

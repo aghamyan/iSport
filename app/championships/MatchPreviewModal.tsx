@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getMatchPreviewAction, type MatchPreviewData } from './actions'
+import { getOrCreateAiMatchPreviewAction, type MatchAiPreview } from './aiPreviewActions'
 import { useTranslation } from '@/lib/i18n/context'
 import { NumberTicker } from '@/app/components/magicui/number-ticker'
 
@@ -44,6 +45,14 @@ const PREVIEW_ANIMS = `
   @keyframes vsIn {
     from { opacity: 0; transform: scale(0.7); }
     to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes aiCardIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes aiPulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
   }
 `
 
@@ -187,7 +196,7 @@ function FormDot({
   )
 }
 
-type ActiveTab = 'matchup' | 'odds' | 'h2h' | 'form'
+type ActiveTab = 'matchup' | 'odds' | 'h2h' | 'form' | 'ai'
 
 function UFCStatRow({
   label,
@@ -231,6 +240,7 @@ function UFCStatRow({
 }
 
 export function MatchPreviewModal({
+  matchId,
   homePlayerId,
   awayPlayerId,
   homeName,
@@ -240,6 +250,7 @@ export function MatchPreviewModal({
   boutLabel,
   onClose,
 }: {
+  matchId: string
   homePlayerId: string
   awayPlayerId: string
   homeName: string
@@ -255,6 +266,10 @@ export function MatchPreviewModal({
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<ActiveTab>('matchup')
 
+  const [aiPreview, setAiPreview] = useState<MatchAiPreview | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -264,6 +279,14 @@ export function MatchPreviewModal({
       .catch((e) => { if (!cancelled) { setError(e instanceof Error ? e.message : 'Error'); setLoading(false) } })
     return () => { cancelled = true }
   }, [homePlayerId, awayPlayerId])
+
+  const generateAiPreview = () => {
+    setAiLoading(true)
+    setAiError(null)
+    getOrCreateAiMatchPreviewAction(matchId)
+      .then((d) => { setAiPreview(d); setAiLoading(false) })
+      .catch((e) => { setAiError(e instanceof Error ? e.message : 'Error'); setAiLoading(false) })
+  }
 
   const o = data?.odds
   const h2h = data?.h2h
@@ -284,6 +307,7 @@ export function MatchPreviewModal({
     { key: 'odds', label: 'ODDS' },
     { key: 'h2h', label: 'H2H' },
     { key: 'form', label: 'FORM' },
+    { key: 'ai', label: t('champ.preview.aiTab') },
   ]
 
   return (
@@ -888,6 +912,108 @@ export function MatchPreviewModal({
                               )}
                             </div>
                           </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── AI PREVIEW tab ── */}
+                  {activeTab === 'ai' && (
+                    <div style={{ paddingTop: 18 }}>
+                      {!aiPreview && !aiLoading && !aiError && (
+                        <div style={{ textAlign: 'center', padding: '20px 8px 12px' }}>
+                          <div style={{ fontSize: 28, marginBottom: 10 }}>✨</div>
+                          <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.5, marginBottom: 18, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
+                            {t('champ.preview.aiIntro')}
+                          </div>
+                          <button
+                            onClick={generateAiPreview}
+                            style={{
+                              background: 'linear-gradient(135deg, #7c3aed, #2563eb)',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 8,
+                              padding: '11px 22px',
+                              fontSize: 13,
+                              fontWeight: 800,
+                              letterSpacing: '0.02em',
+                              cursor: 'pointer',
+                              boxShadow: '0 4px 14px rgba(124,58,237,0.35)',
+                            }}
+                          >
+                            ✨ {t('champ.preview.aiGenerateBtn')}
+                          </button>
+                        </div>
+                      )}
+
+                      {aiLoading && (
+                        <div style={{ textAlign: 'center', padding: '40px 0', animation: 'aiPulse 1.4s ease-in-out infinite' }}>
+                          <div style={{ fontSize: 28, marginBottom: 10 }}>✨</div>
+                          <div style={{ fontSize: 13, color: '#7c3aed', fontWeight: 700 }}>
+                            {t('champ.preview.aiGenerating')}
+                          </div>
+                        </div>
+                      )}
+
+                      {aiError && !aiLoading && (
+                        <div style={{ textAlign: 'center', padding: '28px 0' }}>
+                          <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 14 }}>{t('champ.preview.aiError')}</div>
+                          <button
+                            onClick={generateAiPreview}
+                            style={{
+                              background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 6,
+                              padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                            }}
+                          >
+                            {t('champ.preview.aiRetry')}
+                          </button>
+                        </div>
+                      )}
+
+                      {aiPreview && !aiLoading && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'aiCardIn 0.3s ease both' }}>
+                          <div
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(37,99,235,0.08))',
+                              border: '1px solid rgba(124,58,237,0.18)',
+                              borderRadius: 10,
+                              padding: '14px 16px',
+                            }}
+                          >
+                            <div style={{
+                              fontSize: 9, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase',
+                              letterSpacing: '0.14em', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5,
+                            }}>
+                              ✨ {t('champ.preview.aiTab')}
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', lineHeight: 1.3, marginBottom: 8 }}>
+                              {aiPreview.headline}
+                            </div>
+                            <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.55 }}>
+                              {aiPreview.summary}
+                            </div>
+                          </div>
+
+                          {aiPreview.insights.map((insight, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 8,
+                                padding: '12px 14px',
+                                animation: `aiCardIn 0.3s ease ${0.05 + i * 0.06}s both`,
+                              }}
+                            >
+                              <div style={{ fontSize: 11, fontWeight: 800, color: '#0f172a', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ color: '#7c3aed' }}>●</span>
+                                {insight.title}
+                              </div>
+                              <div style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.5 }}>
+                                {insight.detail}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
