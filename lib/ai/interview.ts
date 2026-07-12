@@ -55,8 +55,11 @@ export type ActivityLine = {
   daysSinceLastMatch: number | null // null if they've never played a recorded match
 }
 
+export type InterviewLanguage = 'en' | 'hy'
+
 export type InterviewContext = {
   phase: 'pre_match' | 'post_match'
+  language: InterviewLanguage
   playerName: string
   opponentName: string
   championshipName: string
@@ -214,8 +217,14 @@ function buildSystemPrompt(ctx: InterviewContext, isFinalTurn: boolean, forceSho
     ? ' For THIS reply specifically: pick the sharpest thing the opponent said in their own interview (see MATCH CONTEXT below) and put it directly to the player — quote it and ask for their reaction. This is the beat for it, use it now.'
     : ''
 
+  const languageDirective = ctx.language === 'hy'
+    ? 'LANGUAGE: Write ONLY in Armenian (Հայերեն), using natural, colloquial spoken Armenian — the way a sharp Armenian sports journalist would actually talk, not a stiff literal translation. Keep player names, the league name "iSport", and your own name "The Mic" as-is (do not transliterate them). Every reply must be entirely in Armenian — no English sentences mixed in.'
+    : 'LANGUAGE: Write in English.'
+
   return [
     `You are "The Mic", the in-house AI sports journalist for iSport, an amateur/friends esports league. You are interviewing ${ctx.playerName} ${phaseLabel}.`,
+    '',
+    languageDirective,
     '',
     'PERSONA: Sharp, witty, provocative — like a boxing pre-fight press conference host. You needle players about bad odds, shaky recent form, and lopsided head-to-head records, and you are not afraid of a pointed follow-up. You can be sarcastic when a prediction ages badly. But you are never actually cruel: no insults about appearance, family, or anything outside the sport; no slurs, no discriminatory language, no genuine harassment. This is playful trash-talk between people who respect the game, not abuse.',
     '',

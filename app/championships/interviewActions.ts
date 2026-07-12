@@ -7,6 +7,7 @@ import {
   generateJournalistReply,
   MAX_PLAYER_TURNS,
   type InterviewContext,
+  type InterviewLanguage,
   type StandingLine,
   type PastChampionshipLine,
   type RecentMatchLine,
@@ -116,7 +117,8 @@ async function buildContext(
   playerId: string,
   opponentId: string,
   isHome: boolean,
-  phase: InterviewPhase
+  phase: InterviewPhase,
+  language: InterviewLanguage
 ): Promise<InterviewContext> {
   const [
     usersResult,
@@ -293,6 +295,7 @@ async function buildContext(
 
   const context: InterviewContext = {
     phase,
+    language,
     playerName: nameMap.get(playerId) ?? 'Player',
     opponentName: nameMap.get(opponentId) ?? 'Opponent',
     championshipName: (champResult.data as { name?: string } | null)?.name ?? 'the championship',
@@ -360,8 +363,35 @@ async function loadMessages(supabase: SupabaseClient, interviewId: string): Prom
   }))
 }
 
-/** Fetches an existing interview or starts a new one (generating the AI's opening line). */
-export async function getOrCreateInterviewAction(matchId: string, phase: InterviewPhase): Promise<InterviewSession> {
+/** Checks whether an interview already exists for this (match, player, phase) without creating
+ *  one, so the client can skip the language picker — and the OpenAI call it would trigger —
+ *  when resuming a session instead of starting a fresh one. */
+export async function getInterviewStatusAction(
+  matchId: string,
+  phase: InterviewPhase
+): Promise<{ exists: boolean; language: InterviewLanguage | null }> {
+  const { supabase, playerId } = await loadMatchAndAuthorize(matchId, phase)
+
+  const { data: existing } = await supabase
+    .from('match_interviews')
+    .select('language')
+    .eq('championship_match_id', matchId)
+    .eq('player_id', playerId)
+    .eq('phase', phase)
+    .maybeSingle()
+
+  const row = existing as { language: InterviewLanguage } | null
+  return { exists: !!row, language: row?.language ?? null }
+}
+
+/** Fetches an existing interview or starts a new one (generating the AI's opening line).
+ *  `language` only takes effect when creating a new session — an existing one keeps the
+ *  language it was started with, read back from its own row. */
+export async function getOrCreateInterviewAction(
+  matchId: string,
+  phase: InterviewPhase,
+  language: InterviewLanguage = 'en'
+): Promise<InterviewSession> {
   const { supabase, match, playerId, opponentId, isHome } = await loadMatchAndAuthorize(matchId, phase)
 
   const { data: existing } = await supabase
@@ -379,12 +409,12 @@ export async function getOrCreateInterviewAction(matchId: string, phase: Intervi
     interviewId = (existing as { id: string; status: 'in_progress' | 'completed' }).id
     status = (existing as { id: string; status: 'in_progress' | 'completed' }).status
   } else {
-    const context = await buildContext(supabase, match, playerId, opponentId, isHome, phase)
+    const context = await buildContext(supabase, match, playerId, opponentId, isHome, phase, language)
     const opener = await generateJournalistReply(context, [])
 
     const { data: created, error: createErr } = await supabase
       .from('match_interviews')
-      .insert({ championship_match_id: matchId, player_id: playerId, phase, status: 'in_progress' })
+      .insert({ championship_match_id: matchId, player_id: playerId, phase, status: 'in_progress', language })
       .select('id, status')
       .single()
 
@@ -437,7 +467,7 @@ export async function sendInterviewReplyAction(interviewId: string, content: str
   const supabase = createServiceClient()
   const { data: interviewData, error: interviewErr } = await supabase
     .from('match_interviews')
-    .select('id, championship_match_id, player_id, phase, status')
+    .select('id, championship_match_id, player_id, phase, status, language')
     .eq('id', interviewId)
     .single()
   if (interviewErr || !interviewData) throw new Error('Interview not found')
@@ -448,6 +478,7 @@ export async function sendInterviewReplyAction(interviewId: string, content: str
     player_id: string
     phase: InterviewPhase
     status: 'in_progress' | 'completed'
+    language: InterviewLanguage
   }
   if (interview.player_id !== session.sub) throw new Error('This is not your interview')
   if (interview.status !== 'in_progress') throw new Error('This interview has ended')
@@ -473,7 +504,7 @@ export async function sendInterviewReplyAction(interviewId: string, content: str
     .insert({ interview_id: interviewId, role: 'player', content: trimmed })
   if (insertErr) throw new Error(insertErr.message)
 
-  const context = await buildContext(supabase, match, session.sub, opponentId, isHome, interview.phase)
+  const context = await buildContext(supabase, match, session.sub, opponentId, isHome, interview.phase, interview.language)
   const conversation = [
     ...history.map((m) => ({ role: m.role, content: m.content })),
     { role: 'player' as const, content: trimmed },

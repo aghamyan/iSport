@@ -8,11 +8,13 @@ export interface Comment {
   id: string
   content: string
   createdAt: string
+  parentId: string | null
   user: {
     id: string
     name: string
     avatarUrl: string | null
   }
+  replies: Comment[]
 }
 
 export interface CurrentUser {
@@ -63,20 +65,108 @@ function Avatar({ name, avatarUrl, size = 36 }: { name: string; avatarUrl: strin
   )
 }
 
-function CommentItem({
-  comment,
+function ReplyItem({
+  reply,
   newsId,
   currentUserId,
   isAdmin,
   onDelete,
+  onReplyClick,
 }: {
-  comment: Comment
+  reply: Comment
   newsId: string
   currentUserId: string | null
   isAdmin: boolean
   onDelete: (id: string) => void
+  onReplyClick: (name: string) => void
 }) {
   const [deleting, startDelete] = useTransition()
+  const canDelete = currentUserId === reply.user.id || isAdmin
+
+  function handleDelete() {
+    startDelete(async () => {
+      const res = await deleteCommentAction(reply.id, newsId)
+      if (!res.error) onDelete(reply.id)
+    })
+  }
+
+  return (
+    <div style={{
+      display: 'flex', gap: 10, alignItems: 'flex-start',
+      padding: '8px 0',
+      opacity: deleting ? 0.4 : 1,
+      transition: 'opacity 0.15s',
+    }}>
+      <Avatar name={reply.user.name} avatarUrl={reply.user.avatarUrl} size={28} />
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          background: 'var(--card2)',
+          borderRadius: 10,
+          padding: '7px 12px',
+          display: 'inline-block',
+          maxWidth: '100%',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.01em' }}>
+            {reply.user.name}
+          </div>
+          <p style={{
+            margin: '2px 0 0',
+            fontSize: 12.5,
+            color: 'var(--text2)',
+            lineHeight: 1.5,
+            wordBreak: 'break-word',
+          }}>
+            {reply.content}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 3, paddingLeft: 12 }}>
+          <span style={{ fontSize: 10, color: 'var(--muted)' }}>{timeAgo(reply.createdAt)}</span>
+          <button onClick={() => onReplyClick(reply.user.name)} className="comment-reply-link">
+            Reply
+          </button>
+          {canDelete && (
+            <button onClick={handleDelete} disabled={deleting} className="comment-reply-link">
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CommentItem({
+  comment,
+  newsId,
+  currentUser,
+  isAdmin,
+  onDelete,
+  onReplyStart,
+  onReplyConfirm,
+  onReplyRollback,
+  onDeleteReply,
+}: {
+  comment: Comment
+  newsId: string
+  currentUser: CurrentUser | null
+  isAdmin: boolean
+  onDelete: (id: string) => void
+  onReplyStart: (topLevelId: string, reply: Comment) => void
+  onReplyConfirm: (topLevelId: string, tempId: string, real: { id: string; createdAt: string }) => void
+  onReplyRollback: (topLevelId: string, tempId: string) => void
+  onDeleteReply: (topLevelId: string, replyId: string) => void
+}) {
+  const [deleting, startDelete] = useTransition()
+  const [showComposer, setShowComposer] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [replyErr, setReplyErr] = useState<string | null>(null)
+  const [posting, startPosting] = useTransition()
+  const [showReplies, setShowReplies] = useState(comment.replies.length > 0 && comment.replies.length <= 2)
+  const replyRef = useRef<HTMLTextAreaElement>(null)
+
+  const currentUserId = currentUser?.id ?? null
   const canDelete = currentUserId === comment.user.id || isAdmin
 
   function handleDelete() {
@@ -86,60 +176,214 @@ function CommentItem({
     })
   }
 
+  function openComposer(mentionName?: string) {
+    if (!currentUser) return
+    setShowComposer(true)
+    setShowReplies(true)
+    if (mentionName) setReplyText(`@${mentionName} `)
+    requestAnimationFrame(() => {
+      const el = replyRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(el.value.length, el.value.length)
+    })
+  }
+
+  function submitReply() {
+    if (!replyText.trim() || posting || !currentUser) return
+    setReplyErr(null)
+
+    const tempId = `opt-${Date.now()}`
+    const optimistic: Comment = {
+      id: tempId,
+      content: replyText.trim(),
+      createdAt: new Date().toISOString(),
+      parentId: comment.id,
+      user: { id: currentUser.id, name: currentUser.name, avatarUrl: currentUser.avatarUrl },
+      replies: [],
+    }
+    onReplyStart(comment.id, optimistic)
+    const submitted = replyText.trim()
+    setReplyText('')
+    setShowComposer(false)
+
+    startPosting(async () => {
+      const res = await addCommentAction(newsId, submitted, comment.id)
+      if (res.error) {
+        setReplyErr(res.error)
+        onReplyRollback(comment.id, tempId)
+      } else if (res.comment) {
+        onReplyConfirm(comment.id, tempId, res.comment)
+      }
+    })
+  }
+
+  function handleComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault()
+      submitReply()
+    }
+  }
+
   return (
     <div style={{
-      display: 'flex', gap: 12, alignItems: 'flex-start',
       padding: '14px 0',
       borderBottom: '1px solid var(--border)',
       opacity: deleting ? 0.4 : 1,
       transition: 'opacity 0.15s',
     }}>
-      <Avatar name={comment.user.name} avatarUrl={comment.user.avatarUrl} size={36} />
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <Avatar name={comment.user.name} avatarUrl={comment.user.avatarUrl} size={36} />
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-          <span style={{
-            fontSize: 13, fontWeight: 800,
-            color: 'var(--text)',
-            letterSpacing: '-0.01em',
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <span style={{
+              fontSize: 13, fontWeight: 800,
+              color: 'var(--text)',
+              letterSpacing: '-0.01em',
+            }}>
+              {comment.user.name}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+              {timeAgo(comment.createdAt)}
+            </span>
+          </div>
+          <p style={{
+            margin: 0,
+            fontSize: 13,
+            color: 'var(--text2)',
+            lineHeight: 1.6,
+            wordBreak: 'break-word',
           }}>
-            {comment.user.name}
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-            {timeAgo(comment.createdAt)}
-          </span>
+            {comment.content}
+          </p>
+
+          <div style={{ marginTop: 6 }}>
+            <button onClick={() => openComposer()} className="comment-reply-link">
+              Reply
+            </button>
+          </div>
         </div>
-        <p style={{
-          margin: 0,
-          fontSize: 13,
-          color: 'var(--text2)',
-          lineHeight: 1.6,
-          wordBreak: 'break-word',
-        }}>
-          {comment.content}
-        </p>
+
+        {canDelete && (
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            aria-label="Delete comment"
+            style={{
+              flexShrink: 0,
+              width: 28, height: 28,
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              cursor: deleting ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--muted)',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            className="comment-delete-btn"
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
       </div>
 
-      {canDelete && (
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          aria-label="Delete comment"
-          style={{
-            flexShrink: 0,
-            width: 28, height: 28,
-            borderRadius: 6,
-            border: '1px solid var(--border)',
-            background: 'transparent',
-            cursor: deleting ? 'default' : 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--muted)',
-            transition: 'color 0.15s, border-color 0.15s',
-          }}
-          className="comment-delete-btn"
-        >
-          <Trash2 size={11} />
-        </button>
+      {/* Replies + reply composer, indented under the parent comment */}
+      {(comment.replies.length > 0 || showComposer) && (
+        <div style={{ marginLeft: 48, marginTop: 4 }}>
+          {comment.replies.length > 0 && (
+            <button
+              onClick={() => setShowReplies((v) => !v)}
+              className="comments-toggle"
+              style={{ fontSize: 11, marginTop: 4 }}
+            >
+              {showReplies ? (
+                <><ChevronUp size={12} /> Hide replies</>
+              ) : (
+                <><ChevronDown size={12} /> View {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}</>
+              )}
+            </button>
+          )}
+
+          {showReplies && comment.replies.map((reply) => (
+            <ReplyItem
+              key={reply.id}
+              reply={reply}
+              newsId={newsId}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+              onDelete={(id) => onDeleteReply(comment.id, id)}
+              onReplyClick={(name) => openComposer(name)}
+            />
+          ))}
+
+          {showComposer && currentUser && (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 8 }}>
+              <Avatar name={currentUser.name} avatarUrl={currentUser.avatarUrl} size={28} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <textarea
+                  ref={replyRef}
+                  value={replyText}
+                  onChange={(e) => {
+                    if (e.target.value.length <= MAX_CHARS) setReplyText(e.target.value)
+                  }}
+                  onKeyDown={handleComposerKeyDown}
+                  placeholder={`Reply to ${comment.user.name}…`}
+                  rows={2}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: `1px solid ${replyText.length > 0 ? 'var(--accent)' : 'var(--border)'}`,
+                    background: 'var(--card2)',
+                    color: 'var(--text)',
+                    fontSize: 12.5,
+                    lineHeight: 1.5,
+                    resize: 'none',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.15s',
+                    fontFamily: 'inherit',
+                  }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>
+                    {replyErr ?? ''}
+                  </span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => { setShowComposer(false); setReplyText(''); setReplyErr(null) }}
+                      className="comment-reply-link"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={submitReply}
+                      disabled={posting || !replyText.trim()}
+                      className="comment-submit-btn"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '5px 12px',
+                        borderRadius: 6,
+                        border: 'none',
+                        background: replyText.trim() ? 'var(--accent)' : 'var(--border)',
+                        color: replyText.trim() ? '#fff' : 'var(--muted)',
+                        fontSize: 10, fontWeight: 800, letterSpacing: '0.06em',
+                        cursor: posting || !replyText.trim() ? 'default' : 'pointer',
+                        transition: 'background 0.15s, color 0.15s',
+                        opacity: posting ? 0.6 : 1,
+                      }}
+                    >
+                      <Send size={10} strokeWidth={2} />
+                      {posting ? 'POSTING…' : 'REPLY'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -167,6 +411,7 @@ export function CommentsSection({
   const remaining = MAX_CHARS - text.length
   const visible = showAll ? comments : comments.slice(0, INITIAL_VISIBLE)
   const hasMore = comments.length > INITIAL_VISIBLE
+  const totalCount = comments.reduce((sum, c) => sum + 1 + c.replies.length, 0)
 
   function handleSubmit() {
     if (!text.trim() || pending) return
@@ -177,11 +422,13 @@ export function CommentsSection({
       id: `opt-${Date.now()}`,
       content: text.trim(),
       createdAt: new Date().toISOString(),
+      parentId: null,
       user: {
         id: currentUser!.id,
         name: currentUser!.name,
         avatarUrl: currentUser!.avatarUrl,
       },
+      replies: [],
     }
     setComments((prev) => [optimistic, ...prev])
     const submitted = text.trim()
@@ -214,12 +461,55 @@ export function CommentsSection({
     }
   }
 
+  function handleReplyStart(topLevelId: string, reply: Comment) {
+    setComments((prev) =>
+      prev.map((c) => (c.id === topLevelId ? { ...c, replies: [...c.replies, reply] } : c))
+    )
+  }
+
+  function handleReplyConfirm(topLevelId: string, tempId: string, real: { id: string; createdAt: string }) {
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === topLevelId
+          ? { ...c, replies: c.replies.map((r) => (r.id === tempId ? { ...r, id: real.id, createdAt: real.createdAt } : r)) }
+          : c
+      )
+    )
+  }
+
+  function handleReplyRollback(topLevelId: string, tempId: string) {
+    setComments((prev) =>
+      prev.map((c) => (c.id === topLevelId ? { ...c, replies: c.replies.filter((r) => r.id !== tempId) } : c))
+    )
+  }
+
+  function handleDeleteReply(topLevelId: string, replyId: string) {
+    setComments((prev) =>
+      prev.map((c) => (c.id === topLevelId ? { ...c, replies: c.replies.filter((r) => r.id !== replyId) } : c))
+    )
+  }
+
   return (
     <>
       <style>{`
         .comment-delete-btn:hover { color: var(--accent) !important; border-color: rgba(var(--rgb-accent),0.4) !important; }
         .comment-submit-btn:hover:not(:disabled) { background: var(--accent2) !important; }
         .comments-toggle:hover { color: var(--accent) !important; }
+        .comment-reply-link {
+          background: transparent; border: none; padding: 0; cursor: pointer;
+          font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+          color: var(--muted); transition: color 0.15s;
+        }
+        .comment-reply-link:hover { color: var(--accent); }
+        .comments-toggle {
+          display: flex; align-items: center; gap: 6px;
+          background: transparent; border: none;
+          cursor: pointer;
+          font-weight: 700;
+          color: var(--muted);
+          letter-spacing: 0.06em;
+          transition: color 0.15s;
+        }
       `}</style>
 
       <section style={{
@@ -241,14 +531,14 @@ export function CommentsSection({
             }}>
               COMMUNITY
             </h2>
-            {comments.length > 0 && (
+            {totalCount > 0 && (
               <span style={{
                 fontSize: 11, fontWeight: 800,
                 color: 'var(--accent)',
                 background: 'rgba(var(--rgb-accent),0.1)',
                 padding: '2px 8px', borderRadius: 4,
               }}>
-                {comments.length}
+                {totalCount}
               </span>
             )}
           </div>
@@ -369,9 +659,13 @@ export function CommentsSection({
                 key={comment.id}
                 comment={comment}
                 newsId={newsId}
-                currentUserId={currentUser?.id ?? null}
+                currentUser={currentUser}
                 isAdmin={currentUser?.isAdmin ?? false}
                 onDelete={(id) => setComments((prev) => prev.filter((c) => c.id !== id))}
+                onReplyStart={handleReplyStart}
+                onReplyConfirm={handleReplyConfirm}
+                onReplyRollback={handleReplyRollback}
+                onDeleteReply={handleDeleteReply}
               />
             ))}
 
@@ -380,14 +674,8 @@ export function CommentsSection({
                 onClick={() => setShowAll((v) => !v)}
                 className="comments-toggle"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
                   marginTop: 12,
-                  background: 'transparent', border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 12, fontWeight: 700,
-                  color: 'var(--muted)',
-                  letterSpacing: '0.06em',
-                  transition: 'color 0.15s',
+                  fontSize: 12,
                 }}
               >
                 {showAll ? (

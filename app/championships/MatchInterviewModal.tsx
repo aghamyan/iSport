@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, useTransition } from 'react'
 import {
+  getInterviewStatusAction,
   getOrCreateInterviewAction,
   sendInterviewReplyAction,
   endInterviewAction,
   type InterviewSession,
   type InterviewPhase,
 } from './interviewActions'
+import type { InterviewLanguage } from '@/lib/ai/interview'
 
 // "The Mic" journalist identity — a dedicated accent distinct from the app's
 // shared semantic tokens (--accent/--gold/--win). Kept as a literal RGB triple
@@ -40,6 +42,10 @@ const INTERVIEW_STYLES = `
   }
   .interview-end-btn:hover {
     color: var(--text2);
+  }
+  .interview-lang-btn:hover {
+    border-color: ${MIC};
+    background: rgba(${MIC_RGB}, 0.10);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -139,8 +145,36 @@ function TypingIndicator() {
   )
 }
 
+function LanguagePicker({ onChoose }: { onChoose: (language: InterviewLanguage) => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '32px 12px', textAlign: 'center' }}>
+      <MicAvatar />
+      <div style={{ fontSize: 13.5, color: 'var(--text2)', fontWeight: 600 }}>
+        Choose a language for this interview
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        {(['en', 'hy'] as const).map((lang) => (
+          <button
+            key={lang}
+            onClick={() => onChoose(lang)}
+            className="interview-lang-btn"
+            style={{
+              padding: '10px 20px', borderRadius: 9, border: '1px solid var(--border)',
+              background: 'var(--card2)', color: 'var(--text)', fontSize: 13.5, fontWeight: 700,
+              cursor: 'pointer', transition: 'border-color 0.12s, background 0.12s',
+            }}
+          >
+            {lang === 'en' ? 'English' : 'Հայերեն'}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function MatchInterviewModal({ matchId, phase, playerName, opponentName, onClose }: Props) {
   const [session, setSession] = useState<InterviewSession | null>(null)
+  const [needsLanguagePick, setNeedsLanguagePick] = useState(false)
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -156,11 +190,32 @@ export function MatchInterviewModal({ matchId, phase, playerName, opponentName, 
     // getOrCreateInterviewAction), this just avoids the wasted duplicate call in dev.
     if (initedRef.current) return
     initedRef.current = true
-    getOrCreateInterviewAction(matchId, phase)
+    // Peek first so resuming an in-progress interview never shows the language picker
+    // (or fires a second OpenAI call) — only a brand-new session asks.
+    getInterviewStatusAction(matchId, phase)
+      .then((status) => {
+        if (status.exists) {
+          return getOrCreateInterviewAction(matchId, phase)
+            .then((s) => setSession(s))
+            .finally(() => setLoading(false))
+        }
+        setNeedsLanguagePick(true)
+        setLoading(false)
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : 'Could not start interview')
+        setLoading(false)
+      })
+  }, [matchId, phase])
+
+  function handleChooseLanguage(language: InterviewLanguage) {
+    setNeedsLanguagePick(false)
+    setLoading(true)
+    getOrCreateInterviewAction(matchId, phase, language)
       .then((s) => setSession(s))
       .catch((e) => setError(e instanceof Error ? e.message : 'Could not start interview'))
       .finally(() => setLoading(false))
-  }, [matchId, phase])
+  }
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -280,7 +335,8 @@ export function MatchInterviewModal({ matchId, phase, playerName, opponentName, 
           aria-label="Interview transcript"
           style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}
         >
-          {loading && (
+          {needsLanguagePick && <LanguagePicker onChoose={handleChooseLanguage} />}
+          {!needsLanguagePick && loading && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '28px 0' }}>
               <TypingIndicator />
               <div style={{ color: 'var(--muted)', fontSize: 12.5 }}>Connecting to The Mic…</div>
@@ -341,7 +397,7 @@ export function MatchInterviewModal({ matchId, phase, playerName, opponentName, 
               {error}
             </div>
           )}
-          {isDone ? (
+          {needsLanguagePick ? null : isDone ? (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               fontSize: 12.5, color: 'var(--muted)', fontWeight: 700, padding: '6px 0',

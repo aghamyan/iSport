@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft, Calendar, Tag } from 'lucide-react'
 import { CommentsSection, type Comment, type CurrentUser } from './CommentsSection'
 import { BottomNav } from '@/app/components/BottomNav'
+import { coverImageStyle } from '../coverImageStyle'
 
 export interface NewsDetailItem {
   id: string
@@ -12,6 +13,8 @@ export interface NewsDetailItem {
   excerpt: string | null
   content: string | null
   coverUrl: string | null
+  coverPosition: string
+  coverZoom: number
   createdAt: string
 }
 
@@ -70,8 +73,8 @@ export function NewsDetail({
               style={{
                 width: '100%',
                 height: 480,
-                objectFit: 'cover',
                 display: 'block',
+                ...coverImageStyle(item.coverPosition, item.coverZoom),
               }}
             />
             {/* Gradient overlay */}

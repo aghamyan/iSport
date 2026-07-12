@@ -14,14 +14,14 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
   const [articleRes, commentsRes, userRes] = await Promise.all([
     supabase
       .from('news')
-      .select('id, title, category, excerpt, content, cover_url, created_at')
+      .select('id, title, category, excerpt, content, cover_url, cover_position, cover_zoom, created_at')
       .eq('id', id)
       .eq('published', true)
       .single(),
 
     supabase
       .from('news_comments')
-      .select('id, content, created_at, user_id')
+      .select('id, content, created_at, user_id, parent_id')
       .eq('news_id', id)
       .order('created_at', { ascending: false }),
 
@@ -41,19 +41,35 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
     : { data: [] as { id: string; name: string; avatar_url: string | null }[] }
   const authorsById = new Map((authors ?? []).map((a) => [a.id, a]))
 
-  const comments: Comment[] = commentRows.map((c) => {
+  const byId = new Map<string, Comment>()
+  for (const c of commentRows) {
     const user = authorsById.get(c.user_id)
-    return {
+    byId.set(c.id, {
       id:        c.id,
       content:   c.content,
       createdAt: c.created_at,
+      parentId:  c.parent_id,
       user: {
         id:        user?.id        ?? c.user_id,
         name:      user?.name      ?? 'Player',
         avatarUrl: user?.avatar_url ?? null,
       },
+      replies: [],
+    })
+  }
+
+  // Nest replies under their top-level parent (oldest first); top-level
+  // comments stay newest first, matching the original query order.
+  const comments: Comment[] = []
+  for (const c of commentRows) {
+    const node = byId.get(c.id)!
+    if (c.parent_id && byId.has(c.parent_id)) {
+      byId.get(c.parent_id)!.replies.push(node)
+    } else if (!c.parent_id) {
+      comments.push(node)
     }
-  })
+  }
+  for (const c of comments) c.replies.reverse()
 
   const currentUser: CurrentUser | null = userRes.data
     ? {
@@ -68,13 +84,15 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
   return (
     <NewsDetail
       item={{
-        id:        article.id,
-        title:     article.title,
-        category:  article.category,
-        excerpt:   article.excerpt    as string | null,
-        content:   article.content    as string | null,
-        coverUrl:  article.cover_url  as string | null,
-        createdAt: article.created_at,
+        id:            article.id,
+        title:         article.title,
+        category:      article.category,
+        excerpt:       article.excerpt        as string | null,
+        content:       article.content        as string | null,
+        coverUrl:      article.cover_url      as string | null,
+        coverPosition: (article.cover_position as string | null) ?? '50% 50%',
+        coverZoom:     (article.cover_zoom     as number | null) ?? 1,
+        createdAt:     article.created_at,
       }}
       comments={comments}
       currentUser={currentUser}

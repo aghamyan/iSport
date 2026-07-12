@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useTransition, useRef } from 'react'
-import { Plus, Edit2, Trash2, Eye, EyeOff, Upload, X, Image as ImageIcon } from 'lucide-react'
+import { useState, useTransition, useRef, useEffect, useCallback } from 'react'
+import { Plus, Edit2, Trash2, Eye, EyeOff, Upload, X, Image as ImageIcon, Move } from 'lucide-react'
 import {
   createNewsAction,
   updateNewsAction,
   deleteNewsAction,
   getSignedNewsPhotoUrl,
   finalizeNewsPhotoUpload,
+  updateNewsPhotoPositionAction,
 } from '@/app/news/newsActions'
+import { coverImageStyle } from '@/app/news/coverImageStyle'
 
 export interface AdminNewsItem {
   id: string
@@ -17,6 +19,8 @@ export interface AdminNewsItem {
   excerpt: string | null
   content: string | null
   coverUrl: string | null
+  coverPosition: string
+  coverZoom: number
   published: boolean
   createdAt: string
 }
@@ -39,56 +43,352 @@ function timeAgo(d: string): string {
   return h >= 1 ? `${h}h ago` : 'just now'
 }
 
+const MIN_ZOOM = 1
+const MAX_ZOOM = 3
+
+// ── Cover position modal — drag to choose which area of the image shows ───
+function CoverPositionModal({
+  previewSrc,
+  initialPosition,
+  initialZoom,
+  onConfirm,
+  onCancel,
+}: {
+  previewSrc: string
+  initialPosition: string
+  initialZoom: number
+  onConfirm: (position: string, zoom: number) => void
+  onCancel: () => void
+}) {
+  const parse = (s: string): [number, number] => {
+    const [x, y] = s.split(' ').map(parseFloat)
+    return [isNaN(x) ? 50 : x, isNaN(y) ? 50 : y]
+  }
+  const [init] = useState(() => parse(initialPosition))
+  const [posX, setPosX] = useState(init[0])
+  const [posY, setPosY] = useState(init[1])
+  const [zoom, setZoom] = useState(() => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, initialZoom || 1)))
+  const [nat, setNat] = useState({ w: 0, h: 0 })
+  const [frame, setFrame] = useState({ w: 640, h: 360 })
+
+  const isDragging = useRef(false)
+  const lastMouse = useRef({ x: 0, y: 0 })
+  const maxDragRef = useRef({ x: 0, y: 0 })
+
+  // Responsive 16:9 frame, matching the cover image's real aspect ratio
+  useEffect(() => {
+    function calc() {
+      const vw = Math.min(window.innerWidth - 48, 720)
+      const w = Math.round(vw)
+      const h = Math.round((w * 9) / 16)
+      setFrame({ w, h })
+    }
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [])
+
+  useEffect(() => {
+    if (nat.w === 0) return
+    const scale = Math.max(frame.w / nat.w, frame.h / nat.h) * zoom
+    maxDragRef.current = {
+      x: Math.max(0, nat.w * scale - frame.w),
+      y: Math.max(0, nat.h * scale - frame.h),
+    }
+  }, [nat, frame, zoom])
+
+  const applyDelta = useCallback((dx: number, dy: number) => {
+    const { x: mX, y: mY } = maxDragRef.current
+    if (mX > 0) {
+      setPosX(p => {
+        const newOff = -(p / 100) * mX + dx
+        return Math.max(0, Math.min(100, (-newOff / mX) * 100))
+      })
+    }
+    if (mY > 0) {
+      setPosY(p => {
+        const newOff = -(p / 100) * mY + dy
+        return Math.max(0, Math.min(100, (-newOff / mY) * 100))
+      })
+    }
+  }, [])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    lastMouse.current = { x: e.clientX, y: e.clientY }
+  }
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDragging.current) return
+      const dx = e.clientX - lastMouse.current.x
+      const dy = e.clientY - lastMouse.current.y
+      lastMouse.current = { x: e.clientX, y: e.clientY }
+      applyDelta(dx, dy)
+    }
+    const onUp = () => { isDragging.current = false }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [applyDelta])
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    isDragging.current = true
+    lastMouse.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging.current) return
+    e.preventDefault()
+    const t = e.touches[0]
+    const dx = t.clientX - lastMouse.current.x
+    const dy = t.clientY - lastMouse.current.y
+    lastMouse.current = { x: t.clientX, y: t.clientY }
+    applyDelta(dx, dy)
+  }
+  const handleTouchEnd = () => { isDragging.current = false }
+
+  const scale = nat.w > 0 ? Math.max(frame.w / nat.w, frame.h / nat.h) * zoom : 1
+  const sw = nat.w * scale
+  const sh = nat.h * scale
+  const { x: mX, y: mY } = maxDragRef.current
+  const imgL = -(posX / 100) * mX
+  const imgT = -(posY / 100) * mY
+
+  const posStr = `${Math.round(posX)}% ${Math.round(posY)}%`
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    setZoom(z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z - e.deltaY * 0.0015)))
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.96)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, padding: 24 }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 8 }}>
+          Position Cover Image
+        </div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>
+          Drag to choose which area is shown in the frame
+        </div>
+      </div>
+
+      <div
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
+        style={{
+          width: frame.w, height: frame.h, flexShrink: 0,
+          overflow: 'hidden', position: 'relative',
+          cursor: 'grab', userSelect: 'none', touchAction: 'none',
+          borderRadius: 6,
+          boxShadow: '0 0 0 2px #DC2626, 0 0 32px 0 rgba(220,38,38,0.25)',
+          background: '#0a0a0a',
+        }}
+      >
+        <img
+          src={previewSrc}
+          alt="preview"
+          draggable={false}
+          onLoad={(e) => {
+            const img = e.currentTarget
+            setNat({ w: img.naturalWidth, h: img.naturalHeight })
+          }}
+          style={{
+            position: 'absolute',
+            width: sw > 0 ? sw : '100%',
+            height: sw > 0 ? sh : '100%',
+            left: imgL, top: imgT,
+            pointerEvents: 'none', userSelect: 'none',
+            objectFit: sw > 0 ? 'unset' : 'cover',
+          }}
+        />
+
+        {/* Rule-of-thirds grid */}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.1 }}>
+          {['33.3%', '66.6%'].map((v) => (
+            <div key={`v${v}`} style={{ position: 'absolute', left: v, top: 0, bottom: 0, width: 1, background: '#fff' }} />
+          ))}
+          {['33.3%', '66.6%'].map((v) => (
+            <div key={`h${v}`} style={{ position: 'absolute', top: v, left: 0, right: 0, height: 1, background: '#fff' }} />
+          ))}
+        </div>
+
+        {nat.w === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13, letterSpacing: '0.06em' }}>
+            Loading…
+          </div>
+        )}
+
+        {nat.w > 0 && (
+          <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', borderRadius: 20, padding: '5px 14px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              ↕ Drag to reposition · Scroll to zoom
+            </div>
+          </div>
+        )}
+      </div>
+
+      {nat.w > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: frame.w, maxWidth: '100%' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Zoom</span>
+          <input
+            type="range" min={MIN_ZOOM} max={MAX_ZOOM} step={0.01} value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            style={{ flex: 1, accentColor: '#DC2626', height: 3, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: 700, letterSpacing: '0.04em', whiteSpace: 'nowrap', minWidth: 38, textAlign: 'right' }}>
+            {Math.round(zoom * 100)}%
+          </span>
+        </div>
+      )}
+
+      {nat.w > 0 && mY > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: frame.w, maxWidth: '100%' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Top</span>
+          <input
+            type="range" min={0} max={100} value={Math.round(posY)}
+            onChange={(e) => setPosY(Number(e.target.value))}
+            style={{ flex: 1, accentColor: '#DC2626', height: 3, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Bottom</span>
+        </div>
+      )}
+      {nat.w > 0 && mX > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, width: frame.w, maxWidth: '100%' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Left</span>
+          <input
+            type="range" min={0} max={100} value={Math.round(posX)}
+            onChange={(e) => setPosX(Number(e.target.value))}
+            style={{ flex: 1, accentColor: '#DC2626', height: 3, cursor: 'pointer' }}
+          />
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Right</span>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button
+          onClick={onCancel}
+          style={{ padding: '10px 28px', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 6, color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => onConfirm(posStr, Math.round(zoom * 100) / 100)}
+          style={{ padding: '10px 36px', background: '#DC2626', border: 'none', borderRadius: 6, color: '#fff', fontSize: 12, fontWeight: 800, cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+        >
+          Apply
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Cover image uploader ──────────────────────────────────────────────────
 function CoverUploader({
   newsId,
   currentUrl,
+  currentPosition,
+  currentZoom,
   onUploaded,
+  onPositioned,
 }: {
   newsId: string
   currentUrl: string | null
+  currentPosition: string
+  currentZoom: number
   onUploaded: (url: string) => void
+  onPositioned: (position: string, zoom: number) => void
 }) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentUrl)
+  const [position, setPosition] = useState(currentPosition)
+  const [zoom, setZoom] = useState(currentZoom)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  async function handleFile(file: File) {
+  // Crop/position modal state — null cropFile means "reposition existing photo"
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropSrc, setCropSrc] = useState<string>('')
+  const [showCrop, setShowCrop] = useState(false)
+
+  function handlePick(file: File) {
     const ext = file.name.split('.').pop()?.toLowerCase() as 'jpg' | 'jpeg' | 'png' | 'webp'
     if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
       setError('Use JPG, PNG or WebP')
       return
     }
-    setUploading(true)
     setError(null)
+    const objUrl = URL.createObjectURL(file)
+    setCropFile(file)
+    setCropSrc(objUrl)
+    setShowCrop(true)
+  }
 
-    const { signedUrl, storagePath, error: urlErr } = await getSignedNewsPhotoUrl(newsId, ext)
-    if (urlErr || !signedUrl || !storagePath) {
-      setError(urlErr ?? 'Failed')
+  function handleOpenReposition() {
+    if (!preview) return
+    setCropFile(null)
+    setCropSrc(preview)
+    setShowCrop(true)
+  }
+
+  function handleCropCancel() {
+    setShowCrop(false)
+    if (cropFile) URL.revokeObjectURL(cropSrc)
+    setCropFile(null)
+    setCropSrc('')
+  }
+
+  async function handleCropConfirm(pos: string, z: number) {
+    setShowCrop(false)
+    if (cropFile) {
+      const file = cropFile
+      URL.revokeObjectURL(cropSrc)
+      setCropFile(null)
+      setCropSrc('')
+      const ext = file.name.split('.').pop()?.toLowerCase() as 'jpg' | 'jpeg' | 'png' | 'webp'
+      setUploading(true)
+
+      const { signedUrl, storagePath, error: urlErr } = await getSignedNewsPhotoUrl(newsId, ext)
+      if (urlErr || !signedUrl || !storagePath) {
+        setError(urlErr ?? 'Failed')
+        setUploading(false)
+        return
+      }
+
+      const res = await fetch(signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      })
+      if (!res.ok) {
+        setError('Upload failed')
+        setUploading(false)
+        return
+      }
+
+      const { url, error: finErr } = await finalizeNewsPhotoUpload(newsId, storagePath, pos, z)
+      if (finErr || !url) {
+        setError(finErr ?? 'Finalize failed')
+      } else {
+        setPreview(url)
+        setPosition(pos)
+        setZoom(z)
+        onUploaded(url)
+        onPositioned(pos, z)
+      }
       setUploading(false)
-      return
-    }
-
-    const res = await fetch(signedUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    })
-    if (!res.ok) {
-      setError('Upload failed')
-      setUploading(false)
-      return
-    }
-
-    const { url, error: finErr } = await finalizeNewsPhotoUpload(newsId, storagePath)
-    if (finErr || !url) {
-      setError(finErr ?? 'Finalize failed')
     } else {
-      setPreview(url)
-      onUploaded(url)
+      // Reposition only — no re-upload
+      setCropSrc('')
+      const r = await updateNewsPhotoPositionAction(newsId, pos, z)
+      if (r.error) setError(r.error)
+      else { setPosition(pos); setZoom(z); onPositioned(pos, z) }
     }
-    setUploading(false)
   }
 
   return (
@@ -113,7 +413,7 @@ function CoverUploader({
           <img
             src={preview}
             alt="Cover"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: '100%', display: 'block', ...coverImageStyle(position, zoom) }}
           />
         ) : (
           <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
@@ -136,14 +436,26 @@ function CoverUploader({
         )}
 
         {preview && !uploading && (
-          <div style={{
-            position: 'absolute', bottom: 8, right: 8,
-            background: 'rgba(0,0,0,0.7)',
-            borderRadius: 6,
-            padding: '4px 10px',
-            fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '0.06em',
-          }}>
-            Click to replace
+          <div style={{ position: 'absolute', bottom: 8, left: 8, right: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleOpenReposition() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                background: 'rgba(0,0,0,0.7)', border: 'none', borderRadius: 6,
+                padding: '4px 10px', fontSize: 10, fontWeight: 700, color: '#fff',
+                letterSpacing: '0.06em', cursor: 'pointer',
+              }}
+            >
+              <Move size={11} /> REPOSITION
+            </button>
+            <div style={{
+              background: 'rgba(0,0,0,0.7)',
+              borderRadius: 6,
+              padding: '4px 10px',
+              fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '0.06em',
+            }}>
+              Click to replace
+            </div>
           </div>
         )}
       </div>
@@ -155,11 +467,21 @@ function CoverUploader({
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) handleFile(f)
+          if (f) handlePick(f)
           e.target.value = ''
         }}
       />
       {error && <p style={{ color: 'var(--accent)', fontSize: 11, marginTop: 6 }}>{error}</p>}
+
+      {showCrop && cropSrc && (
+        <CoverPositionModal
+          previewSrc={cropSrc}
+          initialPosition={position}
+          initialZoom={zoom}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   )
 }
@@ -184,6 +506,8 @@ function NewsModal({
   })
   const [savedId, setSavedId] = useState<string | null>(item?.id ?? null)
   const [coverUrl, setCoverUrl] = useState<string | null>(item?.coverUrl ?? null)
+  const [coverPosition, setCoverPosition] = useState<string>(item?.coverPosition ?? '50% 50%')
+  const [coverZoom, setCoverZoom] = useState<number>(item?.coverZoom ?? 1)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
@@ -352,7 +676,10 @@ function NewsModal({
               <CoverUploader
                 newsId={savedId}
                 currentUrl={coverUrl}
+                currentPosition={coverPosition}
+                currentZoom={coverZoom}
                 onUploaded={(url) => setCoverUrl(url)}
+                onPositioned={(pos, zoom) => { setCoverPosition(pos); setCoverZoom(zoom) }}
               />
             </div>
           ) : (
@@ -535,7 +862,7 @@ export function NewsAdminClient({ items: initial }: { items: AdminNewsItem[] }) 
                       <img
                         src={item.coverUrl}
                         alt=""
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        style={{ width: '100%', height: '100%', ...coverImageStyle(item.coverPosition, item.coverZoom) }}
                       />
                     ) : (
                       <div style={{

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Calendar, Tag } from 'lucide-react'
 import { BottomNav } from '@/app/components/BottomNav'
+import { coverImageStyle } from './coverImageStyle'
 
 export interface NewsItem {
   id: string
@@ -10,6 +11,8 @@ export interface NewsItem {
   category: string
   excerpt: string | null
   coverUrl: string | null
+  coverPosition: string
+  coverZoom: number
   createdAt: string
 }
 
@@ -47,7 +50,7 @@ function FeaturedCard({ item }: { item: NewsItem }) {
             <img
               src={item.coverUrl}
               alt={item.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              style={{ width: '100%', height: '100%', display: 'block', ...coverImageStyle(item.coverPosition, item.coverZoom) }}
             />
           ) : (
             <div style={{
@@ -139,7 +142,7 @@ function NewsCard({ item }: { item: NewsItem }) {
             <img
               src={item.coverUrl}
               alt={item.title}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              style={{ width: '100%', height: '100%', display: 'block', ...coverImageStyle(item.coverPosition, item.coverZoom) }}
             />
           ) : (
             <div style={{
@@ -381,7 +384,7 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
                               <img
                                 src={item.coverUrl}
                                 alt=""
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                style={{ width: '100%', height: '100%', ...coverImageStyle(item.coverPosition, item.coverZoom) }}
                               />
                             ) : (
                               <div style={{

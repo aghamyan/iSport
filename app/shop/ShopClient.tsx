@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ShoppingBag, ChevronRight, Flame, Sparkles, Star, Tag, Filter } from 'lucide-react'
 import type { ProductRow } from './shopActions'
 import { BottomNav } from '@/app/components/BottomNav'
+import { ProductModal } from './ProductModal'
 
 const CATEGORIES = ['ALL', 'APPAREL', 'ACCESSORIES', 'COLLECTIBLES', 'EQUIPMENT', 'HOME']
 
@@ -32,10 +33,12 @@ function BadgePill({ badge }: { badge: string }) {
   )
 }
 
-function ProductCard({ product }: { product: ProductRow }) {
+function ProductCard({ product, onSelect }: { product: ProductRow; onSelect: () => void }) {
   const thumb = product.image_urls[0]
   return (
-    <div style={{
+    <div
+      onClick={onSelect}
+      style={{
       background: 'var(--card)',
       border: '1px solid var(--border)',
       borderRadius: 12,
@@ -109,10 +112,12 @@ function ProductCard({ product }: { product: ProductRow }) {
   )
 }
 
-function FeaturedBanner({ product }: { product: ProductRow }) {
+function FeaturedBanner({ product, onSelect }: { product: ProductRow; onSelect: () => void }) {
   const thumb = product.image_urls[0]
   return (
-    <div style={{
+    <div
+      onClick={onSelect}
+      style={{
       position: 'relative',
       borderRadius: 16,
       overflow: 'hidden',
@@ -197,6 +202,7 @@ function FeaturedBanner({ product }: { product: ProductRow }) {
 
 export function ShopClient({ products, userId }: { products: ProductRow[]; userId: string }) {
   const [activeCategory, setActiveCategory] = useState('ALL')
+  const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(null)
 
   const featured  = products.filter((p) => p.featured)
   const regular   = products.filter((p) => !p.featured)
@@ -281,7 +287,7 @@ export function ShopClient({ products, userId }: { products: ProductRow[]; userI
           <section style={{ marginBottom: 40 }}>
             <div className="shop-featured-row" style={{ display: 'flex', gap: 12 }}>
               {featured.slice(0, 2).map((p) => (
-                <FeaturedBanner key={p.id} product={p} />
+                <FeaturedBanner key={p.id} product={p} onSelect={() => setSelectedProduct(p)} />
               ))}
             </div>
           </section>
@@ -307,7 +313,7 @@ export function ShopClient({ products, userId }: { products: ProductRow[]; userI
               gap: 16,
             }}>
               {displayed.map((p) => (
-                <ProductCard key={p.id} product={p} />
+                <ProductCard key={p.id} product={p} onSelect={() => setSelectedProduct(p)} />
               ))}
             </div>
           </section>
@@ -324,6 +330,10 @@ export function ShopClient({ products, userId }: { products: ProductRow[]; userI
         )}
       </div>
       <BottomNav userId={userId} />
+
+      {selectedProduct && (
+        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+      )}
     </div>
   )
 }

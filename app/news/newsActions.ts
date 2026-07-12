@@ -25,10 +25,12 @@ export async function getSignedNewsPhotoUrl(
   return { signedUrl: data.signedUrl, storagePath }
 }
 
-// ── Finalize upload — save public URL to DB (Step 2) ──────────────────────
+// ── Finalize upload — save public URL + position + zoom to DB (Step 2) ────
 export async function finalizeNewsPhotoUpload(
   newsId: string,
   storagePath: string,
+  position: string = '50% 50%',
+  zoom: number = 1,
 ): Promise<{ error?: string; url?: string }> {
   const session = await getSession()
   if (!session?.isAdmin) return { error: 'Admin only' }
@@ -40,7 +42,7 @@ export async function finalizeNewsPhotoUpload(
 
   const { error } = await supabase
     .from('news')
-    .update({ cover_url: publicUrl })
+    .update({ cover_url: publicUrl, cover_position: position, cover_zoom: zoom })
     .eq('id', newsId)
 
   if (error) return { error: error.message }
@@ -49,6 +51,29 @@ export async function finalizeNewsPhotoUpload(
   revalidatePath(`/news/${newsId}`)
   revalidatePath('/admin/news')
   return { url: publicUrl }
+}
+
+// ── Update only the position/zoom of an existing cover image (no re-upload) ─
+export async function updateNewsPhotoPositionAction(
+  newsId: string,
+  position: string,
+  zoom: number = 1,
+): Promise<{ error?: string }> {
+  const session = await getSession()
+  if (!session?.isAdmin) return { error: 'Admin only' }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('news')
+    .update({ cover_position: position, cover_zoom: zoom })
+    .eq('id', newsId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/news')
+  revalidatePath(`/news/${newsId}`)
+  revalidatePath('/admin/news')
+  return {}
 }
 
 // ── Create news article ────────────────────────────────────────────────────
