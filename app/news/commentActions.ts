@@ -45,7 +45,6 @@ export async function addCommentAction(
     newsId,
     newsTitle: extractJoinedField(data.news, 'title') ?? 'a post',
     authorName: extractJoinedField(data.user, 'name') ?? 'Someone',
-    content: trimmed,
     replyToName,
   })
 

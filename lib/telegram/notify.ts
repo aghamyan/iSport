@@ -37,12 +37,10 @@ export async function notifyNewComment(params: {
   newsId: string
   newsTitle: string
   authorName: string
-  content: string
   replyToName?: string | null
 }): Promise<void> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
   const link = `${siteUrl}/news/${params.newsId}`
-  const preview = params.content.length > 220 ? `${params.content.slice(0, 220)}…` : params.content
 
   const action = params.replyToName
     ? `replied to <b>${escapeHtml(params.replyToName)}</b>`
@@ -50,8 +48,7 @@ export async function notifyNewComment(params: {
 
   const text =
     `💬 <b>${escapeHtml(params.authorName)}</b> ${action} on "<b>${escapeHtml(params.newsTitle)}</b>"\n\n` +
-    `${escapeHtml(preview)}\n\n` +
-    `<a href="${link}">View on iSport</a>`
+    `View on ${link}`
 
   await sendTelegramMessage(text)
 }
