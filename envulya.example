@@ -22,3 +22,8 @@ SUPABASE_JWT_SECRET=your-supabase-jwt-secret
 
 # Optional: override default 30-day session duration
 # SESSION_DURATION_DAYS=30
+
+# ──────────────────────────────────────────────────────────────
+# OpenAI — "The Mic" AI match interviews (pre/post-match)
+# ──────────────────────────────────────────────────────────────
+OPENAI_API_KEY=your-openai-api-key

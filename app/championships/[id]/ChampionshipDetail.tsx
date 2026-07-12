@@ -34,7 +34,10 @@ import {
 } from '../actions'
 import { ScoreModal } from '../ScoreModal'
 import { MatchPreviewModal } from '../MatchPreviewModal'
+import { MatchInterviewModal } from '../MatchInterviewModal'
+import type { InterviewPhase } from '../interviewActions'
 import { ChampionshipWinnerOdds } from '../ChampionshipWinnerOdds'
+import { ChampionshipPredictor } from '../ChampionshipPredictor'
 import { AddMatchModal } from '../AddMatchModal'
 import { useTranslation } from '@/lib/i18n/context'
 import { BottomNav } from '@/app/components/BottomNav'
@@ -213,6 +216,7 @@ function MatchCard({
 }) {
   const [showScore, setShowScore] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [interviewPhase, setInterviewPhase] = useState<InterviewPhase | null>(null)
 
   const { t } = useTranslation()
   const homeName = playerMap.get(match.homePlayerId) ?? '?'
@@ -228,6 +232,10 @@ function MatchCard({
   const hasScore = match.homeScore !== null && match.awayScore !== null
   const homeWon = hasScore && match.homeScore! > match.awayScore!
   const awayWon = hasScore && match.awayScore! > match.homeScore!
+  const canPreInterview = isParticipant && match.status === 'pending'
+  const canPostInterview = isParticipant && hasScore
+  const ownName = playerMap.get(currentUserId) ?? 'You'
+  const opponentNameForInterview = match.homePlayerId === currentUserId ? awayName : homeName
 
   const boutLabel = (() => {
     if (match.round === 'final') return 'GRAND FINAL'
@@ -261,6 +269,15 @@ function MatchCard({
           awayAvatarUrl={awayAvatar}
           boutLabel={boutLabel ?? undefined}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+      {interviewPhase && (
+        <MatchInterviewModal
+          matchId={match.id}
+          phase={interviewPhase}
+          playerName={ownName}
+          opponentName={opponentNameForInterview}
+          onClose={() => setInterviewPhase(null)}
         />
       )}
     </>
@@ -327,6 +344,16 @@ function MatchCard({
             {canEdit && (
               <button onClick={() => setShowScore(true)} style={{ padding: '4px 10px', background: 'transparent', color: 'var(--muted)', border: '1px solid #e5e7eb', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
                 {t('champ.editBtn')}
+              </button>
+            )}
+            {canPreInterview && (
+              <button onClick={() => setInterviewPhase('pre_match')} style={{ padding: '5px 10px', background: 'transparent', color: '#8b5cf6', border: '1px solid #8b5cf6', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                🎙️ Interview
+              </button>
+            )}
+            {canPostInterview && (
+              <button onClick={() => setInterviewPhase('post_match')} style={{ padding: '5px 10px', background: 'transparent', color: '#8b5cf6', border: '1px solid #8b5cf6', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                🎙️ Interview
               </button>
             )}
           </div>
@@ -531,6 +558,26 @@ function MatchCard({
                     }}
                   >
                     {t('champ.editBtn')}
+                  </button>
+                )}
+                {(canPreInterview || canPostInterview) && (
+                  <button
+                    onClick={() => setInterviewPhase(canPreInterview ? 'pre_match' : 'post_match')}
+                    style={{
+                      padding: '5px 14px',
+                      background: 'transparent',
+                      color: '#8b5cf6',
+                      border: '1px solid #8b5cf6',
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: '0.05em',
+                      textTransform: 'uppercase',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    🎙️ Interview
                   </button>
                 )}
               </div>
@@ -2548,6 +2595,9 @@ export function ChampionshipDetail({
               avatarMap={avatarMap}
               completedMatchCount={matches.filter((m) => m.homeScore !== null && m.awayScore !== null).length}
             />
+            {championship.isActive && (
+              <ChampionshipPredictor matches={matches} playerMap={playerMap} avatarMap={avatarMap} />
+            )}
           </div>
         </div>
 
@@ -2825,6 +2875,9 @@ export function ChampionshipDetail({
             avatarMap={avatarMap}
             completedMatchCount={completedMatchCount}
           />
+          {championship.isActive && (
+            <ChampionshipPredictor matches={matches} playerMap={playerMap} avatarMap={avatarMap} />
+          )}
         </div>
       </div>
 

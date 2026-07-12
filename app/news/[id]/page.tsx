@@ -21,13 +21,7 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
 
     supabase
       .from('news_comments')
-      .select(`
-        id,
-        content,
-        created_at,
-        user_id,
-        user:users!user_id(id, name, avatar_url)
-      `)
+      .select('id, content, created_at, user_id')
       .eq('news_id', id)
       .order('created_at', { ascending: false }),
 
@@ -40,9 +34,15 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ id:
 
   if (!articleRes.data) notFound()
 
-  const comments: Comment[] = (commentsRes.data ?? []).map((c) => {
-    const u = Array.isArray(c.user) ? c.user[0] : c.user
-    const user = u as { id: string; name: string; avatar_url: string | null } | null
+  const commentRows = commentsRes.data ?? []
+  const authorIds = [...new Set(commentRows.map((c) => c.user_id))]
+  const { data: authors } = authorIds.length
+    ? await supabase.from('users').select('id, name, avatar_url').in('id', authorIds)
+    : { data: [] as { id: string; name: string; avatar_url: string | null }[] }
+  const authorsById = new Map((authors ?? []).map((a) => [a.id, a]))
+
+  const comments: Comment[] = commentRows.map((c) => {
+    const user = authorsById.get(c.user_id)
     return {
       id:        c.id,
       content:   c.content,

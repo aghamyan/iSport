@@ -122,7 +122,8 @@ function logistic(x: number, s: number): number {
 export type P4PMatchEntry = {
   opponentId: string
   result: 'W' | 'D' | 'L'
-  playedAt: string // ISO timestamp
+  playedAt: string // ISO timestamp — championship-level date; ties across every match in the same championship
+  recordedAt: string // ISO timestamp the score was actually recorded — breaks those ties chronologically
 }
 
 /** Weighted title record for one player: raw count (display) + prestige-
@@ -260,9 +261,11 @@ function strengthOfSchedule(history: P4PMatchEntry[], bsp: Map<string, number>):
  *  weight as an effective sample size. No hard "last N" cutoff — decay
  *  is continuous, so there's no boundary to game by timing a reset. */
 function recentForm(history: P4PMatchEntry[]): number {
-  const sorted = [...history].sort(
-    (a, b) => new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime()
-  )
+  const sorted = [...history].sort((a, b) => {
+    const dateDiff = new Date(b.playedAt).getTime() - new Date(a.playedAt).getTime()
+    if (dateDiff !== 0) return dateDiff
+    return new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+  })
   let weightedSum = 0
   let weightTotal = 0
   sorted.forEach((m, i) => {

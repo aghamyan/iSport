@@ -200,6 +200,7 @@ type ChampMatchRow = {
   away_player_id: string
   home_score: number
   away_score: number
+  confirmed_at: string | null
   championships: { name: string; played_at: string | null; created_at: string } | null
 }
 
@@ -219,7 +220,7 @@ export const getH2HMatches = unstable_cache(
         .not('home_score', 'is', null),
       supabase
         .from('championship_matches')
-        .select('id, home_player_id, away_player_id, home_score, away_score, championships(name, played_at, created_at)')
+        .select('id, home_player_id, away_player_id, home_score, away_score, confirmed_at, championships(name, played_at, created_at)')
         .or(
           `and(home_player_id.eq.${player1Id},away_player_id.eq.${player2Id}),` +
           `and(home_player_id.eq.${player2Id},away_player_id.eq.${player1Id})`
@@ -228,7 +229,7 @@ export const getH2HMatches = unstable_cache(
         .not('home_score', 'is', null),
     ])
 
-    const friendly: H2HMatchEntry[] = (friendlyRes.data as FriendlyRow[] ?? []).map((m) => {
+    const friendly: Array<H2HMatchEntry & { recordedAt: string }> = (friendlyRes.data as FriendlyRow[] ?? []).map((m) => {
       const p1Home = m.home_player_id === player1Id
       return {
         matchId:   m.id,
@@ -236,25 +237,36 @@ export const getH2HMatches = unstable_cache(
         p1Score:   p1Home ? m.home_score : m.away_score,
         p2Score:   p1Home ? m.away_score : m.home_score,
         matchType: 'friendly',
+        recordedAt: m.confirmed_at,
       }
     })
 
-    const champ: H2HMatchEntry[] = (champRes.data as unknown as ChampMatchRow[] ?? []).map((m) => {
+    // date stays the championship's own date (unchanged display value) so an old,
+    // backfilled championship doesn't visually jump to "today". confirmed_at — the
+    // exact moment each match's score was recorded — only breaks ties between
+    // matches that share that same championship date (e.g. a home-and-away rematch).
+    const champ: Array<H2HMatchEntry & { recordedAt: string }> = (champRes.data as unknown as ChampMatchRow[] ?? []).map((m) => {
       const p1Home = m.home_player_id === player1Id
       const c      = m.championships
+      const date   = c ? (c.played_at ?? c.created_at) : new Date(0).toISOString()
       return {
         matchId:          m.id,
-        date:             c ? (c.played_at ?? c.created_at) : new Date(0).toISOString(),
+        date,
         p1Score:          p1Home ? m.home_score : m.away_score,
         p2Score:          p1Home ? m.away_score : m.home_score,
         matchType:        'championship',
         championshipName: c?.name,
+        recordedAt:       m.confirmed_at ?? date,
       }
     })
 
-    return [...friendly, ...champ].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
+    return [...friendly, ...champ]
+      .sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime()
+        if (dateDiff !== 0) return dateDiff
+        return new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+      })
+      .map(({ recordedAt: _recordedAt, ...entry }) => entry)
   },
   ['h2h-matches'],
   { tags: [STATS_CACHE_TAG], revalidate: 60 }
@@ -835,18 +847,29 @@ const getChampionshipMatchHistoryRecord = unstable_cache(
     const history: Record<string, P4PMatchEntry[]> = {}
     if (error || !data) return history
 
-    const push = (playerId: string, opponentId: string, myScore: number, oppScore: number, playedAt: string) => {
+    const push = (
+      playerId: string,
+      opponentId: string,
+      myScore: number,
+      oppScore: number,
+      playedAt: string,
+      recordedAt: string
+    ) => {
       const result: P4PMatchEntry['result'] = myScore > oppScore ? 'W' : myScore < oppScore ? 'L' : 'D'
       const arr = history[playerId] ?? []
-      arr.push({ opponentId, result, playedAt })
+      arr.push({ opponentId, result, playedAt, recordedAt })
       history[playerId] = arr
     }
 
     for (const m of data as CmHistoryRow[]) {
       if (m.home_score === null || m.away_score === null) continue
       const playedAt = m.played_at ?? m.confirmed_at ?? new Date(0).toISOString()
-      push(m.home_player_id, m.away_player_id, m.home_score, m.away_score, playedAt)
-      push(m.away_player_id, m.home_player_id, m.away_score, m.home_score, playedAt)
+      // played_at ties for every match in the same championship (it's stamped from the
+      // championship's own date at fixture-creation time); confirmed_at is the exact
+      // moment the score was recorded, so it breaks that tie chronologically.
+      const recordedAt = m.confirmed_at ?? playedAt
+      push(m.home_player_id, m.away_player_id, m.home_score, m.away_score, playedAt, recordedAt)
+      push(m.away_player_id, m.home_player_id, m.away_score, m.home_score, playedAt, recordedAt)
     }
 
     return history
