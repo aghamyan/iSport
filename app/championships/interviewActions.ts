@@ -24,6 +24,7 @@ import {
 } from '@/lib/stats/queries'
 import { rankByP4P } from '@/lib/stats/p4p'
 import { isReservedAdminName } from '@/lib/players'
+import { notifyInterviewCompleted } from '@/lib/telegram/notify'
 
 export type InterviewPhase = 'pre_match' | 'post_match'
 
@@ -363,6 +364,41 @@ async function loadMessages(supabase: SupabaseClient, interviewId: string): Prom
   }))
 }
 
+/** Fires the Telegram "interview finished" notification with a link to the public transcript
+ *  page. Best-effort — sendTelegramMessage swallows its own errors, so this never throws. */
+async function announceInterviewCompletion(
+  supabase: SupabaseClient,
+  interviewId: string,
+  playerId: string,
+  championshipMatchId: string,
+  phase: InterviewPhase
+): Promise<void> {
+  const { data: matchData } = await supabase
+    .from('championship_matches')
+    .select('championship_id, home_player_id, away_player_id')
+    .eq('id', championshipMatchId)
+    .single()
+  const match = matchData as { championship_id: string; home_player_id: string; away_player_id: string } | null
+  if (!match) return
+
+  const opponentId = match.home_player_id === playerId ? match.away_player_id : match.home_player_id
+
+  const [usersResult, champResult] = await Promise.all([
+    supabase.from('users').select('id, name').in('id', [playerId, opponentId]),
+    supabase.from('championships').select('name').eq('id', match.championship_id).single(),
+  ])
+
+  const nameMap = new Map(((usersResult.data ?? []) as Array<{ id: string; name: string }>).map((u) => [u.id, u.name]))
+
+  await notifyInterviewCompleted({
+    interviewId,
+    playerName: nameMap.get(playerId) ?? 'Player',
+    opponentName: nameMap.get(opponentId) ?? 'Opponent',
+    phase,
+    championshipName: (champResult.data as { name?: string } | null)?.name ?? 'the championship',
+  })
+}
+
 /** Checks whether an interview already exists for this (match, player, phase) without creating
  *  one, so the client can skip the language picker — and the OpenAI call it would trigger —
  *  when resuming a session instead of starting a fresh one. */
@@ -521,6 +557,8 @@ export async function sendInterviewReplyAction(interviewId: string, content: str
       .from('match_interviews')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', interviewId)
+
+    await announceInterviewCompletion(supabase, interviewId, interview.player_id, interview.championship_match_id, interview.phase)
   }
 
   return {
@@ -538,17 +576,23 @@ export async function endInterviewAction(interviewId: string): Promise<void> {
   if (!session) throw new Error('Not authenticated')
 
   const supabase = createServiceClient()
-  const { data: interview } = await supabase
+  const { data: interviewData } = await supabase
     .from('match_interviews')
-    .select('player_id')
+    .select('player_id, championship_match_id, phase, status')
     .eq('id', interviewId)
     .single()
-  if (!interview || (interview as { player_id: string }).player_id !== session.sub) {
+  const interview = interviewData as
+    | { player_id: string; championship_match_id: string; phase: InterviewPhase; status: 'in_progress' | 'completed' }
+    | null
+  if (!interview || interview.player_id !== session.sub) {
     throw new Error('This is not your interview')
   }
+  if (interview.status === 'completed') return
 
   await supabase
     .from('match_interviews')
     .update({ status: 'completed', completed_at: new Date().toISOString() })
     .eq('id', interviewId)
+
+  await announceInterviewCompletion(supabase, interviewId, interview.player_id, interview.championship_match_id, interview.phase)
 }

@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar, Tag } from 'lucide-react'
 import { CommentsSection, type Comment, type CurrentUser } from './CommentsSection'
 import { BottomNav } from '@/app/components/BottomNav'
 import { coverImageStyle } from '../coverImageStyle'
+import { newsHeadingFont, newsBodyFont } from '../fonts'
 
 export interface NewsDetailItem {
   id: string
@@ -46,18 +47,19 @@ export function NewsDetail({
     <>
       <style>{`
         .news-detail-back:hover { color: var(--accent) !important; }
-        .news-content p { margin: 0 0 1.2em; color: var(--text2); line-height: 1.75; font-size: 15px; }
-        .news-content h2 { margin: 1.5em 0 0.5em; font-size: 20px; font-weight: 800; text-transform: uppercase; color: var(--text); letter-spacing: -0.01em; }
-        .news-content h3 { margin: 1.2em 0 0.4em; font-size: 16px; font-weight: 700; color: var(--text); }
-        .news-content ul, .news-content ol { margin: 0 0 1.2em; padding-left: 1.5em; color: var(--text2); line-height: 1.75; font-size: 15px; }
-        .news-content li { margin-bottom: 0.4em; }
+        .news-content p { margin: 0 0 1.2em; color: var(--text2); line-height: 1.8; font-size: 16px; font-family: var(--font-news-body); }
+        .news-content h2 { margin: 1.5em 0 0.5em; font-size: 22px; font-weight: 800; text-transform: uppercase; color: var(--text); letter-spacing: -0.01em; font-family: var(--font-news-heading); }
+        .news-content h3 { margin: 1.2em 0 0.4em; font-size: 17px; font-weight: 700; color: var(--text); font-family: var(--font-news-heading); letter-spacing: -0.005em; }
+        .news-content ul, .news-content ol { margin: 0 0 1.2em; padding-left: 1.5em; color: var(--text2); line-height: 1.8; font-size: 16px; font-family: var(--font-news-body); }
+        .news-content li { margin-bottom: 0.5em; }
         .news-content strong { color: var(--text); font-weight: 700; }
       `}</style>
 
-      <div style={{
+      <div className={`${newsHeadingFont.variable} ${newsBodyFont.variable}`} style={{
         minHeight: '100vh',
         background: 'var(--bg)',
         paddingTop: 'var(--fixed-nav-h)',
+        fontFamily: 'var(--font-news-body)',
       }}>
         {/* Hero image */}
         {item.coverUrl && (
@@ -102,6 +104,7 @@ export function NewsDetail({
                 letterSpacing: '0.06em', textTransform: 'uppercase',
                 marginBottom: 24, cursor: 'pointer',
                 transition: 'color 0.15s',
+                fontFamily: 'var(--font-news-heading)',
               }}
             >
               <ArrowLeft size={14} strokeWidth={2.5} />
@@ -116,6 +119,7 @@ export function NewsDetail({
               <span style={{
                 fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
                 color: 'var(--accent)', textTransform: 'uppercase',
+                fontFamily: 'var(--font-news-heading)',
               }}>
                 {item.category}
               </span>
@@ -133,12 +137,13 @@ export function NewsDetail({
           <div style={{ borderLeft: '4px solid var(--accent)', paddingLeft: 14, marginBottom: 20 }}>
             <h1 style={{
               margin: 0,
-              fontSize: 32,
-              fontWeight: 900,
+              fontSize: 34,
+              fontWeight: 800,
               color: 'var(--text)',
-              letterSpacing: '-0.03em',
-              lineHeight: 1.15,
+              letterSpacing: '-0.01em',
+              lineHeight: 1.12,
               textTransform: 'uppercase',
+              fontFamily: 'var(--font-news-heading)',
             }}>
               {item.title}
             </h1>
@@ -148,10 +153,11 @@ export function NewsDetail({
           {item.excerpt && (
             <p style={{
               margin: '0 0 24px',
-              fontSize: 17,
+              fontSize: 18,
               fontWeight: 500,
               color: 'var(--text2)',
-              lineHeight: 1.65,
+              lineHeight: 1.6,
+              fontFamily: 'var(--font-news-body)',
               borderBottom: '1px solid var(--border)',
               paddingBottom: 24,
             }}>

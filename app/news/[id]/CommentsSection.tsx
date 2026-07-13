@@ -528,6 +528,7 @@ export function CommentsSection({
               color: 'var(--text)',
               letterSpacing: '-0.01em',
               textTransform: 'uppercase',
+              fontFamily: 'var(--font-news-heading)',
             }}>
               COMMUNITY
             </h2>

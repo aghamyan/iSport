@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Calendar, Tag } from 'lucide-react'
 import { BottomNav } from '@/app/components/BottomNav'
 import { coverImageStyle } from './coverImageStyle'
+import { newsHeadingFont, newsBodyFont } from './fonts'
 
 export interface NewsItem {
   id: string
@@ -77,6 +78,7 @@ function FeaturedCard({ item }: { item: NewsItem }) {
             <span style={{
               fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
               color: 'var(--accent)', textTransform: 'uppercase',
+              fontFamily: 'var(--font-news-heading)',
             }}>
               {item.category}
             </span>
@@ -90,12 +92,13 @@ function FeaturedCard({ item }: { item: NewsItem }) {
           <div style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 10, marginBottom: 10 }}>
             <h2 style={{
               margin: 0,
-              fontSize: 20,
-              fontWeight: 900,
+              fontSize: 22,
+              fontWeight: 800,
               color: 'var(--text)',
-              letterSpacing: '-0.02em',
+              letterSpacing: '-0.005em',
               lineHeight: 1.2,
               textTransform: 'uppercase',
+              fontFamily: 'var(--font-news-heading)',
             }}>
               {item.title}
             </h2>
@@ -104,9 +107,10 @@ function FeaturedCard({ item }: { item: NewsItem }) {
           {item.excerpt && (
             <p style={{
               margin: 0,
-              fontSize: 13,
+              fontSize: 13.5,
               color: 'var(--muted)',
-              lineHeight: 1.6,
+              lineHeight: 1.65,
+              fontFamily: 'var(--font-news-body)',
               display: '-webkit-box',
               WebkitLineClamp: 3,
               WebkitBoxOrient: 'vertical',
@@ -164,6 +168,7 @@ function NewsCard({ item }: { item: NewsItem }) {
             <span style={{
               fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
               color: 'var(--accent)', textTransform: 'uppercase',
+              fontFamily: 'var(--font-news-heading)',
             }}>
               {item.category}
             </span>
@@ -173,12 +178,13 @@ function NewsCard({ item }: { item: NewsItem }) {
 
           <h3 style={{
             margin: '0 0 8px',
-            fontSize: 14,
-            fontWeight: 800,
+            fontSize: 16,
+            fontWeight: 700,
             color: 'var(--text)',
             lineHeight: 1.3,
-            letterSpacing: '-0.01em',
+            letterSpacing: '-0.005em',
             textTransform: 'uppercase',
+            fontFamily: 'var(--font-news-heading)',
             flex: 1,
           }}>
             {item.title}
@@ -187,9 +193,10 @@ function NewsCard({ item }: { item: NewsItem }) {
           {item.excerpt && (
             <p style={{
               margin: 0,
-              fontSize: 12,
+              fontSize: 12.5,
               color: 'var(--muted)',
-              lineHeight: 1.5,
+              lineHeight: 1.55,
+              fontFamily: 'var(--font-news-body)',
               display: '-webkit-box',
               WebkitLineClamp: 2,
               WebkitBoxOrient: 'vertical',
@@ -219,10 +226,11 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
         }
       `}</style>
 
-      <div style={{
+      <div className={`${newsHeadingFont.variable} ${newsBodyFont.variable}`} style={{
         minHeight: '100vh',
         background: 'var(--bg)',
         paddingTop: 'var(--fixed-nav-h)',
+        fontFamily: 'var(--font-news-body)',
       }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 16px 64px' }}>
 
@@ -233,17 +241,19 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
               <span style={{
                 fontSize: 10, fontWeight: 800, letterSpacing: '0.15em',
                 color: 'var(--accent)', textTransform: 'uppercase',
+                fontFamily: 'var(--font-news-heading)',
               }}>
                 iSport FC26
               </span>
             </div>
             <h1 style={{
               margin: 0,
-              fontSize: 28,
-              fontWeight: 900,
+              fontSize: 30,
+              fontWeight: 800,
               color: 'var(--text)',
-              letterSpacing: '-0.03em',
+              letterSpacing: '-0.01em',
               textTransform: 'uppercase',
+              fontFamily: 'var(--font-news-heading)',
             }}>
               FEATURED CONTENT
             </h1>
@@ -275,6 +285,7 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
                       <span style={{
                         fontSize: 13, fontWeight: 800, color: 'var(--text)',
                         letterSpacing: '0.08em', textTransform: 'uppercase',
+                        fontFamily: 'var(--font-news-heading)',
                       }}>
                         Latest News
                       </span>
@@ -306,6 +317,7 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
                     <span style={{
                       fontSize: 11, fontWeight: 800, color: 'var(--text)',
                       letterSpacing: '0.1em', textTransform: 'uppercase',
+                      fontFamily: 'var(--font-news-heading)',
                     }}>
                       Browse by Category
                     </span>
@@ -325,6 +337,7 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
                             fontSize: 12, fontWeight: 700,
                             color: 'var(--text)', letterSpacing: '0.06em',
                             textTransform: 'uppercase',
+                            fontFamily: 'var(--font-news-heading)',
                           }}>
                             {cat}
                           </span>
@@ -356,6 +369,7 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
                       <span style={{
                         fontSize: 11, fontWeight: 800, color: 'var(--text)',
                         letterSpacing: '0.1em', textTransform: 'uppercase',
+                        fontFamily: 'var(--font-news-heading)',
                       }}>
                         Recent
                       </span>
@@ -396,9 +410,10 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p style={{
                               margin: '0 0 3px',
-                              fontSize: 11, fontWeight: 800,
+                              fontSize: 12, fontWeight: 700,
                               color: 'var(--text)', lineHeight: 1.3,
                               textTransform: 'uppercase',
+                              fontFamily: 'var(--font-news-heading)',
                               overflow: 'hidden', textOverflow: 'ellipsis',
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
