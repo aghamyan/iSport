@@ -3,6 +3,12 @@ import { getSession } from '@/lib/auth/session'
 import { createServiceClient } from '@/lib/supabase/server'
 import { NewsAdminClient } from './NewsAdminClient'
 
+// Server Actions on this page (createNewsAction) run a 2-minute background
+// task via after() before sending the Telegram notification — needs more
+// than the default duration to survive to completion. Requires Fluid Compute
+// on Vercel (Hobby caps at 60s without it, 300s with it).
+export const maxDuration = 150
+
 export default async function AdminNewsPage() {
   const session = await getSession()
   if (!session?.isAdmin) redirect('/')

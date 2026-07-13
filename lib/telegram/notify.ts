@@ -33,22 +33,35 @@ async function sendTelegramMessage(text: string): Promise<void> {
   }
 }
 
+function newsLink(newsId: string): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  return `${siteUrl}/news/${newsId}`
+}
+
 export async function notifyNewComment(params: {
   newsId: string
   newsTitle: string
   authorName: string
   replyToName?: string | null
 }): Promise<void> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
-  const link = `${siteUrl}/news/${params.newsId}`
-
   const action = params.replyToName
     ? `replied to <b>${escapeHtml(params.replyToName)}</b>`
     : 'commented'
 
   const text =
     `💬 <b>${escapeHtml(params.authorName)}</b> ${action} on "<b>${escapeHtml(params.newsTitle)}</b>"\n\n` +
-    `View on ${link}`
+    `View on ${newsLink(params.newsId)}`
+
+  await sendTelegramMessage(text)
+}
+
+export async function notifyNewsPublished(params: {
+  newsId: string
+  title: string
+}): Promise<void> {
+  const text =
+    `📰 New article: <b>${escapeHtml(params.title)}</b>\n\n` +
+    `Read it on ${newsLink(params.newsId)}`
 
   await sendTelegramMessage(text)
 }

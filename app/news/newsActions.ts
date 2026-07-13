@@ -1,8 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/auth/session'
+import { notifyNewsPublished } from '@/lib/telegram/notify'
+
+const NEWS_NOTIFY_DELAY_MS = 2 * 60 * 1000
 
 type Ext = 'jpg' | 'jpeg' | 'png' | 'webp'
 
@@ -104,6 +108,16 @@ export async function createNewsAction(payload: {
 
   revalidatePath('/news')
   revalidatePath('/admin/news')
+
+  if (payload.published) {
+    const newsId = data.id
+    const title = payload.title.trim()
+    after(async () => {
+      await new Promise((resolve) => setTimeout(resolve, NEWS_NOTIFY_DELAY_MS))
+      await notifyNewsPublished({ newsId, title })
+    })
+  }
+
   return { id: data.id }
 }
 
