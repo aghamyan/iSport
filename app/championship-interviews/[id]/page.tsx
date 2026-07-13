@@ -34,7 +34,7 @@ export default async function ChampionshipInterviewTranscriptPage({ params }: { 
   const interview = interviewData as InterviewRow
 
   const [userResult, champResult, messagesResult] = await Promise.all([
-    supabase.from('users').select('id, name').eq('id', interview.player_id).single(),
+    supabase.from('users').select('id, name, avatar_url').eq('id', interview.player_id).single(),
     supabase.from('championships').select('name').eq('id', interview.championship_id).single(),
     supabase
       .from('championship_interview_messages')
@@ -47,6 +47,7 @@ export default async function ChampionshipInterviewTranscriptPage({ params }: { 
     <ChampionshipInterviewTranscriptView
       status={interview.status}
       playerName={(userResult.data as { name?: string } | null)?.name ?? 'Player'}
+      playerAvatarUrl={(userResult.data as { avatar_url?: string | null } | null)?.avatar_url ?? null}
       championshipName={(champResult.data as { name?: string } | null)?.name ?? 'the championship'}
       championshipId={interview.championship_id}
       finalRank={interview.final_rank}

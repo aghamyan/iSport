@@ -13,6 +13,7 @@ type Message = { id: string; role: 'journalist' | 'player'; content: string; cre
 type Props = {
   status: 'in_progress' | 'completed'
   playerName: string
+  playerAvatarUrl: string | null
   championshipName: string
   championshipId: string
   finalRank: number
@@ -38,8 +39,55 @@ function fmtTime(iso: string) {
   })
 }
 
+function getInitials(name: string): string {
+  return name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+}
+
+const AVATAR_COLORS = [
+  'var(--accent)', '#8b5cf6', '#ec4899', '#f59e0b',
+  '#10b981', '#ef4444', '#06b6d4', '#84cc16',
+]
+
+function nameToColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+// Same avatar treatment as ChampionshipDetail.tsx's Avatar — photo with a graceful
+// initials fallback, plus a gold ring + pulse for the champion so the transcript
+// header reads the same way the standings tab does.
+function PlayerAvatar({ url, name, size = 44, champion = false }: { url: string | null; name: string; size?: number; champion?: boolean }) {
+  const initials = getInitials(name)
+  const bg = nameToColor(name)
+  const fontSize = Math.round(size * 0.38)
+
+  const sharedStyle: React.CSSProperties = {
+    width: size, height: size, borderRadius: '50%', flexShrink: 0,
+    outline: champion ? '2px solid var(--gold)' : undefined,
+    outlineOffset: 2,
+    animation: champion ? 'ciGoldPulse 2.5s ease-in-out infinite' : undefined,
+  }
+
+  if (url) {
+    return (
+      <div style={{ ...sharedStyle, background: 'var(--card)', border: '2px solid rgba(var(--rgb-overlay),0.08)', overflow: 'hidden' }}>
+        <img src={url} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      </div>
+    )
+  }
+  return (
+    <div style={{
+      ...sharedStyle, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize, fontWeight: 800, color: '#fff', border: '2px solid rgba(var(--rgb-overlay),0.05)', letterSpacing: '-0.5px',
+    }}>
+      {initials}
+    </div>
+  )
+}
+
 export function ChampionshipInterviewTranscriptView({
-  status, playerName, championshipName, championshipId, finalRank, totalPlayers,
+  status, playerName, playerAvatarUrl, championshipName, championshipId, finalRank, totalPlayers,
   points, wins, draws, losses, goalDiff, messages, currentUserId,
 }: Props) {
   const isDone = status === 'completed'
@@ -48,8 +96,15 @@ export function ChampionshipInterviewTranscriptView({
   return (
     <>
       <style>{`
+        @keyframes ciGoldPulse {
+          0%, 100% { box-shadow: 0 0 10px rgba(245,158,11,0.45), 0 0 20px rgba(245,158,11,0.18); }
+          50%       { box-shadow: 0 0 16px rgba(245,158,11,0.7), 0 0 32px rgba(245,158,11,0.3); }
+        }
         .transcript-back:hover { color: var(--accent) !important; }
         .transcript-champ-link:hover { text-decoration: underline; }
+        @media (prefers-reduced-motion: reduce) {
+          .ci-player-avatar { animation: none !important; }
+        }
       `}</style>
 
       <div style={{ minHeight: '100vh', background: 'var(--bg)', paddingTop: 'var(--fixed-nav-h)' }}>
@@ -78,30 +133,26 @@ export function ChampionshipInterviewTranscriptView({
             boxShadow: 'var(--shadow-card)',
             backgroundImage: `linear-gradient(135deg, rgba(${MIC_RGB}, 0.10), transparent 65%)`,
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{
-                width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
-                background: `rgba(${MIC_RGB}, 0.14)`, color: MIC,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Mic size={20} strokeWidth={2} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: MIC, letterSpacing: '0.03em' }}>THE MIC</div>
-                <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.01em' }}>
-                  Season-Wrap Interview
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Mic size={13} strokeWidth={2.5} style={{ color: MIC }} />
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: MIC, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                The Mic · Season-Wrap Interview
+              </span>
             </div>
 
-            <div style={{ marginTop: 16, fontSize: 17, fontWeight: 700, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {playerName}
-              {isChampion && <Trophy size={16} style={{ color: 'var(--gold)' }} />}
-            </div>
-            <div style={{ marginTop: 3, fontSize: 13, color: 'var(--text2)' }}>
-              <Link href={`/championships/${championshipId}`} className="transcript-champ-link" style={{ color: 'var(--text2)', textDecoration: 'none' }}>
-                {championshipName}
-              </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 14 }}>
+              <PlayerAvatar url={playerAvatarUrl} name={playerName} size={56} champion={isChampion} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 19, fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {playerName}
+                  {isChampion && <Trophy size={16} style={{ color: 'var(--gold)', flexShrink: 0 }} />}
+                </div>
+                <div style={{ marginTop: 3, fontSize: 13, color: 'var(--text2)' }}>
+                  <Link href={`/championships/${championshipId}`} className="transcript-champ-link" style={{ color: 'var(--text2)', textDecoration: 'none' }}>
+                    {championshipName}
+                  </Link>
+                </div>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
@@ -185,6 +236,9 @@ export function ChampionshipInterviewTranscriptView({
                     {m.content}
                   </div>
                 </div>
+                {m.role === 'player' && (
+                  <PlayerAvatar url={playerAvatarUrl} name={playerName} size={26} />
+                )}
               </div>
             ))}
           </div>
