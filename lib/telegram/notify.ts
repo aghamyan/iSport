@@ -43,6 +43,17 @@ function interviewLink(interviewId: string): string {
   return `${siteUrl}/interviews/${interviewId}`
 }
 
+function championshipInterviewLink(interviewId: string): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  return `${siteUrl}/championship-interviews/${interviewId}`
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`
+}
+
 export async function notifyNewComment(params: {
   newsId: string
   newsTitle: string
@@ -86,6 +97,25 @@ export async function notifyInterviewCompleted(params: {
     `🎙 <b>${escapeHtml(params.playerName)}</b> gave a ${params.phase === 'pre_match' ? 'pre-match' : 'post-match'} interview ` +
     `${matchup} in <b>${escapeHtml(params.championshipName)}</b>\n\n` +
     `Read it on ${interviewLink(params.interviewId)}`
+
+  await sendTelegramMessage(text)
+}
+
+export async function notifyChampionshipInterviewCompleted(params: {
+  interviewId: string
+  playerName: string
+  championshipName: string
+  rank: number
+  totalPlayers: number
+}): Promise<void> {
+  const finishNote = params.rank === 1
+    ? 'as CHAMPION'
+    : `finishing ${ordinal(params.rank)} of ${params.totalPlayers}`
+
+  const text =
+    `🎙 <b>${escapeHtml(params.playerName)}</b> gave a season-wrap interview after ${finishNote} ` +
+    `in <b>${escapeHtml(params.championshipName)}</b>\n\n` +
+    `Read it on ${championshipInterviewLink(params.interviewId)}`
 
   await sendTelegramMessage(text)
 }

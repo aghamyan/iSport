@@ -36,6 +36,7 @@ import { ScoreModal } from '../ScoreModal'
 import { MatchPreviewModal } from '../MatchPreviewModal'
 import { MatchInterviewModal } from '../MatchInterviewModal'
 import type { InterviewPhase } from '../interviewActions'
+import { ChampionshipInterviewSection } from '../ChampionshipInterviewSection'
 import { ChampionshipWinnerOdds } from '../ChampionshipWinnerOdds'
 import { ChampionshipPredictor } from '../ChampionshipPredictor'
 import { AddMatchModal } from '../AddMatchModal'
@@ -2155,6 +2156,14 @@ export function ChampionshipDetail({
           youtubeError={youtubeError}
         />
 
+        <ChampionshipInterviewSection
+          championshipId={championship.id}
+          championshipName={championship.name}
+          playerName={playerMap.get(currentUserId) ?? 'You'}
+          isFinished={!championship.isActive}
+          isParticipant={playerIds.includes(currentUserId)}
+        />
+
         <div style={{ padding: '20px 20px 0' }}>
           {knockoutError && (
             <div style={{ marginBottom: 16, padding: '10px 16px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, color: '#f87171', fontSize: 13, border: '1px solid rgba(239,68,68,0.3)' }}>
@@ -2449,6 +2458,14 @@ export function ChampionshipDetail({
           youtubeError={youtubeError}
         />
 
+        <ChampionshipInterviewSection
+          championshipId={championship.id}
+          championshipName={championship.name}
+          playerName={playerMap.get(currentUserId) ?? 'You'}
+          isFinished={!championship.isActive}
+          isParticipant={playerIds.includes(currentUserId)}
+        />
+
         {/* Tab bar — always visible */}
         <div style={{ display: 'flex', borderBottom: '1px solid #E5E7EB', background: 'var(--bg)', position: 'sticky', top: 'var(--fixed-nav-h)', zIndex: 10 }}>
           {(['schedule', 'standings'] as const).map((tab) => (
@@ -2679,6 +2696,14 @@ export function ChampionshipDetail({
         onSaveYoutubeUrl={handleSaveYoutubeUrl}
         isSavingYoutube={isSavingYoutube}
         youtubeError={youtubeError}
+      />
+
+      <ChampionshipInterviewSection
+        championshipId={championship.id}
+        championshipName={championship.name}
+        playerName={playerMap.get(currentUserId) ?? 'You'}
+        isFinished={!championship.isActive}
+        isParticipant={playerIds.includes(currentUserId)}
       />
 
       {/* Tab bar — always visible */}

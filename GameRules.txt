@@ -1,0 +1,172 @@
+ISPORT — GAME RULES
+====================
+Compiled directly from the codebase (matches, rivalries, championships, and
+the player ranking system). Betting/wagering rules are intentionally
+excluded from this document.
+
+
+1. FRIENDLY MATCHES (1v1)
+--------------------------
+- A match must be between two different players (a player cannot play
+  themselves).
+- Lifecycle: a match starts as PENDING when created, then becomes
+  CONFIRMED once the away player enters the final score.
+- Both scores must be present before a match can move to CONFIRMED.
+- Edit window: once confirmed, either player can still edit the score or
+  notes for 4 hours after confirmation. After that the edit is locked for
+  regular players — this is enforced at the database level (a trigger
+  rejects the update once the 4-hour window has passed). Admins are exempt
+  from this window and can edit confirmed matches at any time.
+- Only a PENDING (not yet confirmed) match can be deleted by its players.
+  Admins can delete matches directly regardless of status.
+
+
+2. PERSONAL RIVALRIES (head-to-head series)
+--------------------------------------------
+- Only one rivalry can exist per unique pair of players — you can't create
+  a duplicate rivalry with the same opponent.
+- When starting a rivalry, the creator sets a "Score to win a session"
+  target (any whole number from 1 to 999; default 5).
+- Recording a session enforces a race-to-target format:
+    • The winner's score must equal exactly the target number.
+    • The loser's score must be below the target.
+    • Scores cannot tie at or above the target (a tie is only valid when
+      both scores are below the target — that session counts as a draw).
+  (This validation happens client-side when recording a session.)
+- Recording a session is immediate — there is no separate "confirm" step
+  like friendly matches have. Either participant (or an admin) can record
+  a session, and it instantly updates the running win/draw tally.
+- The rivalry series itself is unlimited and never auto-completes — it's
+  simply a running tally of wins/draws over time between the two players
+  (an earlier design capped the series at a "best of N" and auto-declared
+  a series winner; the current version removed that cap).
+- A "Rivalry Champion" badge exists in the schema for winning a best-of
+  series, but since series no longer auto-complete, it is not
+  automatically awarded under the current rules.
+
+
+3. CHAMPIONSHIPS / TOURNAMENTS
+--------------------------------
+Three formats are supported, chosen by the admin at creation:
+
+  a) ROUND ROBIN
+     - Requires at least 2 players.
+     - Runs 1–10 cycles (admin-chosen). Each cycle is a fresh round-robin
+       where every player faces every other player once.
+     - Home/away venue alternates by cycle parity: odd cycles use the
+       original pairing order, even cycles reverse it — so across every
+       two-cycle block, each pair plays each other once at each venue.
+     - Cycles are generated one at a time (not all upfront); the next
+       cycle cannot be generated once the championship's total cycle cap
+       has been reached.
+
+  b) GROUP KNOCKOUT
+     - Requires at least 4 players.
+     - Players are split into Group A and Group B (if the count is odd,
+       Group A gets the extra player).
+     - Each group plays its own round-robin for the configured number of
+       cycles.
+     - Top 2 finishers from each group advance to the semi-finals.
+     - Semi-final pairings (Champions-League style):
+         Tie 1: Group A's 1st vs Group B's 2nd
+         Tie 2: Group B's 1st vs Group A's 2nd
+     - Group matches must all be completed before semi-finals can be
+       generated.
+
+  c) GROUP PLAYOFF
+     - Requires at least 4 players.
+     - All players play a single round-robin group stage for the
+       configured number of cycles.
+     - Top 4 finishers advance to the semi-finals:
+         Semi 1: 1st place vs 4th place
+         Semi 2: 2nd place vs 3rd place
+     - If the 4th- and 5th-placed players are tied on points, semi-finals
+       cannot be generated until a 4th-place decider match is played
+       between them. The decider's winner takes the 4th qualifying spot
+       (overriding the plain goal-difference/head-to-head tiebreak). This
+       decider match does not count toward the group table.
+
+STANDINGS / POINTS (all group and round-robin formats):
+     - Win = 3 points, Draw = 1 point each, Loss = 0 points.
+     - Sort order: points (desc) → goal difference (desc) → goals scored
+       (desc).
+     - Any remaining tie (same points AND same goal difference) is broken
+       by a head-to-head mini-league among just the tied players:
+       head-to-head points → head-to-head goal difference → head-to-head
+       goals scored → overall goals scored, in that order.
+
+KNOCKOUT STAGE (group_knockout and group_playoff):
+     - Semi-finals are two-legged ties (each pairing plays a home leg and
+       an away leg). The winner is decided on aggregate goals across both
+       legs.
+     - If a semi-final tie is level on aggregate, a single penalty-decider
+       match must be played to determine who advances.
+     - The final is a single match between the two semi-final winners.
+     - If the final ends in a draw, a penalty-decider match must be played
+       to determine the champion.
+     - The champion is whoever wins the final (or the final's penalty
+       shootout) — even if they didn't top their group. Every other
+       player keeps their group-stage table position for the final
+       overall standings.
+
+PRESTIGE WEIGHT (used by the player ranking system, see section 4):
+     - Automatically derived from the number of players in the
+       championship — not chosen by the admin:
+         2–4 players  → "friendly" tier → weight 2
+         5–6 players  → "standard" tier → weight 4
+         7+  players  → "major"    tier → weight 8
+     - A bigger field is treated as objectively harder to win outright, so
+       the title counts for more toward a player's Legacy score.
+
+
+4. PLAYER RANKING — "P4P" (Pound-for-Pound) SCORE
+----------------------------------------------------
+Each player gets a composite score from 0–100, built from eight weighted
+pillars that sum to 100%:
+
+     Win Quality           30%   Bayesian-shrunk win rate (win=1, draw=0.5,
+                                  loss=0), pulled toward a neutral 50%
+                                  baseline on small samples so a 2-0 record
+                                  isn't scored as "100%".
+     Legacy (titles)       20%   Prestige-weighted championship titles,
+                                  with diminishing returns — a single
+                                  "major" title alone reaches half of the
+                                  maximum possible Legacy score.
+     Experience            10%   Rewards total matches played, saturating
+                                  gradually (still gaining meaningfully out
+                                  to ~80–120 games, then plateauing so pure
+                                  volume can't buy the top rank alone).
+     Strength of Schedule  10%   Performance weighted by opponents'
+                                  underlying skill (their own shrunk win
+                                  rate), so beating strong opponents counts
+                                  for more than beating weak ones.
+     Recent Form           10%   Exponentially recency-weighted results
+                                  with a 15-match half-life — no hard
+                                  "last N games" cutoff to game.
+     Goal Dominance         10%   Logistic-scaled average goal difference.
+     Attack                 5%   Saturating reward for average goals
+                                  scored per game.
+     Defense                 5%   Saturating reward for LOW average goals
+                                  conceded per game.
+
+     - Six of the eight pillars (Win Quality, Strength of Schedule, Recent
+       Form, Goal Dominance, Attack, Defense) are scaled down by a
+       "confidence gate" when a player has few matches played, ramping up
+       to near-full trust by roughly 20–30 games played. Legacy and
+       Experience are exempt from this gate (Legacy is a verified,
+       discrete achievement with no statistical noise; Experience already
+       is the volume signal).
+     - Goal Dominance, Attack, and Defense scale themselves to the current
+       player pool's actual scoring behavior rather than using fixed
+       constants, so they self-calibrate to however high- or low-scoring
+       the matches on the platform tend to be.
+
+
+5. ADMIN-CONFIGURABLE "GAMEPLAY RULES" NOTE
+----------------------------------------------
+- Admin Settings includes a freeform "Gameplay Rules" text field
+  (Admin → Settings) intended for house rules, scoring conventions, or
+  other platform-specific guidance to display to players.
+- It is empty by default and can be edited by an admin at any time — any
+  rules an admin has written there are not captured in this document since
+  they live in the database, not the code.
