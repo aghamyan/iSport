@@ -98,7 +98,8 @@ export async function adminUpdateChampionshipMatchAction(
   matchId: string,
   homeScore: number,
   awayScore: number,
-  status: 'pending' | 'confirmed' | 'final'
+  status: 'pending' | 'confirmed' | 'final',
+  isForfeit = false
 ): Promise<void> {
   const session = await getSession()
   requireAdmin(session)
@@ -113,7 +114,12 @@ export async function adminUpdateChampionshipMatchAction(
     .eq('id', matchId)
     .single()
 
-  const payload: Record<string, unknown> = { home_score: homeScore, away_score: awayScore, status }
+  const payload: Record<string, unknown> = {
+    home_score: homeScore,
+    away_score: awayScore,
+    status,
+    is_forfeit: isForfeit,
+  }
   if ((status === 'confirmed' || status === 'final') && !current?.confirmed_at) {
     payload.confirmed_at = new Date().toISOString()
   }
@@ -125,7 +131,7 @@ export async function adminUpdateChampionshipMatchAction(
 
   if (error) throw new Error(error.message)
 
-  await logAdminAction('edit_championship_match', 'championship', matchId, { championshipId, homeScore, awayScore, status })
+  await logAdminAction('edit_championship_match', 'championship', matchId, { championshipId, homeScore, awayScore, status, isForfeit })
   revalidateTag(STATS_CACHE_TAG, 'max')
   revalidatePath(`/championships/${championshipId}`)
   revalidatePath('/admin/championships')

@@ -76,6 +76,7 @@ export type ChampionshipMatch = {
   groupLabel: string | null
   round: string | null
   leg: number | null
+  isForfeit: boolean
 }
 
 type Props = {
@@ -312,16 +313,23 @@ function MatchCard({
             <Avatar url={homeAvatar} name={homeName} size={30} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 70, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flexShrink: 0, minWidth: 70, justifyContent: 'center' }}>
             {hasScore ? (
               <>
-                <span style={{ fontSize: 22, fontWeight: 900, color: homeWon ? 'var(--text)' : '#d1d5db', minWidth: 20, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                  {match.homeScore}
-                </span>
-                <span style={{ color: 'var(--muted2)', fontWeight: 600, fontSize: 14, padding: '0 2px' }}>:</span>
-                <span style={{ fontSize: 22, fontWeight: 900, color: awayWon ? 'var(--text)' : '#d1d5db', minWidth: 20, textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
-                  {match.awayScore}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: homeWon ? 'var(--text)' : '#d1d5db', minWidth: 20, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                    {match.homeScore}
+                  </span>
+                  <span style={{ color: 'var(--muted2)', fontWeight: 600, fontSize: 14, padding: '0 2px' }}>:</span>
+                  <span style={{ fontSize: 22, fontWeight: 900, color: awayWon ? 'var(--text)' : '#d1d5db', minWidth: 20, textAlign: 'left', fontVariantNumeric: 'tabular-nums' }}>
+                    {match.awayScore}
+                  </span>
+                </div>
+                {match.isForfeit && (
+                  <span style={{ fontSize: 9, color: 'var(--muted2)', letterSpacing: '0.08em', fontWeight: 700, textTransform: 'uppercase' }}>
+                    Forfeit
+                  </span>
+                )}
               </>
             ) : (
               <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, background: 'var(--card3)', padding: '4px 10px', borderRadius: 20, letterSpacing: '0.06em', border: '1px solid #e5e7eb' }}>
@@ -619,6 +627,7 @@ function MatchCard({
         }}>
           <span style={{ fontSize: 10, color: 'var(--muted2)', letterSpacing: '0.12em', fontWeight: 600, textTransform: 'uppercase' }}>
             {match.status === 'pending' ? 'UPCOMING' : match.status === 'confirmed' ? 'RESULT' : 'FINAL'}
+            {match.isForfeit && ' · FORFEIT'}
           </span>
         </div>
       </div>
@@ -1945,6 +1954,7 @@ export function ChampionshipDetail({
                 groupLabel: (r.group_label as string | null) ?? null,
                 round: (r.round as string | null) ?? null,
                 leg: (r.leg as number | null) ?? null,
+                isForfeit: (r.is_forfeit as boolean) ?? false,
               },
             ])
           } else if (payload.eventType === 'UPDATE') {
@@ -1961,6 +1971,7 @@ export function ChampionshipDetail({
                       editDeadline: (r.confirmed_at as string | null)
                         ? new Date(new Date(r.confirmed_at as string).getTime() + 4 * 3600000).toISOString()
                         : null,
+                      isForfeit: (r.is_forfeit as boolean) ?? false,
                     }
                   : m
               )

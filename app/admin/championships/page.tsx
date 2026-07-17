@@ -23,6 +23,7 @@ export default async function AdminChampionshipsPage() {
         away_score,
         status,
         cycle,
+        is_forfeit,
         home_player:players!home_player_id(display_name),
         away_player:players!away_player_id(display_name)
       `),
@@ -63,6 +64,7 @@ function mapMatch(m: {
   away_score: number | null
   status: string
   cycle: number
+  is_forfeit: boolean | null
   home_player: { display_name: string } | null | { display_name: string }[]
   away_player: { display_name: string } | null | { display_name: string }[]
 }) {
@@ -81,5 +83,6 @@ function mapMatch(m: {
     awayScore:  m.away_score,
     status:     m.status as 'pending' | 'confirmed' | 'final',
     cycle:      m.cycle,
+    isForfeit:  m.is_forfeit ?? false,
   }
 }

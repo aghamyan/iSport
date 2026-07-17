@@ -29,6 +29,7 @@ type CMatch = {
   awayScore: number | null
   status: 'pending' | 'confirmed' | 'final'
   cycle: number
+  isForfeit: boolean
 }
 
 type Championship = {
@@ -71,13 +72,14 @@ function EditCMatchModal({
   const [homeScore, setHome] = useState(match.homeScore ?? 0)
   const [awayScore, setAway] = useState(match.awayScore ?? 0)
   const [status, setStatus]  = useState<'pending' | 'confirmed' | 'final'>(match.status)
+  const [isForfeit, setIsForfeit] = useState(match.isForfeit)
   const [error, setError]    = useState('')
   const [pending, start]     = useTransition()
 
   function save() {
     start(async () => {
       try {
-        await adminUpdateChampionshipMatchAction(champId, match.id, homeScore, awayScore, status)
+        await adminUpdateChampionshipMatchAction(champId, match.id, homeScore, awayScore, status, isForfeit)
         onClose()
       } catch (e) {
         setError((e as Error).message)
@@ -115,6 +117,15 @@ function EditCMatchModal({
             <option value="final">{t('admin.status.final')}</option>
           </select>
         </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={isForfeit}
+            onChange={(e) => setIsForfeit(e.target.checked)}
+            disabled={pending}
+          />
+          {t('champ.score.forfeitLabel')}
+        </label>
         {error && <p style={{ fontSize: 13, color: '#dc2626', margin: '0 0 12px' }}>{error}</p>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={S.btn('#374151', '#f3f4f6')}>{t('common.cancel')}</button>
@@ -386,9 +397,16 @@ function ChampionshipRow({ champ }: { champ: Championship }) {
                       {m.homeScore !== null ? `${m.homeScore} – ${m.awayScore}` : '—'}
                     </td>
                     <td style={{ padding: '8px', fontSize: 12 }}>
-                      <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: m.status === 'final' ? '#dcfce7' : m.status === 'confirmed' ? '#dbeafe' : '#fef3c7', color: m.status === 'final' ? '#16a34a' : m.status === 'confirmed' ? '#2563eb' : '#d97706' }}>
-                        {m.status}
-                      </span>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: m.status === 'final' ? '#dcfce7' : m.status === 'confirmed' ? '#dbeafe' : '#fef3c7', color: m.status === 'final' ? '#16a34a' : m.status === 'confirmed' ? '#2563eb' : '#d97706' }}>
+                          {m.status}
+                        </span>
+                        {m.isForfeit && (
+                          <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: '#fee2e2', color: '#dc2626' }}>
+                            FORFEIT
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={{ padding: '8px' }}>
                       <div style={{ display: 'flex', gap: 4 }}>

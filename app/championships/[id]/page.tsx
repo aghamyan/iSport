@@ -28,7 +28,7 @@ export default async function ChampionshipPage({
     supabase
       .from('championship_matches')
       .select(
-        'id, home_player_id, away_player_id, home_score, away_score, cycle, status, confirmed_at, group_label, round, leg'
+        'id, home_player_id, away_player_id, home_score, away_score, cycle, status, confirmed_at, group_label, round, leg, is_forfeit'
       )
       .eq('championship_id', id)
       .order('cycle', { ascending: true })
@@ -70,6 +70,7 @@ export default async function ChampionshipPage({
     groupLabel: (m as Record<string, unknown>).group_label as string | null ?? null,
     round: (m as Record<string, unknown>).round as string | null ?? null,
     leg: (m as Record<string, unknown>).leg as number | null ?? null,
+    isForfeit: (m as Record<string, unknown>).is_forfeit as boolean ?? false,
   }))
 
   return (
