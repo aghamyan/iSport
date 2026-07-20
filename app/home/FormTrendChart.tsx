@@ -2,12 +2,12 @@
 
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts/core'
-import { BarChart } from 'echarts/charts'
+import { BarChart, ScatterChart } from 'echarts/charts'
 import { GridComponent, TooltipComponent, MarkLineComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { FormEntry } from '@/lib/stats/types'
 
-echarts.use([BarChart, GridComponent, TooltipComponent, MarkLineComponent, CanvasRenderer])
+echarts.use([BarChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, CanvasRenderer])
 
 function cssVar(name: string) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -80,6 +80,16 @@ export function FormTrendChart({ form }: { form: FormEntry[] }) {
               lineStyle: { color: border, type: 'solid', width: 1 },
               data: [{ yAxis: 0 }],
             },
+          },
+          // A 0-differential draw renders as an invisible bar — without this,
+          // those matches look like missing data instead of a drawn result.
+          {
+            type: 'scatter',
+            data: chronological.map((e, i) => (e.goalsFor === e.goalsAgainst ? [i, 0] : null)),
+            symbolSize: 9,
+            itemStyle: { color: draw, borderColor: cardBg, borderWidth: 1.5 },
+            tooltip: { show: false },
+            silent: true,
           },
         ],
       })
