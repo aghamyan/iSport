@@ -89,7 +89,6 @@ export default async function HomePage() {
     supabase.from('system_settings').select('key, value').in('key', ['homepage_hero_url', 'homepage_hero_position']),
   ])
 
-  const rank   = leaderboard.findIndex((p) => p.id === session.sub) + 1
   const myName = leaderboard.find((p) => p.id === session.sub)?.name ?? 'Player'
 
   // P4P uses championship-only stats so friendly match results don't inflate rankings
@@ -228,11 +227,9 @@ export default async function HomePage() {
   return (
     <HomeLoggedIn
       userId={session.sub}
-      isAdmin={session.isAdmin}
       myName={myName}
       myAvatarUrl={myAvatarUrl}
       myStats={myStats}
-      rank={rank}
       p4pRank={p4pRank}
       totalPlayers={leaderboard.length}
       recentForm={recentForm}
@@ -241,6 +238,7 @@ export default async function HomePage() {
       currentChampion={currentChampion}
       rivalries={rivalries}
       players={players}
+      leaderboard={leaderboard}
       pendingMatches={pendingMatches}
       globalStats={globalStats}
       heroBannerUrl={heroBannerUrl || null}

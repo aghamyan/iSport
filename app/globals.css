@@ -1,4 +1,10 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* This app toggles themes via [data-theme="dark"] on <html> (see lib/theme/useTheme.ts),
+   not the shadcn-default .dark class — remap the variant so dark: utilities fire correctly. */
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 /* ── Design system tokens (light & dark) ─────────────────────────────────── */
 
@@ -28,6 +34,9 @@
   --gold:    #D97706;
   --win:     #16A34A;
   --draw:    #D97706;
+  --loss:    #DC2626;
+  --pending: #64748B;
+  --disputed: #7C3AED;
 
   /* Nav */
   --nav-bg:     #FFFFFF;
@@ -51,6 +60,36 @@
   /* Gradients */
   --gradient-banner: linear-gradient(160deg, #FFFFFF 0%, #FEF2F2 60%, #F1F5F9 100%);
   --gradient-banner-dark-edge: rgba(220,38,38,0.03);
+
+  /* ── shadcn/ui semantic roles — mapped onto the tokens above, not new colors.
+     --accent and --muted already exist with app-specific meaning (brand red,
+     muted TEXT color) used across 14+ pages, so shadcn's *own* internal roles
+     for "neutral hover surface" and "muted background fill" get their own
+     --surface-* variables below rather than reusing those names. */
+  --surface-muted: var(--card3);
+  --surface-hover: var(--card3);
+
+  --background:            var(--bg);
+  --foreground:            var(--text);
+  --card-foreground:       var(--text);
+  --popover:               var(--card);
+  --popover-foreground:    var(--text);
+  --primary:               var(--accent);
+  --primary-foreground:    #FFFFFF;
+  --secondary:             var(--card3);
+  --secondary-foreground:  var(--text);
+  --muted-foreground:      var(--muted);
+  --accent-foreground:     var(--text);
+  --destructive:           var(--accent2);
+  --destructive-foreground: #FFFFFF;
+  --input:                 var(--border);
+  --ring:                  var(--accent);
+  --chart-1: var(--win);
+  --chart-2: var(--loss);
+  --chart-3: var(--gold);
+  --chart-4: var(--disputed);
+  --chart-5: var(--muted2);
+  --radius: 0.5rem;
 }
 
 [data-theme="dark"] {
@@ -68,6 +107,9 @@
   --gold:    #F59E0B;
   --win:     #22C55E;
   --draw:    #FBBF24;
+  --loss:    #EF4444;
+  --pending: #94A3B8;
+  --disputed: #A78BFA;
   --nav-bg:     #0E1B2E;
   --nav-border: #1E3050;
   --rgb-overlay: 255,255,255;
@@ -82,6 +124,31 @@
   --shadow-accent-hover: 0 6px 24px rgba(239,68,68,0.40);
   --gradient-banner: linear-gradient(160deg, #111827 0%, #1a0f20 60%, #0A0F1E 100%);
   --gradient-banner-dark-edge: rgba(239,68,68,0.04);
+
+  /* shadcn/ui semantic roles — dark values, same mapping as :root above */
+  --surface-muted: var(--card3);
+  --surface-hover: var(--card3);
+
+  --background:            var(--bg);
+  --foreground:            var(--text);
+  --card-foreground:       var(--text);
+  --popover:               var(--card);
+  --popover-foreground:    var(--text);
+  --primary:               var(--accent);
+  --primary-foreground:    #0A0F1E;
+  --secondary:             var(--card3);
+  --secondary-foreground:  var(--text);
+  --muted-foreground:      var(--muted);
+  --accent-foreground:     var(--text);
+  --destructive:           var(--accent2);
+  --destructive-foreground: #FFFFFF;
+  --input:                 var(--border);
+  --ring:                  var(--accent);
+  --chart-1: var(--win);
+  --chart-2: var(--loss);
+  --chart-3: var(--gold);
+  --chart-4: var(--disputed);
+  --chart-5: var(--muted2);
 }
 
 /* ── Apply theme to root elements ────────────────────────────────────────── */
@@ -159,4 +226,61 @@ html, body {
 @keyframes fadeInUp {
   from { opacity: 0; transform: translate(-50%, 12px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@theme inline {
+  /* Falls back to the system-font stack site-wide; the homepage overrides
+     --font-sans/--font-heading locally (see app/home/fonts.ts) without
+     touching this global default, same pattern as app/news/fonts.ts. */
+  --font-sans: var(--font-home-body, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+  --font-heading: var(--font-home-heading, var(--font-sans));
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--surface-hover);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--surface-muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-win: var(--win);
+  --color-loss: var(--loss);
+  --color-draw: var(--draw);
+  --color-pending: var(--pending);
+  --color-disputed: var(--disputed);
+  --color-gold: var(--gold);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
