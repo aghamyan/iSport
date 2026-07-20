@@ -11,12 +11,9 @@ import type { RivalryItem, GlobalStats } from '../HomeLoggedIn'
 // ─── Recent-form strip — W/D/L chips with score + opponent ──────────────────
 
 export function FormStrip({ form }: { form: FormEntry[] }) {
-  // Oldest → newest, left to right — same direction as FormTrendChart below it,
-  // so a chip lines up with the bar for that same match.
-  const chronological = [...form].slice(0, 8).reverse()
   return (
     <div className="flex gap-3 overflow-x-auto pb-1">
-      {chronological.map((entry) => (
+      {form.slice(0, 8).map((entry) => (
         <div key={entry.matchId} className="flex shrink-0 flex-col items-center gap-1">
           <ResultChip outcome={entry.result} className="size-7 text-xs" />
           <div className="text-[10px] font-semibold tabular-nums text-foreground">

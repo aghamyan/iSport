@@ -19,7 +19,6 @@ import { homeHeadingFont, homeBodyFont } from './home/fonts'
 import { HeroIdentity } from './home/HeroIdentity'
 import { PendingMatches } from './home/PendingMatches'
 import { StandingsTable } from './home/StandingsTable'
-import { FormTrendChart } from './home/FormTrendChart'
 import { computeStreak } from './home/homeHelpers'
 import {
   SectionHeader, SectionAction, FormStrip, CommunityPulse, QuickNav,
@@ -209,7 +208,6 @@ export function HomeLoggedIn({
               action={<SectionAction href={`/players/${userId}`}>{t('common.viewAll')}</SectionAction>}
             />
             <FormStrip form={recentForm} />
-            <FormTrendChart form={recentForm} />
           </section>
         )}
 
