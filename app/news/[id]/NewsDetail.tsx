@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { ArrowLeft, Calendar, Tag } from 'lucide-react'
 import { CommentsSection, type Comment, type CurrentUser } from './CommentsSection'
-import { BottomNav } from '@/app/components/BottomNav'
 import { coverImageStyle } from '../coverImageStyle'
 import { newsHeadingFont, newsBodyFont } from '../fonts'
 
@@ -196,7 +195,6 @@ export function NewsDetail({
           />
         </div>
       </div>
-      {currentUser && <BottomNav userId={currentUser.id} />}
     </>
   )
 }

@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { ShoppingBag, ChevronRight, Flame, Sparkles, Star, Tag, Filter } from 'lucide-react'
 import type { ProductRow } from './shopActions'
-import { BottomNav } from '@/app/components/BottomNav'
 import { ProductModal } from './ProductModal'
 
 const CATEGORIES = ['ALL', 'APPAREL', 'ACCESSORIES', 'COLLECTIBLES', 'EQUIPMENT', 'HOME']
@@ -329,7 +328,6 @@ export function ShopClient({ products, userId }: { products: ProductRow[]; userI
           </div>
         )}
       </div>
-      <BottomNav userId={userId} />
 
       {selectedProduct && (
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />

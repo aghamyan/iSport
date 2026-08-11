@@ -1,18 +1,25 @@
 import './globals.css'
+import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { cookies } from 'next/headers'
 import { getSession } from '@/lib/auth/session'
 import { AuthProvider } from '@/lib/auth/use-auth'
 import { I18nProvider } from '@/lib/i18n/context'
-import { LanguageSwitcher } from '@/app/components/LanguageSwitcher'
 import { BetSlipProvider } from '@/lib/betting/BetSlipContext'
-import { BetSlip } from '@/app/betting/BetSlip'
+import { AppChrome } from '@/app/components/AppChrome'
 import type { Locale } from '@/lib/i18n/translations'
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+}
+
+export const metadata: Metadata = {
+  icons: {
+    icon: '/fc-logo.svg',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -28,15 +35,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={locale} data-theme={theme}>
-      <body>
+      <body className={user && !user.isAdmin ? 'has-player-navigation' : undefined}>
         <I18nProvider initialLocale={locale}>
-          {/* Only show standalone switcher for logged-out users; logged-in users get it via BottomNav */}
-          {!user && <LanguageSwitcher />}
           <BetSlipProvider>
-            {/* AuthProvider bridges server-read session to client components */}
-            <AuthProvider user={user}>{children}</AuthProvider>
-            {/* Global bet slip — renders as sticky bottom sheet for logged-in non-admin players */}
-            {user && !user.isAdmin && <BetSlip userId={user.userId} />}
+            <AuthProvider user={user}>
+              {children}
+              <AppChrome />
+            </AuthProvider>
           </BetSlipProvider>
         </I18nProvider>
       </body>

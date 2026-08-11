@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { ArrowLeft, Mic, CheckCircle2, Radio, Trophy } from 'lucide-react'
-import { BottomNav } from '@/app/components/BottomNav'
 
 // Same "The Mic" journalist accent used in the match interview modal/transcript
 // (app/championships/MatchInterviewModal.tsx) — kept as a literal RGB triple
@@ -244,7 +243,6 @@ export function ChampionshipInterviewTranscriptView({
           </div>
         </div>
       </div>
-      <BottomNav userId={currentUserId} />
     </>
   )
 }

@@ -5,7 +5,6 @@ import { Crown, Medal, Zap, Target, Flame } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { useTranslation } from '@/lib/i18n/context'
 import { PlayerAvatar, initialsFor } from './PlayerAvatar'
 import { getTier, type Tier } from './homeHelpers'
@@ -39,7 +38,7 @@ export function HeroIdentity({
   players: ActivePlayer[]
   heroBannerUrl?: string | null
   heroBannerPosition?: string | null
-  stats: { wins: number; losses: number; draws: number; goalsFor: number }
+  stats: { wins: number; losses: number; draws: number; matchesPlayed: number; goalsFor: number }
   winRate: number
   p4pRank: number
   totalPlayers: number
@@ -50,6 +49,8 @@ export function HeroIdentity({
   const tier = getTier(p4pRank, totalPlayers)
   const TierIcon = tier ? TIER_ICON[tier.labelKey] : null
   const roster = players.filter((p) => p.id !== userId).slice(0, 5)
+  const drawRate = stats.matchesPlayed > 0 ? Math.round((stats.draws / stats.matchesPlayed) * 100) : 0
+  const lossRate = stats.matchesPlayed > 0 ? Math.max(0, 100 - winRate - drawRate) : 0
 
   return (
     <section>
@@ -132,22 +133,21 @@ export function HeroIdentity({
         <div className="mb-4">
           <div className="mb-1.5 flex items-center justify-between text-[10px] font-medium tracking-wide text-background/40 uppercase">
             <span>{t('common.winRate')}</span>
-            <span className={cn('text-sm font-bold tabular-nums', winRate >= 60 ? 'text-win' : winRate >= 40 ? 'text-draw' : 'text-background/50')}>
-              {winRate}%
+            <span className="flex items-center gap-2 text-xs font-bold tabular-nums" aria-label={`${t('common.wins')} ${winRate}%, ${t('common.draws')} ${drawRate}%, ${t('common.losses')} ${lossRate}%`}>
+              <span className="text-win">W {winRate}%</span>
+              <span className="text-draw">D {drawRate}%</span>
+              <span className="text-loss">L {lossRate}%</span>
             </span>
           </div>
-          <Progress
-            value={winRate}
-            className={cn(
-              'block',
-              '[&_[data-slot=progress-track]]:h-1 [&_[data-slot=progress-track]]:bg-background/10',
-              winRate >= 60
-                ? '[&_[data-slot=progress-indicator]]:bg-win'
-                : winRate >= 40
-                  ? '[&_[data-slot=progress-indicator]]:bg-draw'
-                  : '[&_[data-slot=progress-indicator]]:bg-background/40'
-            )}
-          />
+          <div
+            className="flex h-1 w-full overflow-hidden rounded-full bg-background/10"
+            role="img"
+            aria-label={`${t('common.wins')} ${winRate}%, ${t('common.draws')} ${drawRate}%, ${t('common.losses')} ${lossRate}%`}
+          >
+            <div className="bg-win" style={{ width: `${winRate}%` }} />
+            <div className="bg-draw" style={{ width: `${drawRate}%` }} />
+            <div className="bg-loss" style={{ width: `${lossRate}%` }} />
+          </div>
         </div>
 
         <div className="flex gap-2">

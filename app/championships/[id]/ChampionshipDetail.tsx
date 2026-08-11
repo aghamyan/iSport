@@ -41,7 +41,6 @@ import { ChampionshipWinnerOdds } from '../ChampionshipWinnerOdds'
 import { ChampionshipPredictor } from '../ChampionshipPredictor'
 import { AddMatchModal } from '../AddMatchModal'
 import { useTranslation } from '@/lib/i18n/context'
-import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -2392,7 +2391,6 @@ export function ChampionshipDetail({
             onClose={() => setShowDeleteConfirm(false)}
           />
         )}
-        <BottomNav userId={currentUserId} />
       </div>
     )
   }
@@ -2646,7 +2644,6 @@ export function ChampionshipDetail({
             onClose={() => setShowDeleteConfirm(false)}
           />
         )}
-        <BottomNav userId={currentUserId} />
       </div>
     )
   }
@@ -2934,7 +2931,6 @@ export function ChampionshipDetail({
           onClose={() => setShowDeleteConfirm(false)}
         />
       )}
-      <BottomNav userId={currentUserId} />
     </div>
   )
 }

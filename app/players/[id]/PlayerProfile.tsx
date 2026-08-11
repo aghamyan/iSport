@@ -13,7 +13,6 @@ import { getSignedUploadUrlAction, finalizeVideoUploadAction, removeIntroVideoAc
 import { getSignedHeroPhotoUrlAction, finalizeHeroPhotoUploadAction, removeHeroPhotoAction, updateHeroPhotoPositionAction } from '@/lib/auth/heroPhotoAction'
 import { getSignedAudioUploadUrlAction, finalizeAudioUploadAction, updateAudioTrimAction, removeIntroAudioAction } from '@/lib/auth/introAudioAction'
 import { useTranslation } from '@/lib/i18n/context'
-import { BottomNav } from '@/app/components/BottomNav'
 
 type PlayerData = {
   id: string
@@ -956,16 +955,34 @@ function Avatar({ url, name, size = 56, editable = false, onEditClick }: {
 }
 
 // ── SVG donut chart ───────────────────────────────────────────
-function DonutChart({ pct, color, size = 110 }: { pct: number; color: string; size?: number }) {
+function DonutChart({ pct, color, size = 110, segments }: {
+  pct: number
+  color: string
+  size?: number
+  segments?: { value: number; color: string }[]
+}) {
   const sw = 11
   const r  = (size - sw * 2) / 2
   const c  = 2 * Math.PI * r
+  const total = segments?.reduce((sum, segment) => sum + segment.value, 0) ?? 0
+  let offset = 0
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block' }} aria-hidden="true">
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={sw} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={sw}
-        strokeDasharray={`${(pct/100)*c} ${c}`} strokeLinecap="round"
-        transform={`rotate(-90 ${size/2} ${size/2})`} />
+      {segments && total > 0 ? segments.map((segment, index) => {
+        const segmentPct = (segment.value / total) * 100
+        const segmentOffset = offset
+        offset += segmentPct
+        return (
+          <circle key={index} cx={size/2} cy={size/2} r={r} fill="none" stroke={segment.color} strokeWidth={sw}
+            strokeDasharray={`${(segmentPct/100)*c} ${c}`} strokeDashoffset={`${-(segmentOffset/100)*c}`}
+            transform={`rotate(-90 ${size/2} ${size/2})`} />
+        )
+      }) : (
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={sw}
+          strokeDasharray={`${(pct/100)*c} ${c}`} strokeLinecap="round"
+          transform={`rotate(-90 ${size/2} ${size/2})`} />
+      )}
     </svg>
   )
 }
@@ -1489,6 +1506,8 @@ export function PlayerProfile({ player, badges, rivalries, recentMatches, champi
 
   // ── Computed stats ────────────────────────────────────────
   const winRate  = player.matchesPlayed > 0 ? Math.round((player.wins / player.matchesPlayed) * 100) : 0
+  const drawRate = player.matchesPlayed > 0 ? Math.round((player.draws / player.matchesPlayed) * 100) : 0
+  const lossRate = player.matchesPlayed > 0 ? Math.max(0, 100 - winRate - drawRate) : 0
   const goalShare = (player.goalsFor + player.goalsAgainst) > 0 ? Math.round((player.goalsFor / (player.goalsFor + player.goalsAgainst)) * 100) : 0
   const avgGoalsScored   = player.matchesPlayed > 0 ? (player.goalsFor   / player.matchesPlayed).toFixed(2) : '0.00'
   const avgGoalsConceded = player.matchesPlayed > 0 ? (player.goalsAgainst / player.matchesPlayed).toFixed(2) : '0.00'
@@ -1846,22 +1865,49 @@ export function PlayerProfile({ player, badges, rivalries, recentMatches, champi
         {/* Donut charts */}
         <div className="pp-stat-donut-grid">
           {[
-            { pct:winRate,   label:'Win Rate',   sub1:`${player.wins} Wins`,   sub2:`${player.matchesPlayed} Matches Played` },
-            { pct:goalShare, label:'Goal Share', sub1:`${player.goalsFor} Goals Scored`, sub2:`${player.goalsAgainst} Goals Conceded` },
-          ].map(({ pct, label, sub1, sub2 }) => (
+            {
+              pct:winRate,
+              label:'Win Rate',
+              sub1:`${player.wins} Wins`,
+              sub2:`${player.matchesPlayed} Matches Played`,
+              segments:[
+                { value:player.wins, color:'var(--win)' },
+                { value:player.draws, color:'var(--draw)' },
+                { value:player.losses, color:'var(--loss)' },
+              ],
+              breakdown:[
+                { pct:winRate, label:'Wins', color:'var(--win)' },
+                { pct:drawRate, label:'Draws', color:'var(--draw)' },
+                { pct:lossRate, label:'Losses', color:'var(--loss)' },
+              ],
+            },
+            { pct:goalShare, label:'Goal Share', sub1:`${player.goalsFor} Goals Scored`, sub2:`${player.goalsAgainst} Goals Conceded`, segments:undefined, breakdown:undefined },
+          ].map(({ pct, label, sub1, sub2, segments, breakdown }) => (
             <div key={label} style={{ border:'1px solid #e5e7eb',padding:'16px 18px',background:'var(--card)',display:'flex',alignItems:'center',gap:16 }}>
-              <div style={{ position:'relative',flexShrink:0 }}>
-                <DonutChart pct={pct} color={RED} size={96} />
+              <div style={{ position:'relative',flexShrink:0 }} role={breakdown ? 'img' : undefined} aria-label={breakdown ? `Wins ${winRate}%, draws ${drawRate}%, losses ${lossRate}%` : undefined}>
+                <DonutChart pct={pct} color={RED} size={96} segments={segments} />
                 <div style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center' }}>
                   <span style={{ fontSize:18,fontWeight:900,color:'var(--text)' }}>{pct}%</span>
                 </div>
               </div>
               <div>
                 <div style={{ fontSize:14,fontWeight:900,color:'var(--text)',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:10 }}>{label}</div>
-                <div style={{ fontSize:12,color:'var(--muted)',display:'flex',flexDirection:'column',gap:4 }}>
-                  <div><span style={{ fontWeight:700,color:'var(--text)' }}>{sub1.split(' ')[0]}</span> {sub1.split(' ').slice(1).join(' ')}</div>
-                  <div style={{ borderTop:'1px solid #f3f4f6',paddingTop:4 }}><span style={{ fontWeight:700,color:'var(--text)' }}>{sub2.split(' ')[0]}</span> {sub2.split(' ').slice(1).join(' ')}</div>
-                </div>
+                {breakdown ? (
+                  <div style={{ fontSize:12,display:'flex',flexDirection:'column',gap:4 }}>
+                    {breakdown.map((result) => (
+                      <div key={result.label} style={{ display:'flex',alignItems:'center',gap:6 }}>
+                        <span style={{ width:7,height:7,borderRadius:'50%',background:result.color,flexShrink:0 }} />
+                        <span style={{ minWidth:31,fontWeight:800,color:result.color }}>{result.pct}%</span>
+                        <span style={{ color:'var(--muted)' }}>{result.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize:12,color:'var(--muted)',display:'flex',flexDirection:'column',gap:4 }}>
+                    <div><span style={{ fontWeight:700,color:'var(--text)' }}>{sub1.split(' ')[0]}</span> {sub1.split(' ').slice(1).join(' ')}</div>
+                    <div style={{ borderTop:'1px solid #f3f4f6',paddingTop:4 }}><span style={{ fontWeight:700,color:'var(--text)' }}>{sub2.split(' ')[0]}</span> {sub2.split(' ').slice(1).join(' ')}</div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -2009,7 +2055,6 @@ export function PlayerProfile({ player, badges, rivalries, recentMatches, champi
         )}
       </div>
 
-      <BottomNav userId={viewerId} />
     </>
   )
 }

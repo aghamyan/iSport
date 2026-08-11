@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { Calendar, Tag } from 'lucide-react'
-import { BottomNav } from '@/app/components/BottomNav'
 import { coverImageStyle } from './coverImageStyle'
 import { newsHeadingFont, newsBodyFont } from './fonts'
 
@@ -435,7 +434,6 @@ export function NewsListClient({ items, userId }: { items: NewsItem[]; userId: s
           )}
         </div>
       </div>
-      <BottomNav userId={userId} />
     </>
   )
 }

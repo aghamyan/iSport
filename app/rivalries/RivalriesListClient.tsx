@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Trophy } from 'lucide-react'
 import { CreateRivalryModal, type PlayerOption } from './CreateRivalryModal'
 import { useTranslation } from '@/lib/i18n/context'
-import { BottomNav } from '@/app/components/BottomNav'
 
 type RivalryItem = {
   id: string
@@ -189,7 +188,6 @@ export function RivalriesListClient({ rivalries, players, currentUserId, isAdmin
       {showCreate && (
         <CreateRivalryModal players={players} onClose={() => setShowCreate(false)} />
       )}
-      <BottomNav userId={currentUserId} />
     </div>
   )
 }

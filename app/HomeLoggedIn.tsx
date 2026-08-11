@@ -10,7 +10,6 @@ import type { ActivePlayer } from '@/app/matches/CreateMatchModal'
 import type {
   PlayerStatsRow, FormEntry, ChampionshipResult, ChampionshipLeader, CurrentChampion, NamedPlayerStats,
 } from '@/lib/stats/types'
-import { BottomNav } from '@/app/components/BottomNav'
 import { useTranslation } from '@/lib/i18n/context'
 import { Toaster } from '@/components/ui/sonner'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -21,7 +20,7 @@ import { PendingMatches } from './home/PendingMatches'
 import { StandingsTable } from './home/StandingsTable'
 import { computeStreak } from './home/homeHelpers'
 import {
-  SectionHeader, SectionAction, FormStrip, CommunityPulse, QuickNav,
+  SectionHeader, SectionAction, FormStrip, CommunityPulse,
   CurrentChampionBanner, ChampionshipRow, RivalryRow, PastChampionshipRow,
 } from './home/CompactSections'
 
@@ -185,14 +184,6 @@ export function HomeLoggedIn({
 
         <PendingMatches matches={pendingMatches} userId={userId} />
 
-        <QuickNav
-          labels={{
-            leaderboard: t('home.quickNav.leaderboard'),
-            championships: t('home.quickNav.championships'),
-            rivalries: t('home.quickNav.rivalries'),
-          }}
-        />
-
         {currentChampion && (
           <section className="mb-6">
             <SectionHeader title={t('home.section.currentChampion')} icon={<Trophy className="size-3.5 text-gold" />} />
@@ -307,8 +298,6 @@ export function HomeLoggedIn({
           </Empty>
         )}
       </div>
-
-      <BottomNav userId={userId} />
 
       {showAddMatch && (
         <CreateMatchModal

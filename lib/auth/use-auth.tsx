@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, type ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 
 export type AuthUser = {
   userId: string
@@ -24,7 +25,37 @@ export function AuthProvider({
   user: AuthUser
   children: ReactNode
 }) {
-  return <AuthContext.Provider value={user}>{children}</AuthContext.Provider>
+  const pathname = usePathname()
+  const [currentUser, setCurrentUser] = useState<AuthUser>(user)
+
+  // Root layouts are preserved during App Router navigation. Revalidate the
+  // cookie-backed session so login/logout changes update global client chrome.
+  useEffect(() => {
+    const controller = new AbortController()
+
+    fetch('/api/auth/session', {
+      cache: 'no-store',
+      credentials: 'same-origin',
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Session check failed')
+        return response.json() as Promise<{ user: AuthUser }>
+      })
+      .then(({ user: freshUser }) => setCurrentUser(freshUser))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        // Keep the server-provided state during a transient network failure.
+      })
+
+    return () => controller.abort()
+  }, [pathname])
+
+  useEffect(() => {
+    setCurrentUser(user)
+  }, [user])
+
+  return <AuthContext.Provider value={currentUser}>{children}</AuthContext.Provider>
 }
 
 /** Returns the current user from the nearest AuthProvider, or null for guests. */

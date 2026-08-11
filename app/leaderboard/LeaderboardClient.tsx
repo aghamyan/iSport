@@ -7,7 +7,6 @@ import type { NamedPlayerStats, RivalryWinner, ChampionshipLeader, LastChampions
 import type { P4PRankedPlayer } from '@/lib/stats/p4p'
 import { fetchH2HAction } from '@/app/players/actions'
 import { useTranslation } from '@/lib/i18n/context'
-import { BottomNav } from '@/app/components/BottomNav'
 
 type Tab = 'overall' | 'scorers' | 'active' | 'rivalry' | 'championships' | 'insights' | 'p4p' | 'compare' | 'roster'
 type SortKey = 'wins' | 'goalDiff' | 'winRate' | 'goalsFor' | 'goalsAgainst' | 'matchesPlayed' | 'avgGoals' | 'avgGoalDiff'
@@ -2395,7 +2394,6 @@ export function LeaderboardClient({ players, rivalryWinners, championshipLeaders
         )}
 
       </div>
-      <BottomNav userId={currentUserId} />
     </div>
   )
 }

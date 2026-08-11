@@ -467,7 +467,7 @@ export function ShopAdminClient({ products: initial }: { products: ProductRow[] 
   }
 
   return (
-    <div>
+    <div className="admin-shop-page">
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>

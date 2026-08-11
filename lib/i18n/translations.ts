@@ -12,6 +12,13 @@ export const en = {
   'nav.news': 'News',
   'nav.shop': 'Shop',
   'nav.profile': 'Profile',
+  'nav.more': 'More',
+  'nav.primary': 'Primary navigation',
+  'nav.settings': 'Quick settings',
+  'nav.language': 'Language',
+  'nav.lightMode': 'Use light mode',
+  'nav.darkMode': 'Use dark mode',
+  'nav.signingOut': 'Signing out…',
 
   // ── Language switcher ────────────────────────────────────────────────────────
   'lang.en': 'EN',
@@ -830,6 +837,13 @@ export const ru: Dict = {
   'nav.news': 'Новости',
   'nav.shop': 'Магазин',
   'nav.profile': 'Профиль',
+  'nav.more': 'Ещё',
+  'nav.primary': 'Основная навигация',
+  'nav.settings': 'Быстрые настройки',
+  'nav.language': 'Язык',
+  'nav.lightMode': 'Светлая тема',
+  'nav.darkMode': 'Тёмная тема',
+  'nav.signingOut': 'Выход…',
 
   // ── Language switcher ────────────────────────────────────────────────────────
   'lang.en': 'EN',

@@ -248,9 +248,9 @@ export function CasinoAdminClient({ configs, sessions }: Props) {
   const winCount      = sessions.filter(s => s.winnings > 0).length
 
   return (
-    <div style={{ padding: 24, color: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
+    <div className="admin-casino-page" style={{ padding: 24, color: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
       <h1 style={{ fontSize: 24, fontWeight: 900, color: '#f9fafb', marginBottom: 4 }}>
-        🎰 Casino Management
+        Casino Management
       </h1>
       <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 13 }}>
         Configure game parameters and review activity.
@@ -291,7 +291,7 @@ export function CasinoAdminClient({ configs, sessions }: Props) {
               fontSize: 13, fontWeight: 700, cursor: 'pointer',
             }}
           >
-            {t === 'config' ? '⚙️ Game Config' : '📋 Recent Sessions'}
+            {t === 'config' ? 'Game Config' : 'Recent Sessions'}
           </button>
         ))}
       </div>

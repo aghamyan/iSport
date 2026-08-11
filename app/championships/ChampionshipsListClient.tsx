@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Trophy } from 'lucide-react'
 import { CreateChampionshipModal, type PlayerOption } from './CreateChampionshipModal'
 import { useTranslation } from '@/lib/i18n/context'
-import { BottomNav } from '@/app/components/BottomNav'
 
 const BG     = 'var(--bg)'
 const BORDER = 'var(--border)'
@@ -299,7 +298,6 @@ export function ChampionshipsListClient({ championships, players, isAdmin, userI
       {showCreate && (
         <CreateChampionshipModal players={players} onClose={() => setShowCreate(false)} />
       )}
-      <BottomNav userId={userId} />
       </div>
     </div>
   )

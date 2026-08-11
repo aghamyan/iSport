@@ -28,7 +28,7 @@ export default async function AdminOverviewPage() {
   ]
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 900 }}>
+    <div className="admin-page admin-overview" style={{ padding: '32px 40px', maxWidth: 900 }}>
       <h1 style={{ margin: '0 0 4px', fontSize: 26, fontWeight: 800, color: '#111827' }}>
         {t('admin.title')}
       </h1>
@@ -37,7 +37,7 @@ export default async function AdminOverviewPage() {
       </p>
 
       {/* Stats row */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 40 }}>
+      <div className="admin-overview-stats" style={{ display: 'flex', gap: 16, marginBottom: 40 }}>
         {stats.map((s) => (
           <div
             key={s.label}
@@ -57,7 +57,7 @@ export default async function AdminOverviewPage() {
       </div>
 
       {/* Navigation cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div className="admin-overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {CARDS.map((c) => (
           <Link key={c.href} href={c.href} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div

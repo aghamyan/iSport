@@ -1,8 +1,8 @@
-import { Big_Shoulders, IBM_Plex_Sans } from 'next/font/google'
+import { Barlow_Condensed, IBM_Plex_Sans } from 'next/font/google'
 
 // Condensed, high-impact display face for the scoreboard-style numerals and
 // headlines on the homepage only — scoped via CSS variable, not applied globally.
-export const homeHeadingFont = Big_Shoulders({
+export const homeHeadingFont = Barlow_Condensed({
   subsets: ['latin'],
   weight: ['600', '700', '800', '900'],
   variable: '--font-home-heading',

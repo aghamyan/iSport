@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
-import { Trophy, Crown, Medal, BarChart3, Swords } from 'lucide-react'
+import { Trophy, Crown, Medal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { ResultChip } from './ResultBadge'
@@ -75,26 +75,6 @@ export function CommunityPulse({ stats, label }: { stats: GlobalStats; label: { 
           <div className="mt-0.5 text-[10px] font-medium text-muted-foreground">{label.topScorer(stats.topScorerGoals)}</div>
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── Quick nav — three destinations, plain rows not icon tiles ───────────────
-
-export function QuickNav({ labels }: { labels: { leaderboard: string; championships: string; rivalries: string } }) {
-  const items = [
-    { label: labels.leaderboard, href: '/leaderboard', icon: BarChart3 },
-    { label: labels.championships, href: '/championships', icon: Trophy },
-    { label: labels.rivalries, href: '/rivalries', icon: Swords },
-  ]
-  return (
-    <div className="mb-6 grid grid-cols-3 divide-x overflow-hidden rounded-md border">
-      {items.map(({ label, href, icon: Icon }) => (
-        <Link key={href} href={href} className="flex flex-col items-center gap-1.5 py-3 text-center transition-colors hover:bg-secondary">
-          <Icon className="size-[18px] text-primary" />
-          <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
-        </Link>
-      ))}
     </div>
   )
 }

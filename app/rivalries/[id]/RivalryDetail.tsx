@@ -7,7 +7,6 @@ import supabase from '@/lib/supabase/client'
 import { deleteRivalryAction, setRivalryScoreAction, setRivalryHistoryAction } from '../actions'
 import { RecordMatchModal } from '../RecordMatchModal'
 import { useTranslation } from '@/lib/i18n/context'
-import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -699,7 +698,6 @@ export function RivalryDetail({ rivalry: initial, initialMatches, currentUserId,
         </div>
       )}
 
-      <BottomNav userId={currentUserId} />
     </div>
   )
 }

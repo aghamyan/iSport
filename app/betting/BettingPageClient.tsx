@@ -15,7 +15,6 @@ import supabase from '@/lib/supabase/client'
 import type { MarketRow } from '@/lib/odds/markets'
 import { CasinoSection } from '@/app/betting/casino/CasinoSection'
 import type { SlotSymbol } from '@/lib/casino/types'
-import { BottomNav } from '@/app/components/BottomNav'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const BG     = 'var(--bg)'
@@ -1022,7 +1021,6 @@ export function BettingPageClient({ userId, matches, initialBalance, slotSymbols
         )}
       </div>
 
-      <BottomNav userId={userId} />
     </div>
   )
 }
